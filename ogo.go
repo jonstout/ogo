@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/jonstout/ogo/ogo"
+	"github.com/jonstout/ogo/core"
 )
 
 func main() {
