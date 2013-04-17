@@ -2,7 +2,7 @@ package ogo
 
 import (
 	"time"
-	"github.com/ogo/openflow/ofp10"
+	"github.com/jonstout/ogo/openflow/ofp10"
 )
 
 type BasicApplication struct {

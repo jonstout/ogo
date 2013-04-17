@@ -10,7 +10,7 @@ import (
     //"log"
 	"bytes"
 	"encoding/binary"
-	"github.com/pacit"
+	"github.com/jonstout/pacit"
 )
 
 type OfpPacket interface {
