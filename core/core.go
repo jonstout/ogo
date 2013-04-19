@@ -19,7 +19,7 @@ func (b *BasicApplication) Receive() {
 	for {
 		select {
 		case m := <-b.echoReply:
-			go b.SendEchoReply(m.DPID)
+			b.SendEchoReply(m.DPID)
 		}
 	}
 }

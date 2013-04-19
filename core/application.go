@@ -8,7 +8,6 @@ var Applications map[string]Application
 var messageChans map[uint8][]chan ofp10.OfpMsg
 
 type Application interface {
-	InitApplicationMap()
 	InitApplication(args map[string]string)
 	GetName() string
 	Receive()
