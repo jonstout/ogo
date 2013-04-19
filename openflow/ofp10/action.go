@@ -65,6 +65,14 @@ type OfpActionOutput struct {
 	MaxLen uint16
 }
 
+func NewActionOutput() *OfpActionOutput {
+	act := new(OfpActionOutput)
+	act.Type = OFPAT_OUTPUT
+	act.Port = OFPP_FLOOD
+	act.Length = 8
+	return act
+}
+
 func (a *OfpActionOutput) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
 	err = binary.Write(buf, binary.BigEndian, a)

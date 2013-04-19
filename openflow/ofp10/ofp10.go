@@ -6,8 +6,8 @@
 package ofp10
 
 import (
-    "io"
-    //"log"
+	"io"
+	//"log"
 	"bytes"
 	"encoding/binary"
 	"github.com/jonstout/pacit"
@@ -28,10 +28,10 @@ const (
 )
 
 type OfpHeader struct {
-     Version uint8
-     Type uint8
-     Length uint16
-     XID uint32
+	Version uint8
+	Type uint8
+	Length uint16
+	XID uint32
 }
 
 var NewHeader func() *OfpHeader = newOfpHeaderGenerator()
@@ -141,9 +141,11 @@ type OfpPacketOut struct {
 func NewPacketOut() *OfpPacketOut {
 	p := new(OfpPacketOut)
 	p.Header = *NewHeader()
+	p.Header.Length = 71
 	p.Header.Type = OFPT_PACKET_OUT
 	p.BufferID = 0xffffffff
 	p.InPort = 0
+	p.ActionsLen = 8
 	p.Actions = make([]OfpActionOutput,0)
 	return p
 }
