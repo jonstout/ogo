@@ -69,15 +69,21 @@ func NewActionOutput() *OfpActionOutput {
 	act := new(OfpActionOutput)
 	act.Type = OFPAT_OUTPUT
 	act.Port = OFPP_FLOOD
-	act.Length = 8
 	return act
 }
 
+func (a *OfpActionOutput) Len() (n uint16) {
+	return 8
+}
+
 func (a *OfpActionOutput) Read(b []byte) (n int, err error) {
+	a.Length = a.Len()
 	buf := new(bytes.Buffer)
 	err = binary.Write(buf, binary.BigEndian, a)
-	n, err = buf.Read(b)
-	return
+	if n, err = buf.Read(b); n == 0 {
+		return
+	}
+	return n, io.EOF
 }
 
 func (a *OfpActionOutput) Write(b []byte) (n int, err error) {
@@ -110,7 +116,12 @@ type OfpActionEnqueue struct {
 	QueueId uint32
 }
 
+func (a *OfpActionEnqueue) Len() (n uint16) {
+	return 16
+}
+
 func (a *OfpActionEnqueue) Read(b []byte) (n int, err error) {
+	a.Length = a.Len()
 	buf := new(bytes.Buffer)
 	err = binary.Write(buf, binary.BigEndian, a)
 	n, err = buf.Read(b)
@@ -150,7 +161,12 @@ type OfpActionVlanVid struct {
 	Pad [2]uint8
 }
 
+func (a *OfpActionVlanVid) Len() (n uint16) {
+	return 8
+}
+
 func (a *OfpActionVlanVid) Read(b []byte) (n int, err error) {
+	a.Length = a.Len()
 	buf := new(bytes.Buffer)
 	err = binary.Write(buf, binary.BigEndian, a)
 	n, err = buf.Read(b)
@@ -186,7 +202,12 @@ type OfpActionVlanPcp struct {
 	Pad [3]uint8
 }
 
+func (a *OfpActionVlanPcp) Len() (n uint16) {
+	return 8
+}
+
 func (a *OfpActionVlanPcp) Read(b []byte) (n int, err error) {
+	a.Length = a.Len()
 	buf := new(bytes.Buffer)
 	err = binary.Write(buf, binary.BigEndian, a)
 	n, err = buf.Read(b)
@@ -222,7 +243,12 @@ type OfpActionDLAddr struct {
 	Pad [6]uint8
 }
 
+func (a *OfpActionDLAddr) Len() (n uint16) {
+	return 16
+}
+
 func (a *OfpActionDLAddr) Read(b []byte) (n int, err error) {
+	a.Length = a.Len()
 	buf := new(bytes.Buffer)
 	err = binary.Write(buf, binary.BigEndian, a)
 	n, err = buf.Read(b)
@@ -257,7 +283,12 @@ type OfpActionNWAddr struct {
 	NWAddr uint32
 }
 
+func (a *OfpActionNWAddr) Len() (n uint16) {
+	return 8
+}
+
 func (a *OfpActionNWAddr) Read(b []byte) (n int, err error) {
+	a.Length = a.Len()
 	buf := new(bytes.Buffer)
 	err = binary.Write(buf, binary.BigEndian, a)
 	n, err = buf.Read(b)
@@ -289,7 +320,12 @@ type OfpActionNWTOS struct {
 	Pad [3]uint8
 }
 
+func (a *OfpActionNWTOS) Len() (n uint16) {
+	return 8
+}
+
 func (a *OfpActionNWTOS) Read(b []byte) (n int, err error) {
+	a.Length = a.Len()
 	buf := new(bytes.Buffer)
 	err = binary.Write(buf, binary.BigEndian, a)
 	n, err = buf.Read(b)
@@ -322,10 +358,15 @@ type OfpActionTPPort struct {
 	Type uint16
 	Length uint16
 	TPPort uint16
-	Pad [8]uint8
+	Pad [2]uint8
+}
+
+func (a *OfpActionTPPort) Len() (n uint16) {
+	return 8
 }
 
 func (a *OfpActionTPPort) Read(b []byte) (n int, err error) {
+	a.Length = a.Len()
 	buf := new(bytes.Buffer)
 	err = binary.Write(buf, binary.BigEndian, a)
 	n, err = buf.Read(b)
@@ -360,7 +401,12 @@ type OfpActionVendorPort struct {
 	Vendor uint32
 }
 
+func (a *OfpActionVendorPort) Len() (n uint16) {
+	return 8
+}
+
 func (a *OfpActionVendorPort) Read(b []byte) (n int, err error) {
+	a.Length = a.Len()
 	buf := new(bytes.Buffer)
 	err = binary.Write(buf, binary.BigEndian, a)
 	n, err = buf.Read(b)

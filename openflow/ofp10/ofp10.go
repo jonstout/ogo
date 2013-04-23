@@ -13,6 +13,11 @@ import (
 	"github.com/jonstout/pacit"
 )
 
+type Packetish interface {
+	io.ReadWriter
+	Len() (n uint16)
+}
+
 type OfpPacket interface {
 	io.ReadWriter
 	GetHeader() *OfpHeader
@@ -52,6 +57,10 @@ func newOfpHeaderGenerator() func() *OfpHeader {
 
 func (h *OfpHeader) GetHeader() *OfpHeader {
 	return h
+}
+
+func (h *OfpHeader) Len() (n uint16) {
+	return 8
 }
 
 func (h *OfpHeader) Read(b []byte) (n int, err error) {
@@ -134,19 +143,19 @@ type OfpPacketOut struct {
 	BufferID uint32
 	InPort uint16
 	ActionsLen uint16
-	Actions []OfpActionOutput//Header
-	Data io.ReadWriter
+	Actions []Packetish//Header
+	Data Packetish
 }
 
 func NewPacketOut() *OfpPacketOut {
 	p := new(OfpPacketOut)
 	p.Header = *NewHeader()
-	p.Header.Length = 71
+	//p.Header.Length = 71
 	p.Header.Type = OFPT_PACKET_OUT
 	p.BufferID = 0xffffffff
 	p.InPort = 0
-	p.ActionsLen = 8
-	p.Actions = make([]OfpActionOutput,0)
+	//p.ActionsLen = 8
+	p.Actions = make([]Packetish,0)
 	return p
 }
 
@@ -154,13 +163,31 @@ func (p *OfpPacketOut) GetHeader() *OfpHeader {
 	return &p.Header
 }
 
+func (p *OfpPacketOut) Len() (n uint16) {
+	n += p.Header.Len()
+	for _, e := range p.Actions {
+		n += e.Len()
+	}
+	n += 8
+	n += p.Data.Len()
+	//if n < 72 { return 72 }
+	return
+}
+
 func (p *OfpPacketOut) Read(b []byte) (n int, err error) {
+	p.Header.Length = p.Len()
+	for _, e := range p.Actions {
+		p.ActionsLen += e.Len()
+	}
+
 	buf := new(bytes.Buffer)
 	_, err = buf.ReadFrom(&p.Header)
 	binary.Write(buf, binary.BigEndian, p.BufferID)
 	binary.Write(buf, binary.BigEndian, p.InPort)
 	binary.Write(buf, binary.BigEndian, p.ActionsLen)
-	binary.Write(buf, binary.BigEndian, p.Actions)
+	for _, e := range p.Actions {
+		_, err = buf.ReadFrom(e)
+	}
 	_, err = buf.ReadFrom(p.Data)
 	
 	n, err = buf.Read(b)
@@ -189,7 +216,7 @@ func (p *OfpPacketOut) Write(b []byte) (n int, err error) {
 	}
 	n += 2
 	actionCount := buf.Len() / 8
-	p.Actions = make([]OfpActionOutput, actionCount)
+	p.Actions = make([]Packetish, actionCount)
 	for i := 0; i < actionCount; i++ {
 		a := new(OfpActionOutput)//Header)
 		m := 0
@@ -198,7 +225,7 @@ func (p *OfpPacketOut) Write(b []byte) (n int, err error) {
 			return
 		}
 		n += m
-		p.Actions[i] = *a
+		p.Actions[i] = a
 	}
 	return
 }

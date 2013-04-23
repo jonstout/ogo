@@ -32,7 +32,7 @@ func (b *DemoApplication) Receive() {
 func (b *DemoApplication) parsePacketIn(dpid string, pkt *ofp10.OfpPacketIn) {
 	if s, ok := ogo.GetSwitch(dpid); ok {
 		pktOut := ofp10.NewPacketOut()
-		pktOut.Actions = append(pktOut.Actions, *ofp10.NewActionOutput())
+		pktOut.Actions = append(pktOut.Actions, ofp10.NewActionOutput())
 		if arp, ok := pkt.Data.(*pacit.ARP); ok {
 			pktOut.Data = arp
 			s.Send(pktOut)
