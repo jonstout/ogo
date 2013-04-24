@@ -295,6 +295,11 @@ func (p *OfpPacketIn) Write(b []byte) (n int, err error) {
 			return
 		}
 		p.Data = d
+	case pacit.IPv4_MSG:
+		d := new(pacit.IPv4)
+		if m, err = d.Write(buf.Bytes()); m == 0 {
+			return
+		}
 	}
 	return
 }

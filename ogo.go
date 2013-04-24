@@ -37,6 +37,10 @@ func (b *DemoApplication) parsePacketIn(dpid string, pkt *ofp10.OfpPacketIn) {
 			pktOut.Data = arp
 			s.Send(pktOut)
 		}
+		if icmp, ok := pkt.Data.(*pacit.ICMP); ok {
+			pktOut.Data = icmp
+			s.Send(pktOut)
+		}
 	}
 }
 
