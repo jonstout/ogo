@@ -7,7 +7,6 @@ package ofp10
 
 import (
 	"io"
-	//"log"
 	"bytes"
 	"encoding/binary"
 	"github.com/jonstout/pacit"
@@ -237,7 +236,7 @@ type OfpPacketIn struct {
 	TotalLen uint16
 	InPort uint16
 	Reason uint8
-	Data interface{}
+	Data Packetish
 }
 
 func (p *OfpPacketIn) GetHeader() *OfpHeader {
@@ -278,29 +277,11 @@ func (p *OfpPacketIn) Write(b []byte) (n int, err error) {
 	n += 1
 	//TODO::Parse Data
 	m := 0
-	e := new(pacit.Ethernet)
-	if m, err = e.Write(b[n:]); m == 0 {
-		return
+	p.Data = new(pacit.Ethernet)
+	if m, err = p.Data.Write(b[n:]); m == 0 {
+		return m, err
 	}
-	switch e.Ethertype {
-	case pacit.ARP_MSG:
-		d := new(pacit.ARP)
-		if m, err = d.Write(buf.Bytes()); m == 0 {
-			return
-		}
-		p.Data = d
-	case pacit.LLDP_MSG:
-		d := new(pacit.LLDP)
-		if m, err = d.Write(buf.Bytes()); m == 0 {
-			return
-		}
-		p.Data = d
-	case pacit.IPv4_MSG:
-		d := new(pacit.IPv4)
-		if m, err = d.Write(buf.Bytes()); m == 0 {
-			return
-		}
-	}
+	n += m
 	return
 }
 
