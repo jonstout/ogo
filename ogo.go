@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/jonstout/pacit"
 	"github.com/jonstout/ogo/core"
 	"github.com/jonstout/ogo/openflow/ofp10"
@@ -35,7 +34,6 @@ func (b *DemoApplication) parsePacketIn(dpid string, pkt *ofp10.OfpPacketIn) {
 		pktOut.Actions = append(pktOut.Actions, ofp10.NewActionOutput())
 		if eth, ok := pkt.Data.(*pacit.Ethernet); ok {
 			pktOut.Data = eth
-			fmt.Println(eth)
 			s.Send(pktOut)
 		}
 	}
