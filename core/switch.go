@@ -3,7 +3,7 @@ package ogo
 import (
 	"log"
 	"net"
-	"sync"
+	//"sync"
 	"errors"
 	"github.com/jonstout/ogo/openflow/ofp10"
 )
@@ -12,7 +12,7 @@ var Switches map[string]*Switch
 
 type Switch struct {
 	conn net.TCPConn
-	mu sync.RWMutex
+	outbound chan ofp10.OfpPacket
 	DPID net.HardwareAddr
 	Ports map[int]ofp10.OfpPhyPort
 	requests map[uint32]chan ofp10.OfpMsg
@@ -23,6 +23,8 @@ for OpenFlow messages on conn. */
 func NewOpenFlowSwitch(conn *net.TCPConn) {
 	s := new(Switch)
 	s.conn = *conn
+
+	go s.SendSync()
 
 	s.Send(ofp10.NewHello())
 	buf := make([]byte, 1500)
@@ -45,7 +47,6 @@ func NewOpenFlowSwitch(conn *net.TCPConn) {
 	log.Printf("Openflow 1.%d Connection: %s", res.Version - 1, s.DPID.String())
 	Switches[s.DPID.String()] = s
 	go s.Receive()
-	//s.Send(ofp10.NewEchoRequest())
 }
 
 /* Returns a pointer to the Switch found at dpid. */
@@ -81,26 +82,34 @@ func (s *Switch) AllPorts() map[int]ofp10.OfpPhyPort {
 /* Sends an OpenFlow message to s. Any error encountered during the
 send except io.EOF is returned. */
 func (s *Switch) Send(req ofp10.OfpPacket) (err error) {
-	s.mu.Lock()
-	_, err = s.conn.ReadFrom(req)
-	if err != nil {
-		log.Print("ERROR::ogo.switch.Send::Read error", err)
-		return
+	go func() {
+		s.outbound<- req
+	}()
+	return nil
+}
+
+func (s *Switch) SendSync() {
+	s.outbound = make(chan ofp10.OfpPacket)
+	for {
+		msg := <-s.outbound
+		if _, err := s.conn.ReadFrom(msg); err != nil {
+			log.Println("ERROR::Switch.SendSync::ReadFrom:", err)
+			s.conn.Close()
+			break
+		}
 	}
-	s.mu.Unlock()
-	return
 }
 
 /* Receive loop for each Switch. */
 func (s *Switch) Receive() {
 	for {
 		buf := make([]byte, 1500)
-		s.mu.RLock()
 		n, err := s.conn.Read(buf)
 		if err != nil {
-			log.Println("Receive Error", err)
+			log.Println("ERROR::Switch.Receive::Read:", err)
+			s.conn.Close()
+			break
 		}
-		s.mu.RUnlock()
 		switch buf[1] {
 		case ofp10.OFPT_HELLO:
 			m := ofp10.OfpMsg{new(ofp10.OfpHeader), s.DPID.String()}
@@ -151,7 +160,6 @@ func (s *Switch) Receive() {
 			m.Data.Write(buf[:n])
 			s.distributeReceived(m)
 		default:
-			break
 		}
 	}
 }
