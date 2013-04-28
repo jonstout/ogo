@@ -21,32 +21,44 @@ type Switch struct {
 /* Builds and populates Switch struct then starts listening
 for OpenFlow messages on conn. */
 func NewOpenFlowSwitch(conn *net.TCPConn) {
-	s := new(Switch)
-	s.conn = *conn
 
-	go s.SendSync()
-
-	s.Send(ofp10.NewHello())
+	if _, err := conn.ReadFrom(ofp10.NewHello()); err != nil {
+		log.Println("ERROR::Switch.SendSync::ReadFrom:", err)
+		conn.Close()
+	}
 	buf := make([]byte, 1500)
 	n, _ := conn.Read(buf)
 	res := ofp10.NewHello()
 	res.Write(buf[:n])
 
-	s.Send(ofp10.NewFeaturesRequest())
+	if _, err := conn.ReadFrom(ofp10.NewFeaturesRequest()); err != nil {
+		log.Println("ERROR::Switch.SendSync::ReadFrom:", err)
+		conn.Close()
+	}
 	buf2 := make([]byte, 1500)
 	fres := ofp10.NewFeaturesReply()
 	n, _ = conn.Read(buf2)
 	fres.Write(buf2[:n])
 
-	s.DPID = fres.DPID
-	s.Ports = make(map[int]ofp10.OfpPhyPort)
-	s.requests = make(map[uint32]chan ofp10.OfpMsg)
-	for _, p := range fres.Ports {
-		s.Ports[int(p.PortNo)] = p
+	if sw, ok := Switches[fres.DPID.String()]; ok {
+		log.Println("Recovered connection from:", sw.DPID)
+		sw.conn = *conn
+		go sw.SendSync()
+		go sw.Receive()
+	} else {
+		log.Printf("Openflow 1.%d Connection: %s", res.Version - 1, fres.DPID.String())
+		s := new(Switch)
+		s.conn = *conn
+		s.DPID = fres.DPID
+		s.Ports = make(map[int]ofp10.OfpPhyPort)
+		s.requests = make(map[uint32]chan ofp10.OfpMsg)
+		for _, p := range fres.Ports {
+			s.Ports[int(p.PortNo)] = p
+		}
+		go s.SendSync()
+		go s.Receive()
+		Switches[s.DPID.String()] = s
 	}
-	log.Printf("Openflow 1.%d Connection: %s", res.Version - 1, s.DPID.String())
-	Switches[s.DPID.String()] = s
-	go s.Receive()
 }
 
 /* Returns a pointer to the Switch found at dpid. */
@@ -82,6 +94,7 @@ func (s *Switch) AllPorts() map[int]ofp10.OfpPhyPort {
 /* Sends an OpenFlow message to s. Any error encountered during the
 send except io.EOF is returned. */
 func (s *Switch) Send(req ofp10.OfpPacket) (err error) {
+	log.Println("Sending outbound OfpMessage", req.GetHeader().Type)
 	go func() {
 		s.outbound<- req
 	}()
@@ -166,6 +179,7 @@ func (s *Switch) Receive() {
 
 func (s *Switch) distributeReceived(p ofp10.OfpMsg) {
 	h := p.Data.GetHeader()
+	log.Println("Got", h.Type, "OfpMessage")
 	if pktChan, ok := s.requests[h.XID]; ok {
 		go func() {
 			pktChan<- p
