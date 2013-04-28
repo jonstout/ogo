@@ -3,6 +3,7 @@ package ogo
 import (
 	"log"
 	"net"
+	"sync"
 	"errors"
 	"github.com/jonstout/ogo/openflow/ofp10"
 )
@@ -11,6 +12,7 @@ var Switches map[string]*Switch
 
 type Switch struct {
 	conn net.TCPConn
+	mu sync.RWMutex
 	DPID net.HardwareAddr
 	Ports map[int]ofp10.OfpPhyPort
 	requests map[uint32]chan ofp10.OfpMsg
@@ -43,7 +45,7 @@ func NewOpenFlowSwitch(conn *net.TCPConn) {
 	log.Printf("Openflow 1.%d Connection: %s", res.Version - 1, s.DPID.String())
 	Switches[s.DPID.String()] = s
 	go s.Receive()
-	s.Send(ofp10.NewEchoRequest())
+	//s.Send(ofp10.NewEchoRequest())
 }
 
 /* Returns a pointer to the Switch found at dpid. */
@@ -79,11 +81,13 @@ func (s *Switch) AllPorts() map[int]ofp10.OfpPhyPort {
 /* Sends an OpenFlow message to s. Any error encountered during the
 send except io.EOF is returned. */
 func (s *Switch) Send(req ofp10.OfpPacket) (err error) {
+	s.mu.Lock()
 	_, err = s.conn.ReadFrom(req)
 	if err != nil {
-		log.Print("ERROR::ogo.switch.Send::Read error")
+		log.Print("ERROR::ogo.switch.Send::Read error", err)
 		return
 	}
+	s.mu.Unlock()
 	return
 }
 
@@ -91,7 +95,12 @@ func (s *Switch) Send(req ofp10.OfpPacket) (err error) {
 func (s *Switch) Receive() {
 	for {
 		buf := make([]byte, 1500)
-		n, _ := s.conn.Read(buf)
+		s.mu.RLock()
+		n, err := s.conn.Read(buf)
+		if err != nil {
+			log.Println("Receive Error", err)
+		}
+		s.mu.RUnlock()
 		switch buf[1] {
 		case ofp10.OFPT_HELLO:
 			m := ofp10.OfpMsg{new(ofp10.OfpHeader), s.DPID.String()}
@@ -102,6 +111,10 @@ func (s *Switch) Receive() {
 			m.Data.Write(buf[:n])
 			s.distributeReceived(m)
 		case ofp10.OFPT_ECHO_REPLY:
+			m := ofp10.OfpMsg{new(ofp10.OfpHeader), s.DPID.String()}
+			m.Data.Write(buf)
+			s.distributeReceived(m)
+		case ofp10.OFPT_ECHO_REQUEST:
 			m := ofp10.OfpMsg{new(ofp10.OfpHeader), s.DPID.String()}
 			m.Data.Write(buf)
 			s.distributeReceived(m)

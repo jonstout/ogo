@@ -7,25 +7,25 @@ import (
 
 type BasicApplication struct {
 	OgoApplication
-	echoReply chan ofp10.OfpMsg
+	echoRequest chan ofp10.OfpMsg
 }
 
 func (b *BasicApplication) InitApplication(args map[string]string) {
 	b.Name = "OgoCore"
-	b.echoReply = SubscribeTo(ofp10.OFPT_ECHO_REPLY)
+	b.echoRequest = SubscribeTo(ofp10.OFPT_ECHO_REQUEST)
 }
 
 func (b *BasicApplication) Receive() {
 	for {
 		select {
-		case m := <-b.echoReply:
-			b.SendEchoReply(m.DPID)
+		case m := <-b.echoRequest:
+			go b.SendEchoReply(m.DPID)
 		}
 	}
 }
 
 func (b *BasicApplication) SendEchoReply(dpid string) {
-	req := ofp10.NewEchoRequest()
+	req := ofp10.NewEchoReply()
 	s, ok := GetSwitch(dpid)
 	if ok {
 		<-time.After(time.Second * 1)
