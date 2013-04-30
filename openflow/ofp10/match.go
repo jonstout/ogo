@@ -34,6 +34,43 @@ func NewMatch() *OfpMatch {
 }
 
 func (m *OfpMatch) Read(b []byte) (n int, err error) {
+	// Any non-zero value fields should not be wildcarded.
+	if m.InPort != 0 {
+		m.Wildcards = m.Wildcards ^ OFPFW_IN_PORT
+	}
+	if mac, _ := net.ParseMAC("00:00:00:00:00:00"); mac != m.DLSrc {
+		m.Wildcards = m.Wildcards ^ OFPFW_DL_SRC
+	}
+	if mac, _ := net.ParseMAC("00:00:00:00:00:00"); mac != m.DLDst {
+		m.Wildcards = m.Wildcards ^ OFPFW_DL_DST
+	}
+	if DLVLAN != 0 {
+		m.Wildcards = m.Wildcards ^ OFPFW_DL_VLAN
+	}
+	if DLVLANPcp != 0 {
+		m.Wildcards = m.Wildcards ^ OFPFW_DL_VLAN_PCP
+	}
+	if DLType != 0 {
+		m.Wildcards = m.Wildcards ^ OFPFW_DL_TYPE
+	}
+	if NWTos != 0 {
+		m.Wildcards = m.Wildcards ^ OFPFW_NW_TOS
+	}
+	if NWProto != 0 {
+		m.Wildcards = m.Wildcards ^ OFPFW_NW_PROTO
+	}
+	if m.NWSrc != net.ParseIP("0.0.0.0") {
+		m.Wildcards = m.Wildcards ^ OFPFW_NW_SRC_ALL
+	}
+	if m.NWDst != net.ParseIP("0.0.0.0") {
+		m.Wildcards = m.Wildcards ^ OFPFW_NW_DST_ALL
+	}
+	if m.TPSrc != 0 {
+		m.Wildcards = m.Wildcards ^ OFPFW_TP_SRC
+	}
+	if m.TPDst != 0 {
+		m.Wildcards = m.Wildcards ^ OFPFW_TP_DST
+	}
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, m)
 	n, err = buf.Read(b)
