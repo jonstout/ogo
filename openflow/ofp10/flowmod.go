@@ -25,9 +25,15 @@ type OfpFlowMod struct {
 func NewFlowMod() *OfpFlowMod {
 	f := new(OfpFlowMod)
 	f.Header = *NewHeader()
+	f.Match = new(OfpMatch)
 	// Add a generator for f.Cookie here
 	f.Cookie = 0
+
 	f.Command = OFPFC_ADD
+	f.IdleTimeout = 0
+	f.HardTimeout = 0
+	// Add a priority gen here
+	f.Priority = 1000
 	f.BufferID = 0xffffffff
 	f.OutPort = OFPP_NONE
 	f.Flags = 0
