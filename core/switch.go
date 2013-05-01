@@ -3,8 +3,8 @@ package ogo
 import (
 	"log"
 	"net"
-	//"sync"
 	"errors"
+	"github.com/jonstout/pacit"
 	"github.com/jonstout/ogo/openflow/ofp10"
 )
 
@@ -45,7 +45,7 @@ func NewOpenFlowSwitch(conn *net.TCPConn) {
 		sw.conn = *conn
 		go sw.SendSync()
 		go sw.Receive()
-	} else {
+	} else {//if fres.Header.Type == ofp10.OFPT_FEATURES_REPLY {
 		log.Printf("Openflow 1.%d Connection: %s", res.Version - 1, fres.DPID.String())
 		s := new(Switch)
 		s.conn = *conn
@@ -94,7 +94,6 @@ func (s *Switch) AllPorts() map[int]ofp10.OfpPhyPort {
 /* Sends an OpenFlow message to s. Any error encountered during the
 send except io.EOF is returned. */
 func (s *Switch) Send(req ofp10.OfpPacket) (err error) {
-	log.Println("Sending outbound OfpMessage", req.GetHeader().Type)
 	go func() {
 		s.outbound<- req
 	}()
@@ -120,7 +119,8 @@ func (s *Switch) Receive() {
 		n, err := s.conn.Read(buf)
 		if err != nil {
 			log.Println("ERROR::Switch.Receive::Read:", err)
-			s.conn.Close()
+			DisconnectSwitch(s.DPID.String())
+			//s.conn.Close()
 			break
 		}
 		switch buf[1] {
@@ -153,9 +153,16 @@ func (s *Switch) Receive() {
 			m.Data.Write(buf[:n])
 			s.distributeReceived(m)
 		case ofp10.OFPT_PACKET_IN:
-			m := ofp10.OfpMsg{new(ofp10.OfpPacketIn), s.DPID.String()}
-			m.Data.Write(buf[:n])
-			s.distributeReceived(m)
+			msg := new(ofp10.OfpPacketIn)
+			msg.Write(buf[:n])
+			if eth, ok := msg.Data.(*pacit.Ethernet); ok {
+				msgType := eth.Ethertype
+				// Cleanup required here for unparseables
+				if msgType == pacit.IPv4_MSG || msgType == pacit.ARP_MSG || msgType == pacit.LLDP_MSG {
+					m := ofp10.OfpMsg{msg, s.DPID.String()}
+					s.distributeReceived(m)
+				}
+			}
 		case ofp10.OFPT_FLOW_REMOVED:
 			m := ofp10.OfpMsg{new(ofp10.OfpFlowRemoved), s.DPID.String()}
 			m.Data.Write(buf[:n])
@@ -179,7 +186,6 @@ func (s *Switch) Receive() {
 
 func (s *Switch) distributeReceived(p ofp10.OfpMsg) {
 	h := p.Data.GetHeader()
-	log.Println("Got", h.Type, "OfpMessage")
 	if pktChan, ok := s.requests[h.XID]; ok {
 		go func() {
 			pktChan<- p

@@ -19,8 +19,8 @@ type OfpMatch struct {
 	NWTos uint8 /* IP ToS (actually DSCP field, 6 bits). */
 	NWProto uint8 /* IP protocol or lower 8 bits of ARP opcode. */
 	Pad1 [2]uint8 /* Align to 64-bits */
-	NWSrc uint32 /* IP source address. */
-	NWDst uint32 /* IP destination address. */
+	NWSrc net.IP /* IP source address. */
+	NWDst net.IP /* IP destination address. */
 	TPSrc uint16 /* TCP/UDP source port. */
 	TPDst uint16 /* TCP/UDP destination port. */
 }
@@ -30,7 +30,13 @@ func NewMatch() *OfpMatch {
 	m.Wildcards = 0xffffffff
 	m.DLSrc = make([]byte, OFP_ETH_ALEN)
 	m.DLDst = make([]byte, OFP_ETH_ALEN)
+	m.NWSrc = make([]byte, 4)
+	m.NWDst = make([]byte, 4)
 	return m
+}
+
+func (m *OfpMatch) Len() (n uint16) {
+	return 40
 }
 
 func (m *OfpMatch) Read(b []byte) (n int, err error) {
@@ -38,31 +44,31 @@ func (m *OfpMatch) Read(b []byte) (n int, err error) {
 	if m.InPort != 0 {
 		m.Wildcards = m.Wildcards ^ OFPFW_IN_PORT
 	}
-	if mac, _ := net.ParseMAC("00:00:00:00:00:00"); mac != m.DLSrc {
+	if m.DLSrc.String() != "00:00:00:00:00:00" {
 		m.Wildcards = m.Wildcards ^ OFPFW_DL_SRC
 	}
-	if mac, _ := net.ParseMAC("00:00:00:00:00:00"); mac != m.DLDst {
+	if m.DLDst.String() != "00:00:00:00:00:00" {
 		m.Wildcards = m.Wildcards ^ OFPFW_DL_DST
 	}
-	if DLVLAN != 0 {
+	if m.DLVLAN != 0 {
 		m.Wildcards = m.Wildcards ^ OFPFW_DL_VLAN
 	}
-	if DLVLANPcp != 0 {
+	if m.DLVLANPcp != 0 {
 		m.Wildcards = m.Wildcards ^ OFPFW_DL_VLAN_PCP
 	}
-	if DLType != 0 {
+	if m.DLType != 0 {
 		m.Wildcards = m.Wildcards ^ OFPFW_DL_TYPE
 	}
-	if NWTos != 0 {
+	if m.NWTos != 0 {
 		m.Wildcards = m.Wildcards ^ OFPFW_NW_TOS
 	}
-	if NWProto != 0 {
+	if m.NWProto != 0 {
 		m.Wildcards = m.Wildcards ^ OFPFW_NW_PROTO
 	}
-	if m.NWSrc != net.ParseIP("0.0.0.0") {
+	if m.NWSrc.String() != "0.0.0.0" {
 		m.Wildcards = m.Wildcards ^ OFPFW_NW_SRC_ALL
 	}
-	if m.NWDst != net.ParseIP("0.0.0.0") {
+	if m.NWDst.String() != "0.0.0.0" {
 		m.Wildcards = m.Wildcards ^ OFPFW_NW_DST_ALL
 	}
 	if m.TPSrc != 0 {
@@ -72,7 +78,21 @@ func (m *OfpMatch) Read(b []byte) (n int, err error) {
 		m.Wildcards = m.Wildcards ^ OFPFW_TP_DST
 	}
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, m)
+	binary.Write(buf, binary.BigEndian, m.Wildcards)
+	binary.Write(buf, binary.BigEndian, m.InPort)
+	binary.Write(buf, binary.BigEndian, m.DLSrc)
+	binary.Write(buf, binary.BigEndian, m.DLDst)
+	binary.Write(buf, binary.BigEndian, m.DLVLAN)
+	binary.Write(buf, binary.BigEndian, m.DLVLANPcp)
+	binary.Write(buf, binary.BigEndian, m.Pad)
+	binary.Write(buf, binary.BigEndian, m.DLType)
+	binary.Write(buf, binary.BigEndian, m.NWTos)
+	binary.Write(buf, binary.BigEndian, m.NWProto)
+	binary.Write(buf, binary.BigEndian, m.Pad1)
+	binary.Write(buf, binary.BigEndian, m.NWSrc)
+	binary.Write(buf, binary.BigEndian, m.NWDst)
+	binary.Write(buf, binary.BigEndian, m.TPSrc)
+	binary.Write(buf, binary.BigEndian, m.TPDst)
 	n, err = buf.Read(b)
 	if n == 0 {
 		return

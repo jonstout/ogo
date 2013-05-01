@@ -10,7 +10,7 @@ import (
 type OfpFlowMod struct {
 	Header OfpHeader
 	Match OfpMatch
-	Cookie uint16
+	Cookie uint64
 
 	Command uint16
 	IdleTimeout uint16
@@ -19,13 +19,14 @@ type OfpFlowMod struct {
 	BufferID uint32
 	OutPort uint16
 	Flags uint16
-	Actions []OfpActionOutput
+	Actions []Packetish
 }
 
 func NewFlowMod() *OfpFlowMod {
 	f := new(OfpFlowMod)
 	f.Header = *NewHeader()
-	f.Match = new(OfpMatch)
+	f.Header.Type = OFPT_FLOW_MOD
+	f.Match = *new(OfpMatch)
 	// Add a generator for f.Cookie here
 	f.Cookie = 0
 
@@ -37,7 +38,7 @@ func NewFlowMod() *OfpFlowMod {
 	f.BufferID = 0xffffffff
 	f.OutPort = OFPP_NONE
 	f.Flags = 0
-	f.Actions = make([]OfpActionOutput, 0)
+	f.Actions = make([]Packetish, 0)
 	return f
 }
 
@@ -45,9 +46,30 @@ func (f *OfpFlowMod) GetHeader() *OfpHeader {
 	return &f.Header
 }
 
+func (f *OfpFlowMod) Len() (n uint16) {
+	for _, v := range f.Actions {
+		n += v.Len()
+	}
+	n += 72
+	return
+}
+
 func (f *OfpFlowMod) Read(b []byte) (n int, err error) {
+	f.Header.Length = f.Len()
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, f)
+	buf.ReadFrom(&f.Header)
+	buf.ReadFrom(&f.Match)
+	binary.Write(buf, binary.BigEndian, f.Cookie)
+	binary.Write(buf, binary.BigEndian, f.Command)
+	binary.Write(buf, binary.BigEndian, f.IdleTimeout)
+	binary.Write(buf, binary.BigEndian, f.HardTimeout)
+	binary.Write(buf, binary.BigEndian, f.Priority)
+	binary.Write(buf, binary.BigEndian, f.BufferID)
+	binary.Write(buf, binary.BigEndian, f.OutPort)
+	binary.Write(buf, binary.BigEndian, f.Flags)
+	for _, a := range f.Actions {
+		buf.ReadFrom(a)
+	}
 	n, err = buf.Read(b)
 	if err != nil {
 		return
@@ -100,7 +122,7 @@ func (f *OfpFlowMod) Write(b []byte) (n int, err error) {
 	}
 	n += 2
 	actionCount := buf.Len() / 8
-	f.Actions = make([]OfpActionOutput, actionCount)
+	f.Actions = make([]Packetish, actionCount)
 	for i := 0; i < actionCount; i++ {
 		a := new(OfpActionOutput)
 		m, err = a.Write(buf.Next(8))
@@ -108,7 +130,7 @@ func (f *OfpFlowMod) Write(b []byte) (n int, err error) {
 			return
 		}
 		n += m
-		f.Actions[i] = *a
+		f.Actions[i] = a
 	}
 	return
 }
