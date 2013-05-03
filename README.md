@@ -19,7 +19,7 @@ ctrl.RegisterApplication( new(OgoApplication) )
 ```
 
 ## Subscribing to OpenFlow Messages
-Use `ogo.SubscribeTo(ofp10.OFPM_*)` to get an ofp10.OfpMsg chan.
+Use `ogo.SubscribeTo(ofp10.OFPT_*)` to get an ofp10.OfpMsg chan.
 ```
 echoRequestChan := ogo.SubscribeTo(ofp10.OFPT_ECHO_REQUEST)
 ```
