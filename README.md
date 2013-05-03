@@ -4,8 +4,7 @@ An OpenFlow Network Controller in Go
 ## Subscribing to OpenFlow Messages
 Use `ogo.SubscribeTo(ofp10.OFPM_*)` to get an ofp10.OfpMsg chan.
 ```
-echoRequestChan := make(ofp10.OfpMsg)
-echoRequestChan = ogo.SubscribeTo(ofp10.OFPT_ECHO_REQUEST)
+echoRequestChan := ogo.SubscribeTo(ofp10.OFPT_ECHO_REQUEST)
 ```
 
 ## Acting on Messages
