@@ -39,5 +39,5 @@ func (o *OgoController) RegisterApplication(app Application) {
 	// Setup Openflow Message Channels
 	app.InitApplication(make(map[string]string))
 	go app.Receive()
-	Applications[app.GetName()] = app
+	Applications[app.Name()] = app
 }
