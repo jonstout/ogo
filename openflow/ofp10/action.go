@@ -116,6 +116,12 @@ type OfpActionEnqueue struct {
 	QueueId uint32
 }
 
+func NewActionEnqueue() *OfpActionEnqueue {
+	a := new(OfpActionEnqueue)
+	a.Type = OFPAT_ENQUEUE
+	return a
+}
+
 func (a *OfpActionEnqueue) Len() (n uint16) {
 	return 16
 }
@@ -154,18 +160,26 @@ func (a *OfpActionEnqueue) Write(b []byte) (n int, err error) {
 }
 
 // ofp_action_vlan_vid 1.0
-type OfpActionVlanVid struct {
+type OfpActionVLANVID struct {
 	Type uint16
 	Length uint16
-	VlanVid uint16
+	VLANVID uint16
 	Pad [2]uint8
 }
 
-func (a *OfpActionVlanVid) Len() (n uint16) {
-	return 8
+func NewActionVLANVID() *OfpActionVLANVID {
+	a := new(OfpActionVLANVID)
+	a.Type = OFPAT_SET_VLAN_VID
+	a.Length = 8
+	a.VLANVID = 0xffff
+	return a
 }
 
-func (a *OfpActionVlanVid) Read(b []byte) (n int, err error) {
+func (a *OfpActionVLANVID) Len() (n uint16) {
+	return a.Length
+}
+
+func (a *OfpActionVLANVID) Read(b []byte) (n int, err error) {
 	a.Length = a.Len()
 	buf := new(bytes.Buffer)
 	err = binary.Write(buf, binary.BigEndian, a)
@@ -173,7 +187,7 @@ func (a *OfpActionVlanVid) Read(b []byte) (n int, err error) {
 	return
 }
 
-func (a *OfpActionVlanVid) Write(b []byte) (n int, err error) {
+func (a *OfpActionVLANVID) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
 	if err = binary.Read(buf, binary.BigEndian, &a.Type); err != nil {
 		return
@@ -183,7 +197,7 @@ func (a *OfpActionVlanVid) Write(b []byte) (n int, err error) {
 		return
 	}
 	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.VlanVid); err != nil {
+	if err = binary.Read(buf, binary.BigEndian, &a.VLANVID); err != nil {
 		return
 	}
 	n += 2
