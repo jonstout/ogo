@@ -260,7 +260,7 @@ func (a *OfpActionVLANPCP) Write(b []byte) (n int, err error) {
 type OfpActionDLAddr struct {
 	Type uint16
 	Length uint16
-	DLAddr [OFP_ETH_ALEN]uint8
+	DLAddr []byte
 	Pad [6]uint8
 }
 
@@ -268,7 +268,7 @@ func NewActionDLSrc() *OfpActionDLAddr {
 	a := new(OfpActionDLAddr)
 	a.Type = OFPAT_SET_DL_SRC
 	a.Length = 16
-	a.DLAddr = *new([OFP_ETH_ALEN]byte)
+	a.DLAddr = make([]byte, OFP_ETH_ALEN)
 	return a
 }
 
@@ -276,7 +276,7 @@ func NewActionDLDst() *OfpActionDLAddr {
 	a := new(OfpActionDLAddr)
 	a.Type = OFPAT_SET_DL_DST
 	a.Length = 16
-	a.DLAddr = *new([OFP_ETH_ALEN]byte)
+	a.DLAddr = make([]byte, OFP_ETH_ALEN)
 	return a
 }
 
@@ -317,7 +317,23 @@ func (a *OfpActionDLAddr) Write(b []byte) (n int, err error) {
 type OfpActionNWAddr struct {
 	Type uint16
 	Length uint16
-	NWAddr uint32
+	NWAddr []byte
+}
+
+func NewActionNWSrc() *OfpActionNWAddr {
+	a := new(OfpActionNWAddr)
+	a.Type = OFPAT_SET_NW_SRC
+	a.Length = 8
+	a.NWAddr = make([]byte, 4)
+	return a
+}
+
+func NewActionNWDst() *OfpActionNWAddr {
+	a := new(OfpActionNWAddr)
+	a.Type = OFPAT_SET_NW_DST
+	a.Length = 8
+	a.NWAddr = make([]byte, 4)
+	return a
 }
 
 func (a *OfpActionNWAddr) Len() (n uint16) {
