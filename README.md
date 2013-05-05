@@ -6,7 +6,7 @@ All applications must implement the ogo.Application interface.
 ```
 type Application interface {
   InitApplication(args map[string]string)
-  GetName() string
+  Name() string
   Receive()
 }
 ```
