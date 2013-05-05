@@ -9,18 +9,20 @@ import (
 
 // This is a basic learning switch implementation
 type DemoApplication struct {
-	ogo.OgoApplication
 	packetIn chan ofp10.OfpMsg
 	hostMap map[string]uint16
 }
 
 func (b *DemoApplication) InitApplication(args map[string]string) {
-	// Every application needs a name!
-	b.Name = "Demo"
 	// SubscribeTo returns a chan to receive a specific message type.
 	b.packetIn = ogo.SubscribeTo(ofp10.OFPT_PACKET_IN)
 	// A place to store the source ports of MAC Addresses
 	b.hostMap = make(map[string]uint16)
+}
+
+func (b *DemoApplication) Name() string {
+	// Every application needs a name
+	return "Demo"
 }
 
 func (b *DemoApplication) Receive() {

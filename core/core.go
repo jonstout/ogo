@@ -6,13 +6,15 @@ import (
 )
 
 type BasicApplication struct {
-	OgoApplication
 	echoRequest chan ofp10.OfpMsg
 }
 
 func (b *BasicApplication) InitApplication(args map[string]string) {
-	b.Name = "OgoCore"
 	b.echoRequest = SubscribeTo(ofp10.OFPT_ECHO_REQUEST)
+}
+
+func (b *BasicApplication) Name() string {
+	return "OgoCore"
 }
 
 func (b *BasicApplication) Receive() {
