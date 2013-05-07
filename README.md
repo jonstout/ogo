@@ -10,7 +10,7 @@ type Application interface {
   Receive()
 }
 ```
-Use the `InitApplication` to recieve command line arguments. The `GetName` function should return a string that will be used to identify your application. Use the `Receive` function to listen on any channels that you have subscribed to.
+Use the `InitApplication` to recieve command line arguments. The `Name` function should return a string that will be used to identify your application. Use the `Receive` function to listen on any channels that you have subscribed to.
 
 ## Registering your Application
 In order for your application to recieve OpenFlow messages from connected switches it must be registered with Ogo.
