@@ -236,7 +236,7 @@ type OfpPacketIn struct {
 	TotalLen uint16
 	InPort uint16
 	Reason uint8
-	Data Packetish
+	Data pacit.Ethernet
 }
 
 func (p *OfpPacketIn) GetHeader() *OfpHeader {
@@ -277,8 +277,8 @@ func (p *OfpPacketIn) Write(b []byte) (n int, err error) {
 	n += 1
 	//TODO::Parse Data
 	m := 0
-	p.Data = new(pacit.Ethernet)
-	if m, err = p.Data.Write(b[n:]); m == 0 {
+	p.Data = pacit.Ethernet{}
+	if m, err := p.Data.Write(b[n:]); m == 0 {
 		return m, err
 	}
 	n += m

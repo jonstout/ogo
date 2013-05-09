@@ -4,7 +4,6 @@ import (
 	"log"
 	"net"
 	"errors"
-	"github.com/jonstout/pacit"
 	"github.com/jonstout/ogo/openflow/ofp10"
 )
 
@@ -45,7 +44,7 @@ func NewOpenFlowSwitch(conn *net.TCPConn) {
 		sw.conn = *conn
 		go sw.SendSync()
 		go sw.Receive()
-	} else {//if fres.Header.Type == ofp10.OFPT_FEATURES_REPLY {
+	} else {
 		log.Printf("Openflow 1.%d Connection: %s", res.Version - 1, fres.DPID.String())
 		s := new(Switch)
 		s.conn = *conn
@@ -115,22 +114,20 @@ func (s *Switch) SendSync() {
 /* Receive loop for each Switch. */
 func (s *Switch) Receive() {
 	for {
-		buf := make([]byte, 1500)
-		n, err := s.conn.Read(buf)
-		if err != nil {
+		buf := make([]byte, 750)
+		if _, err := s.conn.Read(buf); err != nil {
 			log.Println("ERROR::Switch.Receive::Read:", err)
 			DisconnectSwitch(s.DPID.String())
-			//s.conn.Close()
 			break
 		}
 		switch buf[1] {
 		case ofp10.OFPT_HELLO:
 			m := ofp10.OfpMsg{new(ofp10.OfpHeader), s.DPID.String()}
-			m.Data.Write(buf[:n])
+			m.Data.Write(buf)
 			s.distributeReceived(m)
 		case ofp10.OFPT_ERROR:
 			m := ofp10.OfpMsg{new(ofp10.OfpErrorMsg), s.DPID.String()}
-			m.Data.Write(buf[:n])
+			m.Data.Write(buf)
 			s.distributeReceived(m)
 		case ofp10.OFPT_ECHO_REPLY:
 			m := ofp10.OfpMsg{new(ofp10.OfpHeader), s.DPID.String()}
@@ -142,42 +139,35 @@ func (s *Switch) Receive() {
 			s.distributeReceived(m)
 		case ofp10.OFPT_VENDOR:
 			m := ofp10.OfpMsg{new(ofp10.OfpVendorHeader), s.DPID.String()}
-			m.Data.Write(buf[:n])
+			m.Data.Write(buf)
 			s.distributeReceived(m)
 		case ofp10.OFPT_FEATURES_REPLY:
 			m := ofp10.OfpMsg{new(ofp10.OfpHeader), s.DPID.String()}
-			m.Data.Write(buf[:n])
+			m.Data.Write(buf)
 			s.distributeReceived(m)
 		case ofp10.OFPT_GET_CONFIG_REPLY:
 			m := ofp10.OfpMsg{new(ofp10.OfpSwitchConfig), s.DPID.String()}
-			m.Data.Write(buf[:n])
+			m.Data.Write(buf)
 			s.distributeReceived(m)
 		case ofp10.OFPT_PACKET_IN:
-			msg := new(ofp10.OfpPacketIn)
-			msg.Write(buf[:n])
-			if eth, ok := msg.Data.(*pacit.Ethernet); ok {
-				msgType := eth.Ethertype
-				// Cleanup required here for unparseables
-				if msgType == pacit.IPv4_MSG || msgType == pacit.ARP_MSG || msgType == pacit.LLDP_MSG {
-					m := ofp10.OfpMsg{msg, s.DPID.String()}
-					s.distributeReceived(m)
-				}
-			}
+			m := ofp10.OfpMsg{new(ofp10.OfpPacketIn), s.DPID.String()}
+			m.Data.Write(buf)
+			s.distributeReceived(m)
 		case ofp10.OFPT_FLOW_REMOVED:
 			m := ofp10.OfpMsg{new(ofp10.OfpFlowRemoved), s.DPID.String()}
-			m.Data.Write(buf[:n])
+			m.Data.Write(buf)
 			s.distributeReceived(m)
 		case ofp10.OFPT_PORT_STATUS:
 			m := ofp10.OfpMsg{new(ofp10.OfpPortStatus), s.DPID.String()}
-			m.Data.Write(buf[:n])
+			m.Data.Write(buf)
 			s.distributeReceived(m)
 		case ofp10.OFPT_STATS_REPLY:
 			m := ofp10.OfpMsg{new(ofp10.OfpStatsReply), s.DPID.String()}
-			m.Data.Write(buf[:n])
+			m.Data.Write(buf)
 			s.distributeReceived(m)
 		case ofp10.OFPT_BARRIER_REPLY:
 			m := ofp10.OfpMsg{new(ofp10.OfpHeader), s.DPID.String()}
-			m.Data.Write(buf[:n])
+			m.Data.Write(buf)
 			s.distributeReceived(m)
 		default:
 		}
