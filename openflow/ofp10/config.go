@@ -38,13 +38,17 @@ func NewSetConfig() *OfpSwitchConfig {
 	return c
 }
 
-func (s *OfpSwitchConfig) GetHeader() *OfpHeader {
-	return &s.Header
+func (c *OfpSwitchConfig) Len() (n uint16) {
+	return 12
 }
 
-func (s *OfpSwitchConfig) Read(b []byte) (n int, err error) {
+func (c *OfpSwitchConfig) GetHeader() *OfpHeader {
+	return &c.Header
+}
+
+func (c *OfpSwitchConfig) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, s)
+	binary.Write(buf, binary.BigEndian, c)
 	n, err = buf.Read(b)
 	if n == 0 {
 		return
@@ -52,17 +56,17 @@ func (s *OfpSwitchConfig) Read(b []byte) (n int, err error) {
 	return n, io.EOF
 }
 
-func (s *OfpSwitchConfig) Write(b []byte) (n int, err error) {
+func (c *OfpSwitchConfig) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
-	n, err = s.Header.Write(buf.Next(8))
+	n, err = c.Header.Write(buf.Next(8))
 	if n == 0 {
 		return
 	}
-	if err = binary.Read(buf, binary.BigEndian, &s.Flags); err != nil {
+	if err = binary.Read(buf, binary.BigEndian, &c.Flags); err != nil {
 		return
 	}
 	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &s.MissSendLen); err != nil {
+	if err = binary.Read(buf, binary.BigEndian, &c.MissSendLen); err != nil {
 		return
 	}
 	n += 2
