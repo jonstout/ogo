@@ -113,8 +113,8 @@ func (s *Switch) SendSync() {
 
 /* Receive loop for each Switch. */
 func (s *Switch) Receive() {
+	buf := make([]byte, 1500)
 	for {
-		buf := make([]byte, 750)
 		if _, err := s.conn.Read(buf); err != nil {
 			log.Println("ERROR::Switch.Receive::Read:", err)
 			DisconnectSwitch(s.DPID.String())
