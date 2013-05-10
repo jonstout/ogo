@@ -17,13 +17,13 @@ type Packetish interface {
 	Len() (n uint16)
 }
 
-type OfpPacket interface {
+type Packet interface {
 	io.ReadWriter
-	GetHeader() *OfpHeader
+	GetHeader() *Header
 }
 
-type OfpMsg struct {
-	Data OfpPacket
+type Msg struct {
+	Data Packet
 	DPID string
 }
 
@@ -31,19 +31,19 @@ const (
 	VERSION = 1
 )
 
-type OfpHeader struct {
+type Header struct {
 	Version uint8
 	Type uint8
 	Length uint16
 	XID uint32
 }
 
-var NewHeader func() *OfpHeader = newOfpHeaderGenerator()
+var NewHeader func() *Header = newHeaderGenerator()
 
-func newOfpHeaderGenerator() func() *OfpHeader {
+func newHeaderGenerator() func() *Header {
 	var xid uint32 = 1
-	return func() *OfpHeader {
-		p := new(OfpHeader)
+	return func() *Header {
+		p := new(Header)
 		p.Version = 1
 		p.Type = 0
 		p.Length = 8
@@ -54,15 +54,15 @@ func newOfpHeaderGenerator() func() *OfpHeader {
 	}
 }
 
-func (h *OfpHeader) GetHeader() *OfpHeader {
+func (h *Header) GetHeader() *Header {
 	return h
 }
 
-func (h *OfpHeader) Len() (n uint16) {
+func (h *Header) Len() (n uint16) {
 	return 8
 }
 
-func (h *OfpHeader) Read(b []byte) (n int, err error) {
+func (h *Header) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, h)
 	n, err = buf.Read(b)
@@ -72,73 +72,73 @@ func (h *OfpHeader) Read(b []byte) (n int, err error) {
 	return n, io.EOF
 }
 
-func (h *OfpHeader) Write(b []byte) (n int, err error) {
+func (h *Header) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
 	binary.Read(buf, binary.BigEndian, h)
 	return 8, err
 }
 
-func NewHello() *OfpHeader {
+func NewHello() *Header {
 	h := NewHeader()
-	h.Type = OFPT_HELLO
+	h.Type = T_HELLO
 	return h
 }
 
-func NewEchoRequest() *OfpHeader {
+func NewEchoRequest() *Header {
 	h := NewHeader()
-	h.Type = OFPT_ECHO_REQUEST
+	h.Type = T_ECHO_REQUEST
 	return h
 }
 
-func NewEchoReply() *OfpHeader {
+func NewEchoReply() *Header {
 	h := NewHeader()
-	h.Type = OFPT_ECHO_REPLY
+	h.Type = T_ECHO_REPLY
 	return h
 }
 
 // ofp_type 1.0
 const (
 	/* Immutable messages. */
-	OFPT_HELLO = iota
-	OFPT_ERROR
-	OFPT_ECHO_REQUEST
-	OFPT_ECHO_REPLY
-	OFPT_VENDOR
+	T_HELLO = iota
+	T_ERROR
+	T_ECHO_REQUEST
+	T_ECHO_REPLY
+	T_VENDOR
 
 	/* Switch configuration messages. */
-	OFPT_FEATURES_REQUEST
-	OFPT_FEATURES_REPLY
-	OFPT_GET_CONFIG_REQUEST
-	OFPT_GET_CONFIG_REPLY
-	OFPT_SET_CONFIG
+	T_FEATURES_REQUEST
+	T_FEATURES_REPLY
+	T_GET_CONFIG_REQUEST
+	T_GET_CONFIG_REPLY
+	T_SET_CONFIG
 
 	/* Asynchronous messages. */
-	OFPT_PACKET_IN
-	OFPT_FLOW_REMOVED
-	OFPT_PORT_STATUS
+	T_PACKET_IN
+	T_FLOW_REMOVED
+	T_PORT_STATUS
 
 	/* Controller command messages. */
-	OFPT_PACKET_OUT
-	OFPT_FLOW_MOD
-	OFPT_PORT_MOD
+	T_PACKET_OUT
+	T_FLOW_MOD
+	T_PORT_MOD
 
 	/* Statistics messages. */
-	OFPT_STATS_REQUEST
-	OFPT_STATS_REPLY
+	T_STATS_REQUEST
+	T_STATS_REPLY
 
 	/* Barrier messages. */
-	OFPT_BARRIER_REQUEST
-	OFPT_BARRIER_REPLY
+	T_BARRIER_REQUEST
+	T_BARRIER_REPLY
 
 	/* Queue Configuration messages. */
-	OFPT_QUEUE_GET_CONFIG_REQUEST
-	OFPT_QUEUE_GET_CONFIG_REPLY
+	T_QUEUE_GET_CONFIG_REQUEST
+	T_QUEUE_GET_CONFIG_REPLY
 )
 
 // BEGIN: ofp10 - 5.3.6
 // ofp_packet_out 1.0
-type OfpPacketOut struct {
-	Header OfpHeader
+type PacketOut struct {
+	Header Header
 	BufferID uint32
 	InPort uint16
 	ActionsLen uint16
@@ -146,11 +146,11 @@ type OfpPacketOut struct {
 	Data Packetish
 }
 
-func NewPacketOut() *OfpPacketOut {
-	p := new(OfpPacketOut)
+func NewPacketOut() *PacketOut {
+	p := new(PacketOut)
 	p.Header = *NewHeader()
 	//p.Header.Length = 71
-	p.Header.Type = OFPT_PACKET_OUT
+	p.Header.Type = T_PACKET_OUT
 	p.BufferID = 0xffffffff
 	p.InPort = 0
 	//p.ActionsLen = 8
@@ -158,11 +158,11 @@ func NewPacketOut() *OfpPacketOut {
 	return p
 }
 
-func (p *OfpPacketOut) GetHeader() *OfpHeader {
+func (p *PacketOut) GetHeader() *Header {
 	return &p.Header
 }
 
-func (p *OfpPacketOut) Len() (n uint16) {
+func (p *PacketOut) Len() (n uint16) {
 	n += p.Header.Len()
 	for _, e := range p.Actions {
 		n += e.Len()
@@ -173,7 +173,7 @@ func (p *OfpPacketOut) Len() (n uint16) {
 	return
 }
 
-func (p *OfpPacketOut) Read(b []byte) (n int, err error) {
+func (p *PacketOut) Read(b []byte) (n int, err error) {
 	p.Header.Length = p.Len()
 	for _, e := range p.Actions {
 		p.ActionsLen += e.Len()
@@ -196,7 +196,7 @@ func (p *OfpPacketOut) Read(b []byte) (n int, err error) {
 	return n, io.EOF
 }
 
-func (p *OfpPacketOut) Write(b []byte) (n int, err error) {
+func (p *PacketOut) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
 	n, err = p.Header.Write(buf.Next(8))
 	if n == 0 {
@@ -217,7 +217,7 @@ func (p *OfpPacketOut) Write(b []byte) (n int, err error) {
 	actionCount := buf.Len() / 8
 	p.Actions = make([]Packetish, actionCount)
 	for i := 0; i < actionCount; i++ {
-		a := new(OfpActionOutput)//Header)
+		a := new(ActionOutput)//Header)
 		m := 0
 		m, err = a.Write(buf.Next(8))
 		if m == 0 {
@@ -230,8 +230,8 @@ func (p *OfpPacketOut) Write(b []byte) (n int, err error) {
 }
 
 // ofp_packet_in 1.0
-type OfpPacketIn struct {
-	Header OfpHeader
+type PacketIn struct {
+	Header Header
 	BufferID uint32
 	TotalLen uint16
 	InPort uint16
@@ -239,11 +239,11 @@ type OfpPacketIn struct {
 	Data pacit.Ethernet
 }
 
-func (p *OfpPacketIn) GetHeader() *OfpHeader {
+func (p *PacketIn) GetHeader() *Header {
 	return &p.Header
 }
 
-func (p *OfpPacketIn) Read(b []byte) (n int, err error) {
+func (p *PacketIn) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, p)
 	n, err = buf.Read(b)
@@ -253,7 +253,7 @@ func (p *OfpPacketIn) Read(b []byte) (n int, err error) {
 	return n, io.EOF
 }
 
-func (p *OfpPacketIn) Write(b []byte) (n int, err error) {
+func (p *PacketIn) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
 	n, err = p.Header.Write(buf.Next(8))
 	if n == 0 {
@@ -287,21 +287,21 @@ func (p *OfpPacketIn) Write(b []byte) (n int, err error) {
 
 // ofp_packet_in_reason 1.0
 const (
-	OFPR_NO_MATCH = iota
-	OFPR_ACTION
+	R_NO_MATCH = iota
+	R_ACTION
 )
 
 // ofp_vendor_header 1.0
-type OfpVendorHeader struct {
-	Header OfpHeader /*Type OFPT_VENDOR*/
+type VendorHeader struct {
+	Header Header /*Type OFPT_VENDOR*/
 	Vendor uint32
 }
 
-func (v *OfpVendorHeader) GetHeader() *OfpHeader {
+func (v *VendorHeader) GetHeader() *Header {
 	return &v.Header
 }
 
-func (v *OfpVendorHeader) Read(b []byte) (n int, err error) {
+func (v *VendorHeader) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, v)
 	n, err = buf.Read(b)
@@ -311,7 +311,7 @@ func (v *OfpVendorHeader) Read(b []byte) (n int, err error) {
 	return n, io.EOF
 }
 
-func (v *OfpVendorHeader) Write(b []byte) (n int, err error) {
+func (v *VendorHeader) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
 	n, err = v.Header.Write(buf.Next(8))
 	if n == 0 {

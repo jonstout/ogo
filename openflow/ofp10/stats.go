@@ -7,18 +7,18 @@ import (
 )
 
 // ofp_stats_request 1.0
-type OfpStatsRequest struct {
-	Header OfpHeader
+type StatsRequest struct {
+	Header Header
 	Type uint16
 	Flags uint16
 	Body interface{}
 }
 
-func (s *OfpStatsRequest) GetHeader() *OfpHeader {
+func (s *StatsRequest) GetHeader() *Header {
 	return &s.Header
 }
 
-func (s *OfpStatsRequest) Read(b []byte) (n int, err error) {
+func (s *StatsRequest) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, s)
 	n, err = buf.Read(b)
@@ -28,7 +28,7 @@ func (s *OfpStatsRequest) Read(b []byte) (n int, err error) {
 	return n, io.EOF
 }
 
-func (s *OfpStatsRequest) Write(b []byte) (n int, err error) {
+func (s *StatsRequest) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
 	n, err = s.Header.Write(buf.Next(8))
 	if n == 0 {
@@ -40,58 +40,58 @@ func (s *OfpStatsRequest) Write(b []byte) (n int, err error) {
 	n += 2
 	m := 0
 	switch s.Type {
-	case OFPST_AGGREGATE:
+	case ST_AGGREGATE:
 		// empty
 		break
-	case OFPST_DESC:
+	case ST_DESC:
 		// empty
 		break
-	case OFPST_FLOW:
-		// ofp_aggregate_stats_request
-		a := s.Body.(*OfpAggregateStatsRequest)
+	case ST_FLOW:
+		// _aggregate_stats_request
+		a := s.Body.(*AggregateStatsRequest)
 		m, err = a.Write(buf.Bytes())
 		if m == 0 {
 			return
 		}
 		n += m
-	case OFPST_PORT:
-		// ofp_port_stats_request
-		p := s.Body.(*OfpPortStatsRequest)
+	case ST_PORT:
+		// _port_stats_request
+		p := s.Body.(*PortStatsRequest)
 		m, err = p.Write(buf.Bytes())
 		if m == 0 {
 			return
 		}
 		n += m
-	case OFPST_TABLE:
+	case ST_TABLE:
 		// empty
 		break
-	case OFPST_QUEUE:
+	case ST_QUEUE:
 		// ofp_queue_stats_request
-		q := s.Body.(*OfpQueueStatsRequest)
+		q := s.Body.(*QueueStatsRequest)
 		m, err = q.Write(buf.Bytes())
 		if m == 0 {
 			return
 		}
 		n += m
-	case OFPST_VENDOR:
+	case ST_VENDOR:
 		break
 	}
 	return
 }
 
-// ofp_stats_reply 1.0
-type OfpStatsReply struct {
-	Header OfpHeader
+// _stats_reply 1.0
+type StatsReply struct {
+	Header Header
 	Type uint16
 	Flags uint16
 	Body []uint8
 }
 
-func (s *OfpStatsReply) GetHeader() *OfpHeader {
+func (s *StatsReply) GetHeader() *Header {
 	return &s.Header
 }
 
-func (s *OfpStatsReply) Read(b []byte) (n int, err error) {
+func (s *StatsReply) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, s)
 	n, err = buf.Read(b)
@@ -101,7 +101,7 @@ func (s *OfpStatsReply) Read(b []byte) (n int, err error) {
 	return n, io.EOF
 }
 
-func (s *OfpStatsReply) Write(b []byte) (n int, err error) {
+func (s *StatsReply) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
 	n, err = s.Header.Write(buf.Next(8))
 	if n == 0 {
@@ -112,96 +112,96 @@ func (s *OfpStatsReply) Write(b []byte) (n int, err error) {
 	err = binary.Read(buf, binary.BigEndian, &s.Flags)
 	n += 2
 	switch s.Type {
-		case OFPST_AGGREGATE:
-			a := new(OfpAggregateStatsReply)
+		case ST_AGGREGATE:
+			a := new(AggregateStatsReply)
 			m, aErr := a.Write(buf.Bytes())
 			if aErr != nil {
 				return
 			}
 			n += m
-		case OFPST_DESC:
-			d := new(OfpDescStats)
+		case ST_DESC:
+			d := new(DescStats)
 			m, dErr := d.Write(buf.Bytes())
 			if dErr != nil {
 				return
 			}
 			n += m
-		case OFPST_FLOW:
+		case ST_FLOW:
 			for flowCount := buf.Len() / 24; flowCount > 0; flowCount-- {
-				f := new(OfpFlowStats)
+				f := new(FlowStats)
 				m, fErr := f.Write(buf.Next(24))
 				if fErr != nil {
 					return
 				}
 				n += m
 			}
-		case OFPST_PORT:
+		case ST_PORT:
 			for portCount := buf.Len() / 104; portCount > 0; portCount-- {
-				p := new(OfpFlowStats)
+				p := new(FlowStats)
 				m, pErr := p.Write(buf.Next(104))
 				if pErr != nil {
 					return
 				}
 				n += m
 			}
-		case OFPST_TABLE:
+		case ST_TABLE:
 			for tableCount := buf.Len() / 32; tableCount > 0; tableCount-- {
-				t := new(OfpFlowStats)
+				t := new(FlowStats)
 				m, tErr := t.Write(buf.Next(32))
 				if tErr != nil {
 					return
 				}
 				n += m
 			}
-		case OFPST_QUEUE:
+		case ST_QUEUE:
 			for queueCount := buf.Len() / 32; queueCount > 0; queueCount-- {
-				q := new(OfpQueueStats)
+				q := new(QueueStats)
 				m, qErr := q.Write(buf.Next(32))
 				if qErr != nil {
 					return
 				}
 				n += m
 			}
-		case OFPST_VENDOR:
+		case ST_VENDOR:
 			break
 	}
 	return n, nil
 }
 
-// ofp_stats_types
+// _stats_types
 const (
 	/* Description of this OpenFlow switch.
 	* The request body is empty.
 	* The reply body is struct ofp_desc_stats. */
-	OFPST_DESC = iota
+	ST_DESC = iota
 	/* Individual flow statistics.
 	* The request body is struct ofp_flow_stats_request.
 	* The reply body is an array of struct ofp_flow_stats. */
-	OFPST_FLOW
+	ST_FLOW
 	/* Aggregate flow statistics.
 	* The request body is struct ofp_aggregate_stats_request.
 	* The reply body is struct ofp_aggregate_stats_reply. */
-	OFPST_AGGREGATE
+	ST_AGGREGATE
 	/* Flow table statistics.
 	* The request body is empty.
 	* The reply body is an array of struct ofp_table_stats. */
-	OFPST_TABLE
+	ST_TABLE
 	/* Port statistics.
 	* The request body is struct ofp_port_stats_request.
 	* The reply body is an array of struct ofp_port_stats. */
-	OFPST_PORT
+	ST_PORT
 	/* Queue statistics for a port
-	* The request body is struct ofp_queue_stats_request.
+	* The request body is struct _queue_stats_request.
 	* The reply body is an array of struct ofp_queue_stats */
-	OFPST_QUEUE
+	ST_QUEUE
 	/* Group counter statistics.
 	* The request body is struct ofp_group_stats_request.
 	* The reply is an array of struct ofp_group_stats. */
-	OFPST_VENDOR = 0xffff
+	ST_VENDOR = 0xffff
 )
 
 // ofp_desc_stats 1.0
-type OfpDescStats struct {
+type DescStats struct {
 	MfrDesc [DESC_STR_LEN]byte
 	HWDesc [DESC_STR_LEN]byte
 	SWDesc [DESC_STR_LEN]byte
@@ -209,7 +209,7 @@ type OfpDescStats struct {
 	DPDesc [DESC_STR_LEN]byte
 }
 
-func (s *OfpDescStats) Read(b []byte) (n int, err error) {
+func (s *DescStats) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, s)
 	n, err = buf.Read(b)
@@ -219,7 +219,7 @@ func (s *OfpDescStats) Read(b []byte) (n int, err error) {
 	return n, io.EOF
 }
 
-func (s *OfpDescStats) Write(b []byte) (n int, err error) {
+func (s *DescStats) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
 	err = binary.Read(buf, binary.BigEndian, &s.MfrDesc)
 	if err != nil {
@@ -255,14 +255,14 @@ const (
 )
 
 // ofp_flow_stats_request 1.0
-type OfpFlowStatsRequest struct {
-	Match OfpMatch
+type FlowStatsRequest struct {
+	Match Match
 	TableID uint8
 	Pad uint8
 	OutPort uint16
 }
 
-func (s *OfpFlowStatsRequest) Read(b []byte) (n int, err error) {
+func (s *FlowStatsRequest) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, s)
 	n, err = buf.Read(b)
@@ -272,7 +272,7 @@ func (s *OfpFlowStatsRequest) Read(b []byte) (n int, err error) {
 	return n, io.EOF
 }
 
-func (s *OfpFlowStatsRequest) Write(b []byte) (n int, err error) {
+func (s *FlowStatsRequest) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
 	n, err = s.Match.Write(buf.Bytes())
 	if n == 0 {
@@ -297,11 +297,11 @@ func (s *OfpFlowStatsRequest) Write(b []byte) (n int, err error) {
 }
 
 // ofp_flow_stats 1.0
-type OfpFlowStats struct {
+type FlowStats struct {
 	Length uint16
 	TableID uint8
 	Pad uint8
-	Match OfpMatch
+	Match Match
 	DurationSec uint32
 	DurationNSec uint32
 	Priority uint16
@@ -311,10 +311,10 @@ type OfpFlowStats struct {
 	Cookie uint64
 	PacketCount uint64
 	ByteCount uint64
-	Actions []OfpActionHeader
+	Actions []ActionHeader
 }
 
-func (s *OfpFlowStats) Read(b []byte) (n int, err error) {
+func (s *FlowStats) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, s)
 	n, err = buf.Read(b)
@@ -324,7 +324,7 @@ func (s *OfpFlowStats) Read(b []byte) (n int, err error) {
 	return n, io.EOF
 }
 
-func (s *OfpFlowStats) Write(b []byte) (n int, err error) {
+func (s *FlowStats) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
 	err = binary.Read(buf, binary.BigEndian, &s.Length)
 	if err != nil {
@@ -393,21 +393,21 @@ func (s *OfpFlowStats) Write(b []byte) (n int, err error) {
 	}
 	n += 8
 	for actionCount := buf.Len() / 8; actionCount > 0; actionCount-- {
-		a := new(OfpActionHeader)
+		a := new(ActionHeader)
 		a.Write(buf.Next(8))
 	}
 	return
 }
 
 // ofp_aggregate_stats_request 1.0
-type OfpAggregateStatsRequest struct {
-	Match OfpMatch
+type AggregateStatsRequest struct {
+	Match Match
 	TableID uint8
 	Pad uint8
 	OutPort uint16
 }
 
-func (s *OfpAggregateStatsRequest) Read(b []byte) (n int, err error) {
+func (s *AggregateStatsRequest) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, s)
 	n, err = buf.Read(b)
@@ -417,7 +417,7 @@ func (s *OfpAggregateStatsRequest) Read(b []byte) (n int, err error) {
 	return n, io.EOF
 }
 
-func (s *OfpAggregateStatsRequest) Write(b []byte) (n int, err error) {
+func (s *AggregateStatsRequest) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
 	n, err = s.Match.Write(buf.Next(40))
 	err = binary.Read(buf, binary.BigEndian, &s.TableID)
@@ -439,14 +439,14 @@ func (s *OfpAggregateStatsRequest) Write(b []byte) (n int, err error) {
 }
 
 // ofp_aggregate_stats_reply 1.0
-type OfpAggregateStatsReply struct {
+type AggregateStatsReply struct {
 	PacketCount uint64
 	ByteCount uint64
 	FlowCount uint32
 	Pad [4]uint8
 }
 
-func (s *OfpAggregateStatsReply) Read(b []byte) (n int, err error) {
+func (s *AggregateStatsReply) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, s)
 	n, err = buf.Read(b)
@@ -456,7 +456,7 @@ func (s *OfpAggregateStatsReply) Read(b []byte) (n int, err error) {
 	return n, io.EOF
 }
 
-func (s *OfpAggregateStatsReply) Write(b []byte) (n int, err error) {
+func (s *AggregateStatsReply) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
 	err = binary.Read(buf, binary.BigEndian, &s.PacketCount)
 	if err != nil {
@@ -481,10 +481,10 @@ func (s *OfpAggregateStatsReply) Write(b []byte) (n int, err error) {
 	return
 }
 // ofp_table_stats 1.0
-type OfpTableStats struct {
+type TableStats struct {
 	TableID uint8
 	Pad [3]uint8
-	Name [OFP_MAX_TABLE_NAME_LEN]byte
+	Name [MAX_TABLE_NAME_LEN]byte
 	Wildcards uint32
 	MaxEntries uint32
 	ActiveCount uint32
@@ -492,7 +492,7 @@ type OfpTableStats struct {
 	MatchedCount uint64
 }
 
-func (s *OfpTableStats) Read(b []byte) (n int, err error) {
+func (s *TableStats) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, s)
 	n, err = buf.Read(b)
@@ -502,7 +502,7 @@ func (s *OfpTableStats) Read(b []byte) (n int, err error) {
 	return n, io.EOF
 }
 
-func (s *OfpTableStats) Write(b []byte) (n int, err error) {
+func (s *TableStats) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
 	err = binary.Read(buf, binary.BigEndian, &s.TableID)
 	if err != nil {
@@ -548,16 +548,16 @@ func (s *OfpTableStats) Write(b []byte) (n int, err error) {
 }
 
 const (
-	OFP_MAX_TABLE_NAME_LEN = 32
+	MAX_TABLE_NAME_LEN = 32
 )
 
 // ofp_port_stats_request 1.0
-type OfpPortStatsRequest struct {
+type PortStatsRequest struct {
 	PortNo uint16
 	Pad [6]uint8
 }
 
-func (s *OfpPortStatsRequest) Read(b []byte) (n int, err error) {
+func (s *PortStatsRequest) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, s)
 	n, err = buf.Read(b)
@@ -567,7 +567,7 @@ func (s *OfpPortStatsRequest) Read(b []byte) (n int, err error) {
 	return n, io.EOF
 }
 
-func (s *OfpPortStatsRequest) Write(b []byte) (n int, err error) {
+func (s *PortStatsRequest) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
 	err = binary.Read(buf, binary.BigEndian, &s.PortNo)
 	if err != nil {
@@ -583,7 +583,7 @@ func (s *OfpPortStatsRequest) Write(b []byte) (n int, err error) {
 }
 
 // ofp_port_stats 1.0
-type OfpPortStats struct {
+type PortStats struct {
 	PortNo uint16
 	Pad [6]uint8
 	RxPackets uint64
@@ -600,7 +600,7 @@ type OfpPortStats struct {
 	Collisions uint64
 }
 
-func (s *OfpPortStats) Read(b []byte) (n int, err error) {
+func (s *PortStats) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, s)
 	n, err = buf.Read(b)
@@ -610,7 +610,7 @@ func (s *OfpPortStats) Read(b []byte) (n int, err error) {
 	return n, io.EOF
 }
 
-func (s *OfpPortStats) Write(b []byte) (n int, err error) {
+func (s *PortStats) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
 	err = binary.Read(buf, binary.BigEndian, &s.PortNo)
 	if err != nil {
@@ -696,13 +696,13 @@ func (s *OfpPortStats) Write(b []byte) (n int, err error) {
 }
 
 // ofp_queue_stats_request 1.0
-type OfpQueueStatsRequest struct {
+type QueueStatsRequest struct {
 	PortNo uint16
 	Pad [2]uint8
 	QueueID uint32
 }
 
-func (s *OfpQueueStatsRequest) Read(b []byte) (n int, err error) {
+func (s *QueueStatsRequest) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, s)
 	n, err = buf.Read(b)
@@ -712,7 +712,7 @@ func (s *OfpQueueStatsRequest) Read(b []byte) (n int, err error) {
 	return n, io.EOF
 }
 
-func (s *OfpQueueStatsRequest) Write(b []byte) (n int, err error) {
+func (s *QueueStatsRequest) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
 	err = binary.Read(buf, binary.BigEndian, &s.PortNo)
 	if err != nil {
@@ -733,7 +733,7 @@ func (s *OfpQueueStatsRequest) Write(b []byte) (n int, err error) {
 }
 
 // ofp_queue_stats 1.0
-type OfpQueueStats struct {
+type QueueStats struct {
 	PortNo uint16
 	Pad [2]uint8
 	QueueID uint32
@@ -742,7 +742,7 @@ type OfpQueueStats struct {
 	TxErrors uint64
 }
 
-func (s *OfpQueueStats) Read(b []byte) (n int, err error) {
+func (s *QueueStats) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, s)
 	n, err = buf.Read(b)
@@ -752,7 +752,7 @@ func (s *OfpQueueStats) Read(b []byte) (n int, err error) {
 	return n, io.EOF
 }
 
-func (s *OfpQueueStats) Write(b []byte) (n int, err error) {
+func (s *QueueStats) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
 	err = binary.Read(buf, binary.BigEndian, &s.PortNo)
 	if err != nil {
@@ -788,18 +788,18 @@ func (s *OfpQueueStats) Write(b []byte) (n int, err error) {
 }
 
 // ofp_port_status
-type OfpPortStatus struct {
-	Header OfpHeader
+type PortStatus struct {
+	Header Header
 	Reason uint8
 	Pad [7]uint8
-	Desc OfpPhyPort
+	Desc PhyPort
 }
 
-func (p *OfpPortStatus) GetHeader() *OfpHeader {
+func (p *PortStatus) GetHeader() *Header {
 	return &p.Header
 }
 
-func (s *OfpPortStatus) Read(b []byte) (n int, err error) {
+func (s *PortStatus) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, s)
 	n, err = buf.Read(b)
@@ -809,7 +809,7 @@ func (s *OfpPortStatus) Read(b []byte) (n int, err error) {
 	return n, io.EOF
 }
 
-func (s *OfpPortStatus) Write(b []byte) (n int, err error) {
+func (s *PortStatus) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
 	err = binary.Read(buf, binary.BigEndian, &s.Reason)
 	if err != nil {
@@ -832,7 +832,7 @@ func (s *OfpPortStatus) Write(b []byte) (n int, err error) {
 
 // ofp_port_reason 1.0
 const (
-	OFPPR_ADD = iota
-	OFPPR_DELETE
-	OFPPR_MODIFY
+	PR_ADD = iota
+	PR_DELETE
+	PR_MODIFY
 )

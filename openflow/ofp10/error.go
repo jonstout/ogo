@@ -8,17 +8,17 @@ import (
 
 // BEGIN: ofp10 - 5.4.4
 // ofp_error_msg 1.0
-type OfpErrorMsg struct {
-	Header OfpHeader
+type ErrorMsg struct {
+	Header Header
 	Code uint16
 	Data []uint8
 }
 
-func (e *OfpErrorMsg) GetHeader() *OfpHeader {
+func (e *ErrorMsg) GetHeader() *Header {
 	return &e.Header
 }
 
-func (e *OfpErrorMsg) Read(b []byte) (n int, err error) {
+func (e *ErrorMsg) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, e)
 	n, err = buf.Read(b)
@@ -28,7 +28,7 @@ func (e *OfpErrorMsg) Read(b []byte) (n int, err error) {
 	return n, io.EOF
 }
 
-func (e *OfpErrorMsg) Write(b []byte) (n int, err error) {
+func (e *ErrorMsg) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
 	n, err = e.Header.Write(buf.Next(8))
 	if n == 0 {
@@ -49,68 +49,68 @@ func (e *OfpErrorMsg) Write(b []byte) (n int, err error) {
 
 // ofp_error_type 1.0
 const (
-	OFPET_HELLO_FAILED = iota
-	OFPET_BAD_REQUEST
-	OFPET_BAD_ACTION
-	OFPET_FLOW_MOD_FAILED
-	OFPET_PORT_MOD_FAILED
-	OFPET_QUEUE_OP_FAILED
+	ET_HELLO_FAILED = iota
+	ET_BAD_REQUEST
+	ET_BAD_ACTION
+	ET_FLOW_MOD_FAILED
+	ET_PORT_MOD_FAILED
+	ET_QUEUE_OP_FAILED
 )
 
 // ofp_hello_failed_code 1.0
 const (
-	OFPHFC_INCOMPATIBLE = iota
-	OFPHFC_EPERM
+	HFC_INCOMPATIBLE = iota
+	HFC_EPERM
 )
 
 // ofp_bad_request_code 1.0
 const (
-	OFPBRC_BAD_VERSION = iota
-	OFPBRC_BAD_TYPE
-	OFPBRC_BAD_STAT
-	OFPBRC_BAD_VENDOR
+	BRC_BAD_VERSION = iota
+	BRC_BAD_TYPE
+	BRC_BAD_STAT
+	BRC_BAD_VENDOR
 
-	OFPBRC_BAD_SUBTYPE
-	OFPBRC_EPERM
-	OFPBRC_BAD_LEN
-	OFPBRC_BUFFER_EMPTY
-	OFPBRC_BUFFER_UNKNOWN
+	BRC_BAD_SUBTYPE
+	BRC_EPERM
+	BRC_BAD_LEN
+	BRC_BUFFER_EMPTY
+	BRC_BUFFER_UNKNOWN
 )
 
 // ofp_bad_action_code 1.0
 const (
-	OFPBAC_BAD_TYPE = iota
-	OFPBAC_BAD_LEN
-	OFPBAC_BAD_VENDOR
-	OFPBAC_BAD_VENDOR_TYPE
-	OFPBAC_BAD_OUT_PORT
-	OFPBAC_BAD_ARGUMENT
-	OFPBAC_EPERM
-	OFPBAC_TOO_MANY
-	OFPBAC_BAD_QUEUE
+	BAC_BAD_TYPE = iota
+	BAC_BAD_LEN
+	BAC_BAD_VENDOR
+	BAC_BAD_VENDOR_TYPE
+	BAC_BAD_OUT_PORT
+	BAC_BAD_ARGUMENT
+	BAC_EPERM
+	BAC_TOO_MANY
+	BAC_BAD_QUEUE
 )
 
 // ofp_flow_mod_failed_code 1.0
 const (
-	OFPFMFC_ALL_TABLES_FULL = iota
-	OFPFMFC_OVERLAP
-	OFPFMFC_EPERM
-	OFPFMFC_BAD_EMERG_TIMEOUT
-	OFPFMFC_BAD_COMMAND
-	OFPFMFC_UNSUPPORTED
+	FMFC_ALL_TABLES_FULL = iota
+	FMFC_OVERLAP
+	FMFC_EPERM
+	FMFC_BAD_EMERG_TIMEOUT
+	FMFC_BAD_COMMAND
+	FMFC_UNSUPPORTED
 )
 
 // ofp_port_mod_failed_code 1.0
 const (
-	OFPPMFC_BAD_PORT = iota
-	OFPPMFC_BAD_HW_ADDR
+	PMFC_BAD_PORT = iota
+	PMFC_BAD_HW_ADDR
 )
 
 // ofp_queue_op_failed_code 1.0
 const (
-	OFPQOFC_BAD_PORT = iota
-	OFPQOFC_BAD_QUEUE
-	OFPQOFC_EPERM
+	QOFC_BAD_PORT = iota
+	QOFC_BAD_QUEUE
+	QOFC_EPERM
 )
 // END: ofp10 - 5.4.4
 // END: ofp10 - 5.4

@@ -5,7 +5,7 @@ import (
 )
 
 var Applications map[string]Application
-var messageChans map[uint8][]chan ofp10.OfpMsg
+var messageChans map[uint8][]chan ofp10.Msg
 
 type Application interface {
 	InitApplication(args map[string]string)
@@ -13,8 +13,8 @@ type Application interface {
 	Receive()
 }
 
-func SubscribeTo(msg uint8) chan ofp10.OfpMsg {
-	ch := make(chan ofp10.OfpMsg)
+func SubscribeTo(msg uint8) chan ofp10.Msg {
+	ch := make(chan ofp10.Msg)
 	messageChans[msg] = append(messageChans[msg], ch)
 	return ch
 }

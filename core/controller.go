@@ -11,7 +11,7 @@ type OgoController struct { }
 func NewController() *OgoController {
 	o := new(OgoController)
 	Applications = make(map[string]Application)
-	messageChans = make(map[uint8][]chan ofp10.OfpMsg)
+	messageChans = make(map[uint8][]chan ofp10.Msg)
 	Switches = make(map[string]*Switch)
 	// Register ogo core
 	b := new(BasicApplication)
