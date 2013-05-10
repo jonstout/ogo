@@ -100,10 +100,9 @@ func (s *Switch) Send(req ofp10.OfpPacket) (err error) {
 }
 
 func (s *Switch) SendSync() {
-	s.outbound = make(chan ofp10.OfpPacket)
+	s.outbound = make(chan ofp10.OfpPacket, 100)
 	for {
-		msg := <-s.outbound
-		if _, err := s.conn.ReadFrom(msg); err != nil {
+		if _, err := s.conn.ReadFrom(<-s.outbound); err != nil {
 			log.Println("ERROR::Switch.SendSync::ReadFrom:", err)
 			s.conn.Close()
 			break
