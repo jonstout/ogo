@@ -7,11 +7,11 @@ import (
 	"bytes"
 )
 // ofp_match 1.0
-type OfpMatch struct {
+type Match struct {
 	Wildcards uint32 /* Wildcard fields. */
 	InPort uint16 /* Input switch port. */
-	DLSrc net.HardwareAddr//[OFP_ETH_ALEN]uint8 /* Ethernet source address. */
-	DLDst net.HardwareAddr//[OFP_ETH_ALEN]uint8 /* Ethernet destination address. */
+	DLSrc net.HardwareAddr//[ETH_ALEN]uint8 /* Ethernet source address. */
+	DLDst net.HardwareAddr//[ETH_ALEN]uint8 /* Ethernet destination address. */
 	DLVLAN uint16 /* Input VLAN id. */
 	DLVLANPcp uint8 /* Input VLAN priority. */
 	Pad [1]uint8 /* Align to 64-bits */
@@ -25,57 +25,57 @@ type OfpMatch struct {
 	TPDst uint16 /* TCP/UDP destination port. */
 }
 
-func NewMatch() *OfpMatch {
-	m := new(OfpMatch)
+func NewMatch() *Match {
+	m := new(Match)
 	m.Wildcards = 0xffffffff
-	m.DLSrc = make([]byte, OFP_ETH_ALEN)
-	m.DLDst = make([]byte, OFP_ETH_ALEN)
+	m.DLSrc = make([]byte, ETH_ALEN)
+	m.DLDst = make([]byte, ETH_ALEN)
 	m.NWSrc = make([]byte, 4)
 	m.NWDst = make([]byte, 4)
 	return m
 }
 
-func (m *OfpMatch) Len() (n uint16) {
+func (m *Match) Len() (n uint16) {
 	return 40
 }
 
-func (m *OfpMatch) Read(b []byte) (n int, err error) {
+func (m *Match) Read(b []byte) (n int, err error) {
 	// Any non-zero value fields should not be wildcarded.
 	if m.InPort != 0 {
-		m.Wildcards = m.Wildcards ^ OFPFW_IN_PORT
+		m.Wildcards = m.Wildcards ^ FW_IN_PORT
 	}
 	if m.DLSrc.String() != "00:00:00:00:00:00" {
-		m.Wildcards = m.Wildcards ^ OFPFW_DL_SRC
+		m.Wildcards = m.Wildcards ^ FW_DL_SRC
 	}
 	if m.DLDst.String() != "00:00:00:00:00:00" {
-		m.Wildcards = m.Wildcards ^ OFPFW_DL_DST
+		m.Wildcards = m.Wildcards ^ FW_DL_DST
 	}
 	if m.DLVLAN != 0 {
-		m.Wildcards = m.Wildcards ^ OFPFW_DL_VLAN
+		m.Wildcards = m.Wildcards ^ FW_DL_VLAN
 	}
 	if m.DLVLANPcp != 0 {
-		m.Wildcards = m.Wildcards ^ OFPFW_DL_VLAN_PCP
+		m.Wildcards = m.Wildcards ^ FW_DL_VLAN_PCP
 	}
 	if m.DLType != 0 {
-		m.Wildcards = m.Wildcards ^ OFPFW_DL_TYPE
+		m.Wildcards = m.Wildcards ^ FW_DL_TYPE
 	}
 	if m.NWTos != 0 {
-		m.Wildcards = m.Wildcards ^ OFPFW_NW_TOS
+		m.Wildcards = m.Wildcards ^ FW_NW_TOS
 	}
 	if m.NWProto != 0 {
-		m.Wildcards = m.Wildcards ^ OFPFW_NW_PROTO
+		m.Wildcards = m.Wildcards ^ FW_NW_PROTO
 	}
 	if m.NWSrc.String() != "0.0.0.0" {
-		m.Wildcards = m.Wildcards ^ OFPFW_NW_SRC_ALL
+		m.Wildcards = m.Wildcards ^ FW_NW_SRC_ALL
 	}
 	if m.NWDst.String() != "0.0.0.0" {
-		m.Wildcards = m.Wildcards ^ OFPFW_NW_DST_ALL
+		m.Wildcards = m.Wildcards ^ FW_NW_DST_ALL
 	}
 	if m.TPSrc != 0 {
-		m.Wildcards = m.Wildcards ^ OFPFW_TP_SRC
+		m.Wildcards = m.Wildcards ^ FW_TP_SRC
 	}
 	if m.TPDst != 0 {
-		m.Wildcards = m.Wildcards ^ OFPFW_TP_DST
+		m.Wildcards = m.Wildcards ^ FW_TP_DST
 	}
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, m.Wildcards)
@@ -100,7 +100,7 @@ func (m *OfpMatch) Read(b []byte) (n int, err error) {
 	return n, io.EOF
 }
 
-func (m *OfpMatch) Write(b []byte) (n int, err error) {
+func (m *Match) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
 	if err = binary.Read(buf, binary.BigEndian, &m.Wildcards); err != nil {
 		return
@@ -113,11 +113,11 @@ func (m *OfpMatch) Write(b []byte) (n int, err error) {
 	if err = binary.Read(buf, binary.BigEndian, &m.DLSrc); err != nil {
 		return
 	}
-	n += OFP_ETH_ALEN
+	n += ETH_ALEN
 	if err = binary.Read(buf, binary.BigEndian, &m.DLDst); err != nil {
 		return
 	}
-	n += OFP_ETH_ALEN
+	n += ETH_ALEN
 	if err = binary.Read(buf, binary.BigEndian, &m.DLVLAN); err != nil {
 		return
 	}
@@ -167,27 +167,27 @@ func (m *OfpMatch) Write(b []byte) (n int, err error) {
 
 // ofp_flow_wildcards 1.0
 const (
-	OFPFW_IN_PORT = 1 << 0
-	OFPFW_DL_VLAN = 1 << 1
-	OFPFW_DL_SRC = 1 << 2
-	OFPFW_DL_DST = 1 << 3
-	OFPFW_DL_TYPE = 1 << 4
-	OFPFW_NW_PROTO = 1 << 5
-	OFPFW_TP_SRC = 1 << 6
-	OFPFW_TP_DST = 1 << 7
+	FW_IN_PORT = 1 << 0
+	FW_DL_VLAN = 1 << 1
+	FW_DL_SRC = 1 << 2
+	FW_DL_DST = 1 << 3
+	FW_DL_TYPE = 1 << 4
+	FW_NW_PROTO = 1 << 5
+	FW_TP_SRC = 1 << 6
+	FW_TP_DST = 1 << 7
 
-	OFPFW_NW_SRC_SHIFT = 8
-	OFPFW_NW_SRC_BITS = 6
-	OFPFW_NW_SRC_MASK = ((1 << OFPFW_NW_SRC_BITS) - 1) << OFPFW_NW_SRC_SHIFT
-	OFPFW_NW_SRC_ALL = 32 << OFPFW_NW_SRC_SHIFT
+	FW_NW_SRC_SHIFT = 8
+	FW_NW_SRC_BITS = 6
+	FW_NW_SRC_MASK = ((1 << FW_NW_SRC_BITS) - 1) << FW_NW_SRC_SHIFT
+	FW_NW_SRC_ALL = 32 << FW_NW_SRC_SHIFT
 
-	OFPFW_NW_DST_SHIFT = 14
-	OFPFW_NW_DST_BITS = 6
-	OFPFW_NW_DST_MASK = ((1 << OFPFW_NW_DST_BITS) - 1) << OFPFW_NW_DST_SHIFT
-	OFPFW_NW_DST_ALL = 32 << OFPFW_NW_DST_SHIFT
+	FW_NW_DST_SHIFT = 14
+	FW_NW_DST_BITS = 6
+	FW_NW_DST_MASK = ((1 << FW_NW_DST_BITS) - 1) << FW_NW_DST_SHIFT
+	FW_NW_DST_ALL = 32 << FW_NW_DST_SHIFT
 
-	OFPFW_DL_VLAN_PCP = 1 << 20
-	OFPFW_NW_TOS = 1 << 21
+	FW_DL_VLAN_PCP = 1 << 20
+	FW_NW_TOS = 1 << 21
 
-	OFPFW_ALL = ((1 << 22) - 1)
+	FW_ALL = ((1 << 22) - 1)
 )

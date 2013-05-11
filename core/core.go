@@ -6,11 +6,11 @@ import (
 )
 
 type BasicApplication struct {
-	echoRequest chan ofp10.OfpMsg
+	echoRequest chan ofp10.Msg
 }
 
 func (b *BasicApplication) InitApplication(args map[string]string) {
-	b.echoRequest = SubscribeTo(ofp10.OFPT_ECHO_REQUEST)
+	b.echoRequest = SubscribeTo(ofp10.T_ECHO_REQUEST)
 }
 
 func (b *BasicApplication) Name() string {

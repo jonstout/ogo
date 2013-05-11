@@ -7,8 +7,8 @@ import (
 	"encoding/binary"
 )
 
-type OfpSwitchFeatures struct {
-	Header OfpHeader
+type SwitchFeatures struct {
+	Header Header
 	//DPID uint64
 	DPID net.HardwareAddr
 	//DPID [8]uint8
@@ -19,36 +19,36 @@ type OfpSwitchFeatures struct {
 	Capabilities uint32
 	Actions uint32
 
-	Ports []OfpPhyPort
+	Ports []PhyPort
 }
-// OFP_ASSERT(len(OfpSwitchFeatures) == 32)
+// OFP_ASSERT(len(SwitchFeatures) == 32)
 
 // FeaturesRequest constructor
-func NewFeaturesRequest() *OfpHeader {
+func NewFeaturesRequest() *Header {
 	req := NewHeader()
-	req.Type = OFPT_FEATURES_REQUEST
+	req.Type = T_FEATURES_REQUEST
 	return req
 }
 
 // FeaturesReply constructor
-func NewFeaturesReply() *OfpSwitchFeatures {
-	res := new(OfpSwitchFeatures)
-	res.Header.Type = OFPT_FEATURES_REPLY
+func NewFeaturesReply() *SwitchFeatures {
+	res := new(SwitchFeatures)
+	res.Header.Type = T_FEATURES_REPLY
 	return res
 }
 
-func (f *OfpSwitchFeatures) GetHeader() *OfpHeader {
+func (f *SwitchFeatures) GetHeader() *Header {
 	return &f.Header
 }
 
-func (f *OfpSwitchFeatures) Read(b []byte) (n int, err error) {
+func (f *SwitchFeatures) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, f)
 	n, err = buf.Read(b)
 	return
 }
 
-func (f *OfpSwitchFeatures) Write(b []byte) (n int, err error) {
+func (f *SwitchFeatures) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
 	n, err = f.Header.Write(buf.Next(8))
 	if n == 0 {
@@ -86,9 +86,9 @@ func (f *OfpSwitchFeatures) Write(b []byte) (n int, err error) {
 		return n, errors.New("Ports recieved are malformed.")
 	}
 	portCount := buf.Len() / 48
-	f.Ports = make([]OfpPhyPort, portCount)
+	f.Ports = make([]PhyPort, portCount)
 	for i := 0; i < portCount; i++ {
-		p := new(OfpPhyPort)
+		p := new(PhyPort)
 		m, portErr := p.Write(buf.Next(48))
 		if portErr != nil {
 			return n, portErr
@@ -101,12 +101,12 @@ func (f *OfpSwitchFeatures) Write(b []byte) (n int, err error) {
 
 // ofp_capabilities 1.0
 const (
-	OFPC_FLOW_STATS = 1 << 0
-	OFPC_TABLE_STATS = 1 << 1
-	OFPC_PORT_STATS = 1 << 2
-	OFPC_STP = 1 << 3
-	OFPC_RESERVED = 1 << 4
-	OFPC_IP_REASM = 1 << 5
-	OFPC_QUEUE_STATS = 1 << 6
-	OFPC_ARP_MATCH_IP = 1 << 7
+	C_FLOW_STATS = 1 << 0
+	C_TABLE_STATS = 1 << 1
+	C_PORT_STATS = 1 << 2
+	C_STP = 1 << 3
+	C_RESERVED = 1 << 4
+	C_IP_REASM = 1 << 5
+	C_QUEUE_STATS = 1 << 6
+	C_ARP_MATCH_IP = 1 << 7
 )

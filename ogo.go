@@ -8,13 +8,13 @@ import (
 
 // This is a basic learning switch implementation
 type DemoApplication struct {
-	packetIn chan ofp10.OfpMsg
+	packetIn chan ofp10.Msg
 	hostMap map[string]uint16
 }
 
 func (b *DemoApplication) InitApplication(args map[string]string) {
 	// SubscribeTo returns a chan to receive a specific message type.
-	b.packetIn = ogo.SubscribeTo(ofp10.OFPT_PACKET_IN)
+	b.packetIn = ogo.SubscribeTo(ofp10.T_PACKET_IN)
 	// A place to store the source ports of MAC Addresses
 	b.hostMap = make(map[string]uint16)
 }
@@ -28,7 +28,7 @@ func (b *DemoApplication) Receive() {
 	for {
 		select {
 		case m := <-b.packetIn:
-			if pkt, ok := m.Data.(*ofp10.OfpPacketIn); ok {
+			if pkt, ok := m.Data.(*ofp10.PacketIn); ok {
 				// This could be launched in a separate goroutine,
 				// but maps in Go aren't thread safe.
 				b.parsePacketIn(m.DPID, pkt)
@@ -37,7 +37,7 @@ func (b *DemoApplication) Receive() {
 	}
 }
 
-func (b *DemoApplication) parsePacketIn(dpid string, pkt *ofp10.OfpPacketIn) {
+func (b *DemoApplication) parsePacketIn(dpid string, pkt *ofp10.PacketIn) {
 	eth := pkt.Data
 	hwSrc := eth.HWSrc.String()
 	hwDst := eth.HWDst.String()

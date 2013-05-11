@@ -19,9 +19,9 @@ ctrl.RegisterApplication( new(OgoApplication) )
 ```
 
 ## Subscribing to OpenFlow Messages
-Use `ogo.SubscribeTo(ofp10.OFPT_*)` to get an ofp10.OfpMsg chan.
+Use `ogo.SubscribeTo(ofp10.T_*)` to get an ofp10.Msg chan.
 ```
-echoRequestChan := ogo.SubscribeTo(ofp10.OFPT_ECHO_REQUEST)
+echoRequestChan := ogo.SubscribeTo(ofp10.T_ECHO_REQUEST)
 ```
 
 ## Acting on Messages
@@ -32,7 +32,7 @@ for {
     select {
       case msg := <-app.echoRequestChan:
         fmt.Println("Received an EchoRequest message from:", msg.DPID)
-      case msg := <-app.anotherOfpChan:
+      case msg := <-app.anotherChan:
         fmt.Println("Received some other message from:", msg.DPID)
     }
   }
