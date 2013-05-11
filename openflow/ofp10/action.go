@@ -271,7 +271,7 @@ func NewActionDLSrc() *ActionDLAddr {
 	a := new(ActionDLAddr)
 	a.Type = AT_SET_DL_SRC
 	a.Length = 16
-	a.DLAddr = make([]byte, _ETH_ALEN)
+	a.DLAddr = make([]byte, ETH_ALEN)
 	return a
 }
 
@@ -279,7 +279,7 @@ func NewActionDLDst() *ActionDLAddr {
 	a := new(ActionDLAddr)
 	a.Type = AT_SET_DL_DST
 	a.Length = 16
-	a.DLAddr = make([]byte, _ETH_ALEN)
+	a.DLAddr = make([]byte, ETH_ALEN)
 	return a
 }
 
@@ -308,11 +308,11 @@ func (a *ActionDLAddr) Write(b []byte) (n int, err error) {
 		return
 	}
 	n += 2
-	a.DLAddr = make([]byte, _ETH_ALEN)
+	a.DLAddr = make([]byte, ETH_ALEN)
 	if err = binary.Read(buf, binary.BigEndian, &a.DLAddr); err != nil {
 		return
 	}
-	n += _ETH_ALEN
+	n += ETH_ALEN
 	if err = binary.Read(buf, binary.BigEndian, &a.Pad); err != nil {
 		return
 	}

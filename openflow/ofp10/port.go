@@ -9,8 +9,8 @@ import (
 // ofp_phy_port 1.0
 type PhyPort struct {
      PortNo uint16
-     HWAddr [_ETH_ALEN]uint8
-     Name [_MAX_PORT_NAME_LEN]byte
+     HWAddr [ETH_ALEN]uint8
+     Name [MAX_PORT_NAME_LEN]byte
      
      Config uint32
      State uint32
@@ -85,7 +85,7 @@ func (p *PhyPort) Write(b []byte) (n int, err error) {
 type PortMod struct {
 	Header Header
 	PortNo uint16
-	HWAddr [_ETH_ALEN]uint8
+	HWAddr [ETH_ALEN]uint8
 
 	Config uint32
 	Mask uint32
@@ -147,8 +147,8 @@ func (p *PortMod) Write(b []byte) (n int, err error) {
 }
 
 const (
-	_ETH_ALEN = 6
-	_MAX_PORT_NAME_LEN = 16
+	ETH_ALEN = 6
+	MAX_PORT_NAME_LEN = 16
 )
 
 // ofp_port_config 1.0

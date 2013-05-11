@@ -10,8 +10,8 @@ import (
 type Match struct {
 	Wildcards uint32 /* Wildcard fields. */
 	InPort uint16 /* Input switch port. */
-	DLSrc net.HardwareAddr//[_ETH_ALEN]uint8 /* Ethernet source address. */
-	DLDst net.HardwareAddr//[_ETH_ALEN]uint8 /* Ethernet destination address. */
+	DLSrc net.HardwareAddr//[ETH_ALEN]uint8 /* Ethernet source address. */
+	DLDst net.HardwareAddr//[ETH_ALEN]uint8 /* Ethernet destination address. */
 	DLVLAN uint16 /* Input VLAN id. */
 	DLVLANPcp uint8 /* Input VLAN priority. */
 	Pad [1]uint8 /* Align to 64-bits */
@@ -28,8 +28,8 @@ type Match struct {
 func NewMatch() *Match {
 	m := new(Match)
 	m.Wildcards = 0xffffffff
-	m.DLSrc = make([]byte, _ETH_ALEN)
-	m.DLDst = make([]byte, _ETH_ALEN)
+	m.DLSrc = make([]byte, ETH_ALEN)
+	m.DLDst = make([]byte, ETH_ALEN)
 	m.NWSrc = make([]byte, 4)
 	m.NWDst = make([]byte, 4)
 	return m
@@ -113,11 +113,11 @@ func (m *Match) Write(b []byte) (n int, err error) {
 	if err = binary.Read(buf, binary.BigEndian, &m.DLSrc); err != nil {
 		return
 	}
-	n += _ETH_ALEN
+	n += ETH_ALEN
 	if err = binary.Read(buf, binary.BigEndian, &m.DLDst); err != nil {
 		return
 	}
-	n += _ETH_ALEN
+	n += ETH_ALEN
 	if err = binary.Read(buf, binary.BigEndian, &m.DLVLAN); err != nil {
 		return
 	}
