@@ -135,7 +135,7 @@ func (f *FlowMod) Write(b []byte) (n int, err error) {
 	return
 }
 
-// _flow_mod_command 1.0
+// ofp_flow_mod_command 1.0
 const (
       FC_ADD = iota // OFPFC_ADD == 0
       FC_MODIFY
