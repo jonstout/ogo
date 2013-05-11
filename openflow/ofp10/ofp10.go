@@ -72,6 +72,26 @@ func (h *Header) Read(b []byte) (n int, err error) {
 	return n, io.EOF
 }
 
+func (h *Header) ReadFrom(r io.Reader) (n int64, err error) {
+	if err = binary.Read(r, binary.BigEndian, &h.Version); err != nil {
+		return
+	}
+	n += 1
+	if err = binary.Read(r, binary.BigEndian, &h.Type); err != nil {
+		return
+	}
+	n += 1
+	if err = binary.Read(r, binary.BigEndian, &h.Length); err != nil {
+		return
+	}
+	n += 2
+	if err = binary.Read(r, binary.BigEndian, &h.XID); err != nil {
+		return
+	}
+	n += 4
+	return
+}
+
 func (h *Header) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
 	binary.Read(buf, binary.BigEndian, h)
@@ -273,12 +293,12 @@ func (p *PacketIn) ReadFrom(r io.Reader) (n int64, err error) {
 		return
 	}
 	n += 1
-	m := 0
-	//p.Data = pacit.Ethernet{}
+	/*m := 0
+	p.Data = pacit.Ethernet{}
 	if m, err := &p.Data.ReadFrom(r); m == 0 {
 		return m, err
 	}
-	n += m
+	n += m*/
 	return
 }
 

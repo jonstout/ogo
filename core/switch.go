@@ -24,11 +24,13 @@ func NewOpenFlowSwitch(conn *net.TCPConn) {
 	if _, err := conn.ReadFrom(ofp10.NewHello()); err != nil {
 		log.Println("ERROR::Switch.SendSync::ReadFrom:", err)
 		conn.Close()
+		return
 	}
-	buf := make([]byte, 1500)
-	n, _ := conn.Read(buf)
-	res := ofp10.NewHello()
-	res.Write(buf[:n])
+	if _, err := ofp10.NewHello().ReadFrom(conn); err != nil {
+		log.Println("ERROR::Switch.SendSync::ReadFrom:", err)
+		conn.Close()
+		return
+	}
 
 	if _, err := conn.ReadFrom(ofp10.NewFeaturesRequest()); err != nil {
 		log.Println("ERROR::Switch.SendSync::ReadFrom:", err)
@@ -36,7 +38,7 @@ func NewOpenFlowSwitch(conn *net.TCPConn) {
 	}
 	buf2 := make([]byte, 1500)
 	fres := ofp10.NewFeaturesReply()
-	n, _ = conn.Read(buf2)
+	n, _ := conn.Read(buf2)
 	fres.Write(buf2[:n])
 
 	if sw, ok := Switches[fres.DPID.String()]; ok {
@@ -45,7 +47,7 @@ func NewOpenFlowSwitch(conn *net.TCPConn) {
 		go sw.SendSync()
 		go sw.Receive()
 	} else {
-		log.Printf("Openflow 1.%d Connection: %s", res.Version - 1, fres.DPID.String())
+		log.Printf("Openflow 1.%d Connection: %s", fres.Header.Version - 1, fres.DPID.String())
 		s := new(Switch)
 		s.conn = *conn
 		s.DPID = fres.DPID
