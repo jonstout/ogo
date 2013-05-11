@@ -42,6 +42,7 @@ func (p *PhyPort) ReadFrom(r io.Reader) (n int64, err error) {
 		return
 	}
 	n += int64(ETH_ALEN)
+	p.Name = make([]byte, MAX_PORT_NAME_LEN)
 	if err = binary.Read(r, binary.BigEndian, &p.Name); err != nil {
 		return
 	}

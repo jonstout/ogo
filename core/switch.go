@@ -1,9 +1,11 @@
 package ogo
 
 import (
+	//"fmt"
 	"log"
 	"net"
 	"errors"
+	"bufio"
 	"github.com/jonstout/ogo/openflow/ofp10"
 )
 
@@ -98,7 +100,7 @@ func (s *Switch) AllPorts() map[int]ofp10.PhyPort {
 send except io.EOF is returned. */
 func (s *Switch) Send(req ofp10.Packet) (err error) {
 	go func() {
-		s.outbound<- req
+		s.outbound <- req
 	}()
 	return nil
 }
@@ -115,31 +117,40 @@ func (s *Switch) SendSync() {
 
 /* Receive loop for each Switch. */
 func (s *Switch) Receive() {
-	buf := make([]byte, 1500)
+	buf := bufio.NewReader(&s.conn)
 	for {
+		/*
 		if _, err := s.conn.Read(buf); err != nil {
 			log.Println("ERROR::Switch.Receive::Read:", err)
 			DisconnectSwitch(s.DPID.String())
 			break
+		 }*/
+		peek, err := buf.Peek(2)
+		if err != nil {
+			DisconnectSwitch(s.DPID.String())
+			return
 		}
-		switch buf[1] {
+		switch peek[1] {
 		case ofp10.T_HELLO:
-			m := ofp10.Msg{new(ofp10.Header), s.DPID.String()}
-			m.Data.Write(buf)
+			d := new(ofp10.Header)
+			d.ReadFrom(buf)
+			m := ofp10.Msg{d, s.DPID.String()}
 			s.distributeReceived(m)
-		case ofp10.T_ERROR:
+/*		case ofp10.T_ERROR:
 			m := ofp10.Msg{new(ofp10.ErrorMsg), s.DPID.String()}
 			m.Data.Write(buf)
-			s.distributeReceived(m)
+			s.distributeReceived(m)*/
 		case ofp10.T_ECHO_REPLY:
-			m := ofp10.Msg{new(ofp10.Header), s.DPID.String()}
-			m.Data.Write(buf)
+			d := new(ofp10.Header)
+			d.ReadFrom(buf)
+			m := ofp10.Msg{d, s.DPID.String()}
 			s.distributeReceived(m)
 		case ofp10.T_ECHO_REQUEST:
-			m := ofp10.Msg{new(ofp10.Header), s.DPID.String()}
-			m.Data.Write(buf)
+			d := new(ofp10.Header)
+			d.ReadFrom(buf)
+			m := ofp10.Msg{d, s.DPID.String()}
 			s.distributeReceived(m)
-		case ofp10.T_VENDOR:
+		/*case ofp10.T_VENDOR:
 			m := ofp10.Msg{new(ofp10.VendorHeader), s.DPID.String()}
 			m.Data.Write(buf)
 			s.distributeReceived(m)
@@ -150,12 +161,13 @@ func (s *Switch) Receive() {
 		case ofp10.T_GET_CONFIG_REPLY:
 			m := ofp10.Msg{new(ofp10.SwitchConfig), s.DPID.String()}
 			m.Data.Write(buf)
-			s.distributeReceived(m)
+			s.distributeReceived(m)*/
 		case ofp10.T_PACKET_IN:
-			m := ofp10.Msg{new(ofp10.PacketIn), s.DPID.String()}
-			m.Data.Write(buf)
+			d := new(ofp10.PacketIn)
+			d.ReadFrom(buf)
+			m := ofp10.Msg{d, s.DPID.String()}
 			s.distributeReceived(m)
-		case ofp10.T_FLOW_REMOVED:
+		/*case ofp10.T_FLOW_REMOVED:
 			m := ofp10.Msg{new(ofp10.FlowRemoved), s.DPID.String()}
 			m.Data.Write(buf)
 			s.distributeReceived(m)
@@ -170,7 +182,7 @@ func (s *Switch) Receive() {
 		case ofp10.T_BARRIER_REPLY:
 			m := ofp10.Msg{new(ofp10.Header), s.DPID.String()}
 			m.Data.Write(buf)
-			s.distributeReceived(m)
+			s.distributeReceived(m)*/
 		default:
 		}
 	}
