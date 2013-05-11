@@ -1,6 +1,7 @@
 package ofp10
 
 import (
+	"io"
 	"net"
 	"bytes"
 	"errors"
@@ -45,6 +46,47 @@ func (f *SwitchFeatures) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, f)
 	n, err = buf.Read(b)
+	return
+}
+
+func (f *SwitchFeatures) ReadFrom(r io.Reader) (n int64, err error) {
+	if n, err = f.Header.ReadFrom(r); n == 0 {
+		return
+	}
+	f.DPID = make([]byte, 8)
+	if err = binary.Read(r, binary.BigEndian, &f.DPID); err != nil {
+		return
+	}
+	n += 8
+	if err = binary.Read(r, binary.BigEndian, &f.Buffers); err != nil {
+		return
+	}
+	n += 4
+	if err = binary.Read(r, binary.BigEndian, &f.Tables); err != nil {
+		return
+	}
+	n += 1
+	if err = binary.Read(r, binary.BigEndian, &f.Pad); err != nil {
+		return
+	}
+	n += 3
+	if err = binary.Read(r, binary.BigEndian, &f.Capabilities); err != nil {
+		return
+	}
+	n += 4
+	if err = binary.Read(r, binary.BigEndian, &f.Actions); err != nil {
+		return
+	}
+	n += 4
+	f.Ports = make([]PhyPort, (int(f.Header.Length) - 32) / 48)
+	for i := 0; i < (int(f.Header.Length) - 32) / 48; i++ {
+		var p PhyPort
+		if m, err := &p.ReadFrom(r); m == 0 {
+			return m, err
+		}
+		f.Ports[i] = p
+		n += 48
+	}
 	return
 }
 
