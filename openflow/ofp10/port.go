@@ -3,14 +3,15 @@ package ofp10
 import (
 	"io"
 	"bytes"
+	"net"
 	"encoding/binary"
 )
 
 // ofp_phy_port 1.0
 type PhyPort struct {
      PortNo uint16
-     HWAddr [ETH_ALEN]uint8
-     Name [MAX_PORT_NAME_LEN]byte
+     HWAddr net.HardwareAddr
+     Name []byte
      
      Config uint32
      State uint32
@@ -29,6 +30,47 @@ func (p *PhyPort) Read(b []byte) (n int, err error) {
 		return
 	}
 	return n, io.EOF
+}
+
+func (p *PhyPort) ReadFrom(r io.Reader) (n int64, err error) {
+	if err = binary.Read(r, binary.BigEndian, &p.PortNo); err != nil {
+		return
+	}
+	n += 2
+	p.HWAddr = make([]byte, ETH_ALEN)
+	if err = binary.Read(r, binary.BigEndian, &p.HWAddr); err != nil {
+		return
+	}
+	n += int64(ETH_ALEN)
+	if err = binary.Read(r, binary.BigEndian, &p.Name); err != nil {
+		return
+	}
+	n += int64(MAX_PORT_NAME_LEN)
+	if err = binary.Read(r, binary.BigEndian, &p.Config); err != nil {
+		return
+	}
+	n += 4
+	if err = binary.Read(r, binary.BigEndian, &p.State); err != nil {
+		return
+	}
+	n += 4
+	if err = binary.Read(r, binary.BigEndian, &p.Curr); err != nil {
+		return
+	}
+	n += 4
+	if err = binary.Read(r, binary.BigEndian, &p.Advertised); err != nil {
+		return
+	}
+	n += 4
+	if err = binary.Read(r, binary.BigEndian, &p.Supported); err != nil {
+		return
+	}
+	n += 4
+	if err = binary.Read(r, binary.BigEndian, &p.Peer); err != nil {
+		return
+	}
+	n += 4
+	return
 }
 
 func (p *PhyPort) Write(b []byte) (n int, err error) {

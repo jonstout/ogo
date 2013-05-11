@@ -81,8 +81,8 @@ func (f *SwitchFeatures) ReadFrom(r io.Reader) (n int64, err error) {
 	f.Ports = make([]PhyPort, (int(f.Header.Length) - 32) / 48)
 	for i := 0; i < (int(f.Header.Length) - 32) / 48; i++ {
 		var p PhyPort
-		if m, err := &p.ReadFrom(r); m == 0 {
-			return m, err
+		if m, err2 := p.ReadFrom(r); m == 0 {
+			return m, err2
 		}
 		f.Ports[i] = p
 		n += 48

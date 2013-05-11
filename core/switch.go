@@ -27,7 +27,7 @@ func NewOpenFlowSwitch(conn *net.TCPConn) {
 		return
 	}
 	if _, err := ofp10.NewHello().ReadFrom(conn); err != nil {
-		log.Println("ERROR::Switch.SendSync::ReadFrom:", err)
+		log.Println("ERROR::Failed with Hello:", err)
 		conn.Close()
 		return
 	}
@@ -36,24 +36,26 @@ func NewOpenFlowSwitch(conn *net.TCPConn) {
 		log.Println("ERROR::Switch.SendSync::ReadFrom:", err)
 		conn.Close()
 	}
-	buf2 := make([]byte, 1500)
-	fres := ofp10.NewFeaturesReply()
-	n, _ := conn.Read(buf2)
-	fres.Write(buf2[:n])
+	res := ofp10.NewFeaturesReply()
+	if _, err := res.ReadFrom(conn); err != nil {
+		log.Println("ERROR::Failed with FeaturesReply", err)
+		conn.Close()
+	}
 
-	if sw, ok := Switches[fres.DPID.String()]; ok {
+	if sw, ok := Switches[res.DPID.String()]; ok {
 		log.Println("Recovered connection from:", sw.DPID)
 		sw.conn = *conn
 		go sw.SendSync()
 		go sw.Receive()
 	} else {
-		log.Printf("Openflow 1.%d Connection: %s", fres.Header.Version - 1, fres.DPID.String())
+		log.Printf("Openflow 1.%d Connection: %s", res.Header.Version - 1, res.DPID.String())
 		s := new(Switch)
 		s.conn = *conn
-		s.DPID = fres.DPID
+		s.outbound = make(chan ofp10.Packet)
+		s.DPID = res.DPID
 		s.Ports = make(map[int]ofp10.PhyPort)
 		s.requests = make(map[uint32]chan ofp10.Msg)
-		for _, p := range fres.Ports {
+		for _, p := range res.Ports {
 			s.Ports[int(p.PortNo)] = p
 		}
 		go s.SendSync()
@@ -102,7 +104,6 @@ func (s *Switch) Send(req ofp10.Packet) (err error) {
 }
 
 func (s *Switch) SendSync() {
-	s.outbound = make(chan ofp10.Packet)
 	for {
 		if _, err := s.conn.ReadFrom(<-s.outbound); err != nil {
 			log.Println("ERROR::Switch.SendSync::ReadFrom:", err)
