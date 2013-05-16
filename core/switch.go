@@ -1,11 +1,13 @@
 package ogo
 
 import (
-	//"fmt"
 	"log"
 	"net"
+	"time"
 	"errors"
-	"bufio"
+	//"bufio"
+	"io"
+	"bytes"
 	"github.com/jonstout/ogo/openflow/ofp10"
 )
 
@@ -99,9 +101,7 @@ func (s *Switch) AllPorts() map[int]ofp10.PhyPort {
 /* Sends an OpenFlow message to s. Any error encountered during the
 send except io.EOF is returned. */
 func (s *Switch) Send(req ofp10.Packet) (err error) {
-	go func() {
-		s.outbound <- req
-	}()
+	s.outbound <- req
 	return nil
 }
 
@@ -117,89 +117,69 @@ func (s *Switch) SendSync() {
 
 /* Receive loop for each Switch. */
 func (s *Switch) Receive() {
-	buf := bufio.NewReader(&s.conn)
+	//length := uint16(b[2]) << 8 + uint16(b[3])
+	parse := make(chan io.Reader)
+
+	go func(parseBuffer chan io.Reader) {
+		buf := <- parseBuffer
+		if a, ok := buf.(*bytes.Buffer); ok {
+			for {
+				log.Println(a.Len())
+				c := a.Bytes()[:4]
+				for c[1] >= 4 && a.Len() >= (int(c[2]) << 8) + int(c[3]) {
+					switch a.Bytes()[1] {
+					case ofp10.T_PACKET_IN:
+						d := new(ofp10.PacketIn)
+						d.ReadFrom(buf)
+						m := ofp10.Msg{d, s.DPID.String()}
+						s.distributeReceived(m)
+					case ofp10.T_HELLO:
+						d := new(ofp10.Header)
+						d.ReadFrom(buf)
+						m := ofp10.Msg{d, s.DPID.String()}
+						s.distributeReceived(m)
+					case ofp10.T_ECHO_REPLY:
+						d := new(ofp10.Header)
+						d.ReadFrom(buf)
+						m := ofp10.Msg{d, s.DPID.String()}
+						s.distributeReceived(m)
+					case ofp10.T_ECHO_REQUEST:
+						d := new(ofp10.Header)
+						d.ReadFrom(buf)
+						m := ofp10.Msg{d, s.DPID.String()}
+						s.distributeReceived(m)
+					}
+				}
+				a.ReadFrom(<- parseBuffer)
+			}
+		}
+	}(parse)
+
 	for {
-		/*
-		if _, err := s.conn.Read(buf); err != nil {
-			log.Println("ERROR::Switch.Receive::Read:", err)
+		byteSlice := make([]byte, 2500)		
+		if _, err := s.conn.Read(byteSlice); err != nil {
 			DisconnectSwitch(s.DPID.String())
 			break
-		 }*/
-		peek, err := buf.Peek(2)
-		if err != nil {
-			DisconnectSwitch(s.DPID.String())
-			return
 		}
-		switch peek[1] {
-		case ofp10.T_HELLO:
-			d := new(ofp10.Header)
-			d.ReadFrom(buf)
-			m := ofp10.Msg{d, s.DPID.String()}
-			s.distributeReceived(m)
-/*		case ofp10.T_ERROR:
-			m := ofp10.Msg{new(ofp10.ErrorMsg), s.DPID.String()}
-			m.Data.Write(buf)
-			s.distributeReceived(m)*/
-		case ofp10.T_ECHO_REPLY:
-			d := new(ofp10.Header)
-			d.ReadFrom(buf)
-			m := ofp10.Msg{d, s.DPID.String()}
-			s.distributeReceived(m)
-		case ofp10.T_ECHO_REQUEST:
-			d := new(ofp10.Header)
-			d.ReadFrom(buf)
-			m := ofp10.Msg{d, s.DPID.String()}
-			s.distributeReceived(m)
-		/*case ofp10.T_VENDOR:
-			m := ofp10.Msg{new(ofp10.VendorHeader), s.DPID.String()}
-			m.Data.Write(buf)
-			s.distributeReceived(m)
-		case ofp10.T_FEATURES_REPLY:
-			m := ofp10.Msg{new(ofp10.Header), s.DPID.String()}
-			m.Data.Write(buf)
-			s.distributeReceived(m)
-		case ofp10.T_GET_CONFIG_REPLY:
-			m := ofp10.Msg{new(ofp10.SwitchConfig), s.DPID.String()}
-			m.Data.Write(buf)
-			s.distributeReceived(m)*/
-		case ofp10.T_PACKET_IN:
-			d := new(ofp10.PacketIn)
-			d.ReadFrom(buf)
-			m := ofp10.Msg{d, s.DPID.String()}
-			s.distributeReceived(m)
-		/*case ofp10.T_FLOW_REMOVED:
-			m := ofp10.Msg{new(ofp10.FlowRemoved), s.DPID.String()}
-			m.Data.Write(buf)
-			s.distributeReceived(m)
-		case ofp10.T_PORT_STATUS:
-			m := ofp10.Msg{new(ofp10.PortStatus), s.DPID.String()}
-			m.Data.Write(buf)
-			s.distributeReceived(m)
-		case ofp10.T_STATS_REPLY:
-			m := ofp10.Msg{new(ofp10.StatsReply), s.DPID.String()}
-			m.Data.Write(buf)
-			s.distributeReceived(m)
-		case ofp10.T_BARRIER_REPLY:
-			m := ofp10.Msg{new(ofp10.Header), s.DPID.String()}
-			m.Data.Write(buf)
-			s.distributeReceived(m)*/
-		default:
-		}
+		parse <- bytes.NewBuffer(byteSlice)
 	}
+		
 }
 
 func (s *Switch) distributeReceived(p ofp10.Msg) {
 	h := p.Data.GetHeader()
 	if pktChan, ok := s.requests[h.XID]; ok {
-		go func() {
-			pktChan<- p
-			delete(s.requests, h.XID)
-			}()
+		select {
+		case pktChan <- p:
+		case <- time.After(time.Millisecond * 100):
+		}
+		delete(s.requests, h.XID)
 	} else {
 		for _, ch := range messageChans[h.Type] {
-			go func() {
-				ch<- p
-			}()
+			select {
+			case ch <- p:
+			case <- time.After(time.Millisecond * 100):
+			}
 		}
 	}
 }

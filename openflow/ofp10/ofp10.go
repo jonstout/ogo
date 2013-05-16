@@ -294,11 +294,12 @@ func (p *PacketIn) ReadFrom(r io.Reader) (n int64, err error) {
 	}
 	n += 1
 	/*m := 0
-	p.Data = pacit.Ethernet{}
-	if m, err := &p.Data.ReadFrom(r); m == 0 {
+	p.Data = pacit.Ethernet{}*/
+	if m, err := p.Data.ReadFrom(r); m == 0 {
 		return m, err
+	} else {
+		n += m
 	}
-	n += m*/
 	return
 }
 

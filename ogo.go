@@ -1,6 +1,7 @@
 package main
 
 import (
+	//"runtime"
 	"fmt"
 	"github.com/jonstout/ogo/core"
 	"github.com/jonstout/ogo/openflow/ofp10"
@@ -80,6 +81,7 @@ func (b *DemoApplication) parsePacketIn(dpid string, pkt *ofp10.PacketIn) {
 }
 
 func main() {
+	//runtime.GOMAXPROCS(2)
 	fmt.Println("Ogo 2013")
 	ctrl := ogo.NewController()
 	ctrl.RegisterApplication(new(DemoApplication))
