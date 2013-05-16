@@ -126,7 +126,8 @@ func (s *Switch) Receive() {
 			for {
 				log.Println(a.Len())
 				c := a.Bytes()[:4]
-				for c[1] >= 4 && a.Len() >= (int(c[2]) << 8) + int(c[3]) {
+				packetLen := (int(c[2]) << 8) + int(c[3])
+				for c[1] >= 4 && a.Len() >= packetLen {
 					switch a.Bytes()[1] {
 					case ofp10.T_PACKET_IN:
 						d := new(ofp10.PacketIn)
