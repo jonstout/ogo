@@ -124,7 +124,6 @@ func (s *Switch) Receive() {
 		buf := <- parseBuffer
 		if a, ok := buf.(*bytes.Buffer); ok {
 			for {
-				log.Println(a.Len())
 				c := a.Bytes()[:4]
 				packetLen := (int(c[2]) << 8) + int(c[3])
 				for c[1] >= 4 && a.Len() >= packetLen {
