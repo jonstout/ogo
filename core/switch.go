@@ -127,7 +127,6 @@ func (s *Switch) Receive() {
 		offset := 0
 		for {
 			for bufLen >= packetLen {
-				log.Println(bufLen, offset, packetLen)
 				switch buf[offset+1] {
 				case ofp10.T_PACKET_IN:
 					d := new(ofp10.PacketIn)
@@ -164,7 +163,6 @@ func (s *Switch) Receive() {
 				if bufLen < 4 {
 					break
 				}
-				log.Println(buf[offset+2:offset+4])
 				packetLen = int(binary.BigEndian.Uint16(buf[offset+2:offset+4]))
 			}
 			nextBytes := <- parseBuffer
@@ -177,11 +175,12 @@ func (s *Switch) Receive() {
 
 	for {
 		byteSlice := make([]byte, 2500)
-		if _, err := s.conn.Read(byteSlice); err != nil {
+		if n, err := s.conn.Read(byteSlice); err != nil {
 			DisconnectSwitch(s.DPID.String())
 			break
+		} else {
+			parse <- byteSlice[:n]
 		}
-		parse <- byteSlice
 	}
 		
 }
