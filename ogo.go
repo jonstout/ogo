@@ -81,7 +81,7 @@ func (b *DemoApplication) parsePacketIn(dpid string, pkt *ofp10.PacketIn) {
 }
 
 func main() {
-	//runtime.GOMAXPROCS(2)
+	//runtime.GOMAXPROCS(16)
 	fmt.Println("Ogo 2013")
 	ctrl := ogo.NewController()
 	ctrl.RegisterApplication(new(DemoApplication))
