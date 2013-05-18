@@ -118,16 +118,16 @@ func (s *Switch) SendSync() {
 
 /* Receive loop for each Switch. */
 func (s *Switch) Receive() {
-	//length := uint16(b[2]) << 8 + uint16(b[3])
 	parse := make(chan []byte)
 
 	go func(parseBuffer chan []byte) {
 		buf := <- parseBuffer
 		bufLen := len(buf)
+		packetLen := int(binary.BigEndian.Uint16(buf[2:4]))
 		offset := 0
 		for {
-			packetLen := int(binary.BigEndian.Uint16(buf[offset+2:offset+4]))
 			for bufLen >= packetLen {
+				log.Println(bufLen, offset, packetLen)
 				switch buf[offset+1] {
 				case ofp10.T_PACKET_IN:
 					d := new(ofp10.PacketIn)
@@ -157,17 +157,21 @@ func (s *Switch) Receive() {
 					bufLen = bufLen - n
 					m := ofp10.Msg{d, s.DPID.String()}
 					s.distributeReceived(m)
+				default:
+					offset += packetLen
+					bufLen = bufLen - packetLen
 				}
 				if bufLen < 4 {
 					break
 				}
-				//log.Println(bufLen)
+				log.Println(buf[offset+2:offset+4])
 				packetLen = int(binary.BigEndian.Uint16(buf[offset+2:offset+4]))
 			}
 			nextBytes := <- parseBuffer
 			buf = append( append([]byte(nil), buf[offset:]...), nextBytes...)
 			bufLen = len(buf)
 			offset = 0
+			packetLen = int(binary.BigEndian.Uint16(buf[offset+2:offset+4]))
 		}
 	}(parse)
 
