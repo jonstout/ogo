@@ -6,8 +6,9 @@ import (
 	"time"
 	"errors"
 	//"bufio"
-	"io"
-	"bytes"
+	//"io"
+	//"bytes"
+	"encoding/binary"
 	"github.com/jonstout/ogo/openflow/ofp10"
 )
 
@@ -118,50 +119,65 @@ func (s *Switch) SendSync() {
 /* Receive loop for each Switch. */
 func (s *Switch) Receive() {
 	//length := uint16(b[2]) << 8 + uint16(b[3])
-	parse := make(chan io.Reader)
+	parse := make(chan []byte)
 
-	go func(parseBuffer chan io.Reader) {
+	go func(parseBuffer chan []byte) {
 		buf := <- parseBuffer
-		if a, ok := buf.(*bytes.Buffer); ok {
-			for {
-				c := a.Bytes()[:4]
-				packetLen := (int(c[2]) << 8) + int(c[3])
-				for c[1] >= 4 && a.Len() >= packetLen {
-					switch a.Bytes()[1] {
-					case ofp10.T_PACKET_IN:
-						d := new(ofp10.PacketIn)
-						d.ReadFrom(buf)
-						m := ofp10.Msg{d, s.DPID.String()}
-						s.distributeReceived(m)
-					case ofp10.T_HELLO:
-						d := new(ofp10.Header)
-						d.ReadFrom(buf)
-						m := ofp10.Msg{d, s.DPID.String()}
-						s.distributeReceived(m)
-					case ofp10.T_ECHO_REPLY:
-						d := new(ofp10.Header)
-						d.ReadFrom(buf)
-						m := ofp10.Msg{d, s.DPID.String()}
-						s.distributeReceived(m)
-					case ofp10.T_ECHO_REQUEST:
-						d := new(ofp10.Header)
-						d.ReadFrom(buf)
-						m := ofp10.Msg{d, s.DPID.String()}
-						s.distributeReceived(m)
-					}
+		bufLen := len(buf)
+		offset := 0
+		for {
+			packetLen := int(binary.BigEndian.Uint16(buf[offset+2:offset+4]))
+			for bufLen >= packetLen {
+				switch buf[offset+1] {
+				case ofp10.T_PACKET_IN:
+					d := new(ofp10.PacketIn)
+					n, _ := d.Write(buf[offset:offset+packetLen])
+					offset += n
+					bufLen = bufLen - n
+					m := ofp10.Msg{d, s.DPID.String()}
+					s.distributeReceived(m)
+				case ofp10.T_HELLO:
+					d := new(ofp10.Header)
+					n, _ := d.Write(buf[offset:offset+packetLen])
+					offset += n
+					bufLen = bufLen - n
+					m := ofp10.Msg{d, s.DPID.String()}
+					s.distributeReceived(m)
+				case ofp10.T_ECHO_REPLY:
+					d := new(ofp10.Header)
+					n, _ := d.Write(buf[offset:offset+packetLen])
+					offset += n
+					bufLen = bufLen - n
+					m := ofp10.Msg{d, s.DPID.String()}
+					s.distributeReceived(m)
+				case ofp10.T_ECHO_REQUEST:
+					d := new(ofp10.Header)
+					n, _ := d.Write(buf[offset:offset+packetLen])
+					offset += n
+					bufLen = bufLen - n
+					m := ofp10.Msg{d, s.DPID.String()}
+					s.distributeReceived(m)
 				}
-				a.ReadFrom(<- parseBuffer)
+				if bufLen < 4 {
+					break
+				}
+				//log.Println(bufLen)
+				packetLen = int(binary.BigEndian.Uint16(buf[offset+2:offset+4]))
 			}
+			nextBytes := <- parseBuffer
+			buf = append( append([]byte(nil), buf[offset:]...), nextBytes...)
+			bufLen = len(buf)
+			offset = 0
 		}
 	}(parse)
 
 	for {
-		byteSlice := make([]byte, 2500)		
+		byteSlice := make([]byte, 2500)
 		if _, err := s.conn.Read(byteSlice); err != nil {
 			DisconnectSwitch(s.DPID.String())
 			break
 		}
-		parse <- bytes.NewBuffer(byteSlice)
+		parse <- byteSlice
 	}
 		
 }

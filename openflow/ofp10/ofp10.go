@@ -93,9 +93,28 @@ func (h *Header) ReadFrom(r io.Reader) (n int64, err error) {
 }
 
 func (h *Header) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	binary.Read(buf, binary.BigEndian, h)
-	return 8, err
+	//r := bytes.NewBuffer(b)
+	/*if err = binary.Read(r, binary.BigEndian, &h.Version); err != nil {
+		return
+	}*/
+	h.Version = b[0]
+	n += 1
+	/*if err = binary.Read(r, binary.BigEndian, &h.Type); err != nil {
+		return
+	}*/
+	h.Type = b[1]
+	n += 1
+	/*if err = binary.Read(r, binary.BigEndian, &h.Length); err != nil {
+		return
+	}*/
+	h.Length = binary.BigEndian.Uint16(b[2:4])
+	n += 2
+	/*if err = binary.Read(r, binary.BigEndian, &h.XID); err != nil {
+		return
+	}*/
+	h.XID = binary.BigEndian.Uint32(b[4:9])
+	n += 4
+	return n, err
 }
 
 func NewHello() *Header {
@@ -294,12 +313,12 @@ func (p *PacketIn) ReadFrom(r io.Reader) (n int64, err error) {
 	}
 	n += 1
 	/*m := 0
-	p.Data = pacit.Ethernet{}*/
+	p.Data = pacit.Ethernet{}
 	if m, err := p.Data.ReadFrom(r); m == 0 {
 		return m, err
 	} else {
 		n += m
-	}
+	}*/
 	return
 }
 
@@ -326,12 +345,12 @@ func (p *PacketIn) Write(b []byte) (n int, err error) {
 	}
 	n += 1
 	//TODO::Parse Data
-	m := 0
 	p.Data = pacit.Ethernet{}
 	if m, err := p.Data.Write(b[n:]); m == 0 {
 		return m, err
+	} else {
+		n += m
 	}
-	n += m
 	return
 }
 
