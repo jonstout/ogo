@@ -12,6 +12,8 @@ import (
 	"github.com/jonstout/ogo/openflow/ofp10"
 )
 
+// A map from DPIDs to all Switches that have connected since
+// Ogo started.
 var Switches map[string]*Switch
 
 type Switch struct {
@@ -22,35 +24,36 @@ type Switch struct {
 	requests map[uint32]chan ofp10.Msg
 }
 
-/* Builds and populates Switch struct then starts listening
-for OpenFlow messages on conn. */
+// Builds and populates a Switch struct then starts listening
+// for OpenFlow messages on conn
 func NewOpenFlowSwitch(conn *net.TCPConn) {
-
 	if _, err := conn.ReadFrom(ofp10.NewHello()); err != nil {
-		log.Println("ERROR::Switch.SendSync::ReadFrom:", err)
+		log.Println("Could not send initial Hello message", err)
 		conn.Close()
 		return
 	}
 	if _, err := ofp10.NewHello().ReadFrom(conn); err != nil {
-		log.Println("ERROR::Failed with Hello:", err)
+		log.Println("Did not receive Hello message from connection", err)
 		conn.Close()
 		return
 	}
 
 	if _, err := conn.ReadFrom(ofp10.NewFeaturesRequest()); err != nil {
-		log.Println("ERROR::Switch.SendSync::ReadFrom:", err)
+		log.Println("Could not send initial Features Request", err)
 		conn.Close()
+		return
 	}
 	res := ofp10.NewFeaturesReply()
 	if _, err := res.ReadFrom(conn); err != nil {
-		log.Println("ERROR::Failed with FeaturesReply", err)
+		log.Println("Did not receive Features Reply", err)
 		conn.Close()
+		return
 	}
 
 	if sw, ok := Switches[res.DPID.String()]; ok {
 		log.Println("Recovered connection from:", sw.DPID)
 		sw.conn = *conn
-		go sw.SendSync()
+		go sw.sendSync()
 		go sw.Receive()
 	} else {
 		log.Printf("Openflow 1.%d Connection: %s", res.Header.Version - 1, res.DPID.String())
@@ -63,50 +66,49 @@ func NewOpenFlowSwitch(conn *net.TCPConn) {
 		for _, p := range res.Ports {
 			s.Ports[int(p.PortNo)] = p
 		}
-		go s.SendSync()
-		go s.Receive()
 		Switches[s.DPID.String()] = s
+		go s.sendSync()
+		go s.Receive()
 	}
 }
 
-/* Returns a pointer to the Switch found at dpid. */
+// Returns a pointer to the Switch mapped to dpid.
 func GetSwitch(dpid string) (*Switch, bool) {
-	sw, ok := Switches[dpid]
-	if ok != true {
+	if sw, ok := Switches[dpid]; ok {
+		return sw, ok
+	} else {
 		return nil, false
 	}
-	return sw, ok
 }
 
-/* Disconnects Switch found at dpid. */
+// Disconnects Switch mapped to dpid.
 func DisconnectSwitch(dpid string) {
 	log.Printf("Closing connection with: %s", dpid)
 	Switches[dpid].conn.Close()
 	delete(Switches, dpid)
 }
 
-/* Returns OfpPhyPort p from Switch s. */
+// Returns an OfpPhyPort from this Switch
 func (s *Switch) GetPort(portNo int) (*ofp10.PhyPort, error) {
-	port, ok := s.Ports[portNo]
-	if ok != true {
+	if port, ok := s.Ports[portNo]; ok {
+		return &port, nil
+	} else {
 		return nil, errors.New("ERROR::Undefined port number")
 	}
-	return &port, nil
 }
 
-/* Return a map of ints to OfpPhyPorts associated with s. */
+// Returns a map of all the OfpPhyPorts from this Switch
 func (s *Switch) AllPorts() map[int]ofp10.PhyPort {
 	return s.Ports
 }
 
-/* Sends an OpenFlow message to s. Any error encountered during the
-send except io.EOF is returned. */
+// Sends an OpenFlow message to this Switch
 func (s *Switch) Send(req ofp10.Packet) (err error) {
 	s.outbound <- req
 	return nil
 }
 
-func (s *Switch) SendSync() {
+func (s *Switch) sendSync() {
 	for {
 		if _, err := s.conn.ReadFrom(<-s.outbound); err != nil {
 			log.Println("ERROR::Switch.SendSync::ReadFrom:", err)
@@ -119,8 +121,9 @@ func (s *Switch) SendSync() {
 /* Receive loop for each Switch. */
 func (s *Switch) Receive() {
 	parse := make(chan []byte)
+	end := make(chan bool)
 
-	go func(parseBuffer chan []byte) {
+	go func(parseBuffer chan []byte, end chan bool) {
 		buf := <- parseBuffer
 		bufLen := len(buf)
 		packetLen := int(binary.BigEndian.Uint16(buf[2:4]))
@@ -165,24 +168,28 @@ func (s *Switch) Receive() {
 				}
 				packetLen = int(binary.BigEndian.Uint16(buf[offset+2:offset+4]))
 			}
-			nextBytes := <- parseBuffer
-			buf = append( append([]byte(nil), buf[offset:]...), nextBytes...)
-			bufLen = len(buf)
-			offset = 0
-			packetLen = int(binary.BigEndian.Uint16(buf[offset+2:offset+4]))
+			select {
+			case nextBytes := <- parseBuffer:
+				buf = append( append([]byte(nil), buf[offset:]...), nextBytes...)
+				bufLen = len(buf)
+				offset = 0
+				packetLen = int(binary.BigEndian.Uint16(buf[offset+2:offset+4]))
+			case <- end:
+				break
+			}
 		}
-	}(parse)
+	}(parse, end)
 
 	for {
-		byteSlice := make([]byte, 2500)
+		byteSlice := make([]byte, 2048)
 		if n, err := s.conn.Read(byteSlice); err != nil {
 			DisconnectSwitch(s.DPID.String())
+			end <- true
 			break
 		} else {
 			parse <- byteSlice[:n]
 		}
 	}
-		
 }
 
 func (s *Switch) distributeReceived(p ofp10.Msg) {

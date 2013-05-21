@@ -14,7 +14,7 @@ func NewController() *OgoController {
 	messageChans = make(map[uint8][]chan ofp10.Msg)
 	Switches = make(map[string]*Switch)
 	// Register ogo core
-	b := new(BasicApplication)
+	b := new(Core)
 	o.RegisterApplication(b)
 	return o
 }
