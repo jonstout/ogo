@@ -6,6 +6,7 @@
 package ofp10
 
 import (
+	//"fmt"
 	"io"
 	"bytes"
 	"encoding/binary"
@@ -72,10 +73,49 @@ func (h *Header) Read(b []byte) (n int, err error) {
 	return n, io.EOF
 }
 
+func (h *Header) ReadFrom(r io.Reader) (n int64, err error) {
+	if err = binary.Read(r, binary.BigEndian, &h.Version); err != nil {
+		return
+	}
+	n += 1
+	if err = binary.Read(r, binary.BigEndian, &h.Type); err != nil {
+		return
+	}
+	n += 1
+	if err = binary.Read(r, binary.BigEndian, &h.Length); err != nil {
+		return
+	}
+	n += 2
+	if err = binary.Read(r, binary.BigEndian, &h.XID); err != nil {
+		return
+	}
+	n += 4
+	return
+}
+
 func (h *Header) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	binary.Read(buf, binary.BigEndian, h)
-	return 8, err
+	//r := bytes.NewBuffer(b)
+	/*if err = binary.Read(r, binary.BigEndian, &h.Version); err != nil {
+		return
+	}*/
+	h.Version = b[0]
+	n += 1
+	/*if err = binary.Read(r, binary.BigEndian, &h.Type); err != nil {
+		return
+	}*/
+	h.Type = b[1]
+	n += 1
+	/*if err = binary.Read(r, binary.BigEndian, &h.Length); err != nil {
+		return
+	}*/
+	h.Length = binary.BigEndian.Uint16(b[2:4])
+	n += 2
+	/*if err = binary.Read(r, binary.BigEndian, &h.XID); err != nil {
+		return
+	}*/
+	h.XID = binary.BigEndian.Uint32(b[4:8])
+	n += 4
+	return n, err
 }
 
 func NewHello() *Header {
@@ -253,35 +293,69 @@ func (p *PacketIn) Read(b []byte) (n int, err error) {
 	return n, io.EOF
 }
 
+func (p *PacketIn) ReadFrom(r io.Reader) (n int64, err error) {
+	if n, err = p.Header.ReadFrom(r); n == 0 {
+		return
+	}
+	if err = binary.Read(r, binary.BigEndian, &p.BufferID); err != nil {
+		return
+	}
+	n += 4
+	if err = binary.Read(r, binary.BigEndian, &p.TotalLen); err != nil {
+		return
+	}
+	n += 2
+	if err = binary.Read(r, binary.BigEndian, &p.InPort); err != nil {
+		return
+	}
+	n += 2
+	if err = binary.Read(r, binary.BigEndian, &p.Reason); err != nil {
+		return
+	}
+	n += 1
+	/*m := 0
+	p.Data = pacit.Ethernet{}
+	if m, err := p.Data.ReadFrom(r); m == 0 {
+		return m, err
+	} else {
+		n += m
+	}*/
+	return
+}
+
 func (p *PacketIn) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	n, err = p.Header.Write(buf.Next(8))
-	if n == 0 {
+	//buf := bytes.NewBuffer(b)
+	n, err = p.Header.Write(b[:8])
+	/*if n == 0 {
 		return
 	}
 	if err = binary.Read(buf, binary.BigEndian, &p.BufferID); err != nil {
 		return
-	}
+	}*/
+	p.BufferID = binary.BigEndian.Uint32(b[8:12])
 	n += 4
-	if err = binary.Read(buf, binary.BigEndian, &p.TotalLen); err != nil {
+	/*if err = binary.Read(buf, binary.BigEndian, &p.TotalLen); err != nil {
 		return
-	}
+	}*/
+	p.TotalLen = binary.BigEndian.Uint16(b[12:14])
 	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &p.InPort); err != nil {
+	/*if err = binary.Read(buf, binary.BigEndian, &p.InPort); err != nil {
 		return
-	}
+	}*/
+	p.InPort = binary.BigEndian.Uint16(b[14:16])
 	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &p.Reason); err != nil {
+	/*if err = binary.Read(buf, binary.BigEndian, &p.Reason); err != nil {
 		return
-	}
+	}*/
+	p.Reason = b[16]
 	n += 1
 	//TODO::Parse Data
-	m := 0
 	p.Data = pacit.Ethernet{}
 	if m, err := p.Data.Write(b[n:]); m == 0 {
 		return m, err
+	} else {
+		n += m
 	}
-	n += m
 	return
 }
 
