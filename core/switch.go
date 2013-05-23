@@ -8,7 +8,7 @@ import (
 	//"bufio"
 	//"io"
 	//"bytes"
-	"encoding/binary"
+	//"encoding/binary"
 	"github.com/jonstout/ogo/openflow/ofp10"
 )
 
@@ -18,6 +18,7 @@ var Switches map[string]*Switch
 
 type Switch struct {
 	conn net.TCPConn
+	messageStream *MessageStream
 	outbound chan ofp10.Packet
 	DPID net.HardwareAddr
 	Ports map[int]ofp10.PhyPort
@@ -53,6 +54,7 @@ func NewOpenFlowSwitch(conn *net.TCPConn) {
 	if sw, ok := Switches[res.DPID.String()]; ok {
 		log.Println("Recovered connection from:", sw.DPID)
 		sw.conn = *conn
+		sw.messageStream = NewMessageStream(*conn)
 		go sw.sendSync()
 		go sw.Receive()
 	} else {
@@ -66,6 +68,7 @@ func NewOpenFlowSwitch(conn *net.TCPConn) {
 		for _, p := range res.Ports {
 			s.Ports[int(p.PortNo)] = p
 		}
+		s.messageStream = NewMessageStream(*conn)
 		Switches[s.DPID.String()] = s
 		go s.sendSync()
 		go s.Receive()
@@ -111,8 +114,9 @@ func (s *Switch) Send(req ofp10.Packet) (err error) {
 func (s *Switch) sendSync() {
 	for {
 		if _, err := s.conn.ReadFrom(<-s.outbound); err != nil {
-			log.Println("ERROR::Switch.SendSync::ReadFrom:", err)
+			log.Println("Closing connection from", s.DPID)
 			s.conn.Close()
+			s.messageStream.Close()
 			break
 		}
 	}
@@ -120,75 +124,8 @@ func (s *Switch) sendSync() {
 
 /* Receive loop for each Switch. */
 func (s *Switch) Receive() {
-	parse := make(chan []byte)
-	end := make(chan bool)
-
-	go func(parseBuffer chan []byte, end chan bool) {
-		buf := <- parseBuffer
-		bufLen := len(buf)
-		packetLen := int(binary.BigEndian.Uint16(buf[2:4]))
-		offset := 0
-		for {
-			for bufLen >= packetLen {
-				switch buf[offset+1] {
-				case ofp10.T_PACKET_IN:
-					d := new(ofp10.PacketIn)
-					n, _ := d.Write(buf[offset:offset+packetLen])
-					offset += n
-					bufLen = bufLen - n
-					m := ofp10.Msg{d, s.DPID.String()}
-					s.distributeReceived(m)
-				case ofp10.T_HELLO:
-					d := new(ofp10.Header)
-					n, _ := d.Write(buf[offset:offset+packetLen])
-					offset += n
-					bufLen = bufLen - n
-					m := ofp10.Msg{d, s.DPID.String()}
-					s.distributeReceived(m)
-				case ofp10.T_ECHO_REPLY:
-					d := new(ofp10.Header)
-					n, _ := d.Write(buf[offset:offset+packetLen])
-					offset += n
-					bufLen = bufLen - n
-					m := ofp10.Msg{d, s.DPID.String()}
-					s.distributeReceived(m)
-				case ofp10.T_ECHO_REQUEST:
-					d := new(ofp10.Header)
-					n, _ := d.Write(buf[offset:offset+packetLen])
-					offset += n
-					bufLen = bufLen - n
-					m := ofp10.Msg{d, s.DPID.String()}
-					s.distributeReceived(m)
-				default:
-					offset += packetLen
-					bufLen = bufLen - packetLen
-				}
-				if bufLen < 4 {
-					break
-				}
-				packetLen = int(binary.BigEndian.Uint16(buf[offset+2:offset+4]))
-			}
-			select {
-			case nextBytes := <- parseBuffer:
-				buf = append( append([]byte(nil), buf[offset:]...), nextBytes...)
-				bufLen = len(buf)
-				offset = 0
-				packetLen = int(binary.BigEndian.Uint16(buf[offset+2:offset+4]))
-			case <- end:
-				break
-			}
-		}
-	}(parse, end)
-
-	for {
-		byteSlice := make([]byte, 2048)
-		if n, err := s.conn.Read(byteSlice); err != nil {
-			DisconnectSwitch(s.DPID.String())
-			end <- true
-			break
-		} else {
-			parse <- byteSlice[:n]
-		}
+	for p := range s.messageStream.Updates() {
+		s.distributeReceived( ofp10.Msg{p, s.DPID.String()} )
 	}
 }
 
