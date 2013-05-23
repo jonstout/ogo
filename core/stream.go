@@ -94,6 +94,30 @@ func (m *MessageStream) parse(buf []byte) {
 	case ofp10.T_ECHO_REQUEST:
 		d = new(ofp10.Header)
 		d.Write(buf)
+	case ofp10.T_ERROR:
+		d = new(ofp10.ErrorMsg)
+		d.Write(buf)
+	case ofp10.T_VENDOR:
+		d = new(ofp10.VendorHeader)
+		d.Write(buf)
+	case ofp10.T_FEATURES_REPLY:
+		d = new(ofp10.Header)
+		d.Write(buf)
+	case ofp10.T_GET_CONFIG_REPLY:
+		d = new(ofp10.SwitchConfig)
+		d.Write(buf)
+	case ofp10.T_FLOW_REMOVED:
+		d = new(ofp10.FlowRemoved)
+		d.Write(buf)
+	case ofp10.T_PORT_STATUS:
+		d = new(ofp10.PortStatus)
+		d.Write(buf)
+	case ofp10.T_STATS_REPLY:
+		d = new(ofp10.StatsReply)
+		d.Write(buf)
+	case ofp10.T_BARRIER_REPLY:
+		d = new(ofp10.Header)
+		d.Write(buf)
 	default:
 		// Unrecognized packet do nothing
 	}
