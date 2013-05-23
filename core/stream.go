@@ -17,6 +17,8 @@ type MessageStream struct {
 	parsedMessage chan ofp10.Packet
 }
 
+// Returns a pointer to a new MessageStream. Used to parse
+// OpenFlow messages from conn.
 func NewMessageStream(conn net.TCPConn) *MessageStream {
 	m := &MessageStream{conn,
 		make(chan error),
@@ -27,10 +29,14 @@ func NewMessageStream(conn net.TCPConn) *MessageStream {
 	return m
 }
 
+// Closes the chan returned by m.Updates() and cleans up
+// underlying processes.
 func (m *MessageStream) Close() {
 	m.errorMessage <- errors.New("Stream closed by external process")
 }
 
+// Returns a chan that can be used with range to receive a
+// a stream of of type ofp10.Packet.
 func (m *MessageStream) Updates() <- chan ofp10.Packet {
 	return m.newMessages
 }
