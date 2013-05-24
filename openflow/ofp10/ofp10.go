@@ -1,8 +1,10 @@
-/************************************
- * Jonathan M. Stout 2012
- * ofp10.go
- * OpenFlow 1.0
- ***********************************/
+// OpenFlow Wire Protocol 0x01
+// Package ofp10 provides OpenFlow 1.0 structs along with Read
+// and Write methods for each.
+//
+// Struct documentation is taken from the OpenFlow Switch
+// Specification Version 1.0.0.
+// https://www.opennetworking.org/images/stories/downloads/sdn-resources/onf-specifications/openflow/openflow-spec-v1.0.0.pdf
 package ofp10
 
 import (
@@ -18,11 +20,13 @@ type Packetish interface {
 	Len() (n uint16)
 }
 
+// Packet is any OpenFlow packet that includes a header.
 type Packet interface {
 	io.ReadWriter
 	GetHeader() *Header
 }
 
+// Msg is any Packet with its originating DPID.
 type Msg struct {
 	Data Packet
 	DPID string
@@ -32,6 +36,14 @@ const (
 	VERSION = 1
 )
 
+// The version specifies the OpenFlow protocol version being
+// used. During the current draft phase of the OpenFlow
+// Protocol, the most significant bit will be set to indicate an
+// experimental version and the lower bits will indicate a
+// revision number. The current version is 0x01. The final
+// version for a Type 0 switch will be 0x00. The length field
+// indicates the total length of the message, so no additional
+// framing is used to distinguish one frame from the next.
 type Header struct {
 	Version uint8
 	Type uint8
