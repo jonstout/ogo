@@ -195,8 +195,13 @@ const (
 	T_QUEUE_GET_CONFIG_REPLY
 )
 
-// BEGIN: ofp10 - 5.3.6
-// ofp_packet_out 1.0
+// When the controller wishes to send a packet out through the
+// datapath, it uses the OFPT_PACKET_OUT message: The buffer_id
+// is the same given in the ofp_packet_in message. If the
+// buffer_id is -1, then the packet data is included in the data
+// array. If OFPP_TABLE is specified as the output port of an
+// action, the in_port in the packet_out message is used in the
+// flow table lookup.
 type PacketOut struct {
 	Header Header
 	BufferID uint32
