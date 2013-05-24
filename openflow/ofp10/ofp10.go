@@ -136,12 +136,20 @@ func NewHello() *Header {
 	return h
 }
 
+// Echo request/reply messages can be sent from either the
+// switch or the controller, and must return an echo reply. They
+// can be used to indicate the latency, bandwidth, and/or
+// liveness of a controller-switch connection.
 func NewEchoRequest() *Header {
 	h := NewHeader()
 	h.Type = T_ECHO_REQUEST
 	return h
 }
 
+// Echo request/reply messages can be sent from either the
+// switch or the controller, and must return an echo reply. They
+// can be used to indicate the latency, bandwidth, and/or
+// liveness of a controller-switch connection.
 func NewEchoReply() *Header {
 	h := NewHeader()
 	h.Type = T_ECHO_REPLY
