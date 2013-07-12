@@ -65,7 +65,7 @@ func (b *DemoApplication) parsePacketIn(dpid string, pkt *ofp10.PacketIn) {
 		m2.DLDst = eth.HWSrc
 		f2.Match = *m2
 		f2.IdleTimeout = 3
-		if s, ok := core.GetSwitch(dpid); ok {
+		if s, ok := core.Switch(dpid); ok {
 			s.Send(f1)
 			s.Send(f2)
 		}
@@ -74,7 +74,7 @@ func (b *DemoApplication) parsePacketIn(dpid string, pkt *ofp10.PacketIn) {
 		pktOut := ofp10.NewPacketOut()
 		pktOut.Actions = append(pktOut.Actions, ofp10.NewActionOutput())
 		pktOut.Data = &pkt.Data
-		if s, ok := core.GetSwitch(dpid); ok {
+		if s, ok := core.Switch(dpid); ok {
 			s.Send(pktOut)
 		}
 	}

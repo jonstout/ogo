@@ -31,7 +31,7 @@ func (b *Core) Receive() {
 }
 
 func (b *Core) SendEchoReply(dpid string) {
-	if s, ok := GetSwitch(dpid); ok {
+	if s, ok := Switch(dpid); ok {
 		<-time.After(time.Second * 3)
 		res := ofp10.NewEchoReply()
 		s.Send(res)
@@ -39,6 +39,6 @@ func (b *Core) SendEchoReply(dpid string) {
 }
 
 func (b *Core) UpdatePortStatus(msg ofp10.Msg) {
-	if _, ok := GetSwitch(msg.DPID); ok {		
+	if _, ok := Switch(msg.DPID); ok {		
 	}
 }

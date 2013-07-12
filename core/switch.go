@@ -14,9 +14,9 @@ import (
 
 // A map from DPIDs to all Switches that have connected since
 // Ogo started.
-var Switches map[string]*Switch
+var Switches map[string]*OFPSwitch
 
-type Switch struct {
+type OFPSwitch struct {
 	conn net.TCPConn
 	messageStream *MessageStream
 	outbound chan ofp10.Packet
@@ -59,7 +59,7 @@ func NewOpenFlowSwitch(conn *net.TCPConn) {
 		go sw.Receive()
 	} else {
 		log.Printf("Openflow 1.%d Connection: %s", res.Header.Version - 1, res.DPID.String())
-		s := new(Switch)
+		s := new(OFPSwitch)
 		s.conn = *conn
 		s.outbound = make(chan ofp10.Packet)
 		s.DPID = res.DPID
@@ -76,7 +76,7 @@ func NewOpenFlowSwitch(conn *net.TCPConn) {
 }
 
 // Returns a pointer to the Switch mapped to dpid.
-func GetSwitch(dpid string) (*Switch, bool) {
+func Switch(dpid string) (*OFPSwitch, bool) {
 	if sw, ok := Switches[dpid]; ok {
 		return sw, ok
 	} else {
@@ -92,7 +92,7 @@ func DisconnectSwitch(dpid string) {
 }
 
 // Returns an OfpPhyPort from this Switch
-func (s *Switch) GetPort(portNo int) (*ofp10.PhyPort, error) {
+func (s *OFPSwitch) GetPort(portNo int) (*ofp10.PhyPort, error) {
 	if port, ok := s.Ports[portNo]; ok {
 		return &port, nil
 	} else {
@@ -101,17 +101,17 @@ func (s *Switch) GetPort(portNo int) (*ofp10.PhyPort, error) {
 }
 
 // Returns a map of all the OfpPhyPorts from this Switch
-func (s *Switch) AllPorts() map[int]ofp10.PhyPort {
+func (s *OFPSwitch) AllPorts() map[int]ofp10.PhyPort {
 	return s.Ports
 }
 
 // Sends an OpenFlow message to this Switch
-func (s *Switch) Send(req ofp10.Packet) (err error) {
+func (s *OFPSwitch) Send(req ofp10.Packet) (err error) {
 	s.outbound <- req
 	return nil
 }
 
-func (s *Switch) sendSync() {
+func (s *OFPSwitch) sendSync() {
 	for {
 		if _, err := s.conn.ReadFrom(<-s.outbound); err != nil {
 			log.Println("Closing connection from", s.DPID)
@@ -123,13 +123,13 @@ func (s *Switch) sendSync() {
 }
 
 /* Receive loop for each Switch. */
-func (s *Switch) Receive() {
+func (s *OFPSwitch) Receive() {
 	for p := range s.messageStream.Updates() {
 		s.distributeReceived( ofp10.Msg{p, s.DPID.String()} )
 	}
 }
 
-func (s *Switch) distributeReceived(p ofp10.Msg) {
+func (s *OFPSwitch) distributeReceived(p ofp10.Msg) {
 	h := p.Data.GetHeader()
 	if pktChan, ok := s.requests[h.XID]; ok {
 		select {
@@ -150,7 +150,7 @@ func (s *Switch) distributeReceived(p ofp10.Msg) {
 /* Sends an OpenFlow message to s, and returns a channel to receive 
 a response on. Any error encountered during the send except io.EOF
 is returned. */
-func (s *Switch) SendAndReceive(req ofp10.Packet) (p chan ofp10.Msg, err error) {
+func (s *OFPSwitch) SendAndReceive(req ofp10.Packet) (p chan ofp10.Msg, err error) {
 	p = make(chan ofp10.Msg)
 	s.requests[req.GetHeader().XID] = p
 	err = s.Send(req)
