@@ -44,7 +44,8 @@ Ogo plans to do the heavy lifting to make building network applications easy.
 
 ### Working with OpenFlow Switches
 ```
-/* If switch dpid is known, returns its OFPSwitch struct. The switch is not guaranteed to be connected to Ogo. */
+/* If switch dpid is known, returns its OFPSwitch struct. The
+switch is not guaranteed to be connected to Ogo. */
 core.Switch(dpid string) (sw OFPSwitch)
 
 /* Return an array of all known switches as OFPSwitch structs. */
