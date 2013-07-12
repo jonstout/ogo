@@ -14,7 +14,7 @@ import (
 
 // A map from DPIDs to all Switches that have connected since
 // Ogo started.
-var Switches map[string]*OFPSwitch
+var switches map[string]*OFPSwitch
 
 type OFPSwitch struct {
 	conn net.TCPConn
@@ -51,7 +51,7 @@ func NewOpenFlowSwitch(conn *net.TCPConn) {
 		return
 	}
 
-	if sw, ok := Switches[res.DPID.String()]; ok {
+	if sw, ok := switches[res.DPID.String()]; ok {
 		log.Println("Recovered connection from:", sw.DPID)
 		sw.conn = *conn
 		sw.messageStream = NewMessageStream(*conn)
@@ -69,7 +69,7 @@ func NewOpenFlowSwitch(conn *net.TCPConn) {
 			s.Ports[int(p.PortNo)] = p
 		}
 		s.messageStream = NewMessageStream(*conn)
-		Switches[s.DPID.String()] = s
+		switches[s.DPID.String()] = s
 		go s.sendSync()
 		go s.Receive()
 	}
@@ -77,7 +77,7 @@ func NewOpenFlowSwitch(conn *net.TCPConn) {
 
 // Returns a pointer to the Switch mapped to dpid.
 func Switch(dpid string) (*OFPSwitch, bool) {
-	if sw, ok := Switches[dpid]; ok {
+	if sw, ok := switches[dpid]; ok {
 		return sw, ok
 	} else {
 		return nil, false
@@ -87,8 +87,8 @@ func Switch(dpid string) (*OFPSwitch, bool) {
 // Disconnects Switch mapped to dpid.
 func DisconnectSwitch(dpid string) {
 	log.Printf("Closing connection with: %s", dpid)
-	Switches[dpid].conn.Close()
-	delete(Switches, dpid)
+	switches[dpid].conn.Close()
+	delete(switches, dpid)
 }
 
 // Returns an OfpPhyPort from this Switch
