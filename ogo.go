@@ -15,7 +15,7 @@ type DemoApplication struct {
 
 func (b *DemoApplication) InitApplication(args map[string]string) {
 	// SubscribeTo returns a chan to receive a specific message type.
-	b.packetIn = ogo.SubscribeTo(ofp10.T_PACKET_IN)
+	b.packetIn = core.SubscribeTo(ofp10.T_PACKET_IN)
 	// A place to store the source ports of MAC Addresses
 	b.hostMap = make(map[string]uint16)
 }
@@ -65,7 +65,7 @@ func (b *DemoApplication) parsePacketIn(dpid string, pkt *ofp10.PacketIn) {
 		m2.DLDst = eth.HWSrc
 		f2.Match = *m2
 		f2.IdleTimeout = 3
-		if s, ok := ogo.GetSwitch(dpid); ok {
+		if s, ok := core.GetSwitch(dpid); ok {
 			s.Send(f1)
 			s.Send(f2)
 		}
@@ -74,7 +74,7 @@ func (b *DemoApplication) parsePacketIn(dpid string, pkt *ofp10.PacketIn) {
 		pktOut := ofp10.NewPacketOut()
 		pktOut.Actions = append(pktOut.Actions, ofp10.NewActionOutput())
 		pktOut.Data = &pkt.Data
-		if s, ok := ogo.GetSwitch(dpid); ok {
+		if s, ok := core.GetSwitch(dpid); ok {
 			s.Send(pktOut)
 		}
 	}
@@ -83,7 +83,7 @@ func (b *DemoApplication) parsePacketIn(dpid string, pkt *ofp10.PacketIn) {
 func main() {
 	//runtime.GOMAXPROCS(16)
 	fmt.Println("Ogo 2013")
-	ctrl := ogo.NewController()
+	ctrl := core.NewController()
 	ctrl.RegisterApplication(new(DemoApplication))
 	ctrl.Start(":6633")
 }

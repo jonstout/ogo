@@ -1,4 +1,4 @@
-package ogo
+package core
 
 import (
 	"time"
