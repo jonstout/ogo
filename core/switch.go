@@ -12,8 +12,8 @@ import (
 	"github.com/jonstout/ogo/openflow/ofp10"
 )
 
-// A map from DPIDs to all Switches that have connected since
-// Ogo started.
+/* A map from DPIDs to all Switches that have connected since
+Ogo started. */
 var switches map[string]*OFPSwitch
 
 type OFPSwitch struct {
@@ -25,8 +25,8 @@ type OFPSwitch struct {
 	requests map[uint32]chan ofp10.Msg
 }
 
-// Builds and populates a Switch struct then starts listening
-// for OpenFlow messages on conn
+/* Builds and populates a Switch struct then starts listening
+for OpenFlow messages on conn. */
 func NewOpenFlowSwitch(conn *net.TCPConn) {
 	if _, err := conn.ReadFrom(ofp10.NewHello()); err != nil {
 		log.Println("Could not send initial Hello message", err)
@@ -75,7 +75,7 @@ func NewOpenFlowSwitch(conn *net.TCPConn) {
 	}
 }
 
-// Returns a pointer to the Switch mapped to dpid.
+/* Returns a pointer to the Switch mapped to dpid. */
 func Switch(dpid string) (*OFPSwitch, bool) {
 	if sw, ok := switches[dpid]; ok {
 		return sw, ok
@@ -84,15 +84,15 @@ func Switch(dpid string) (*OFPSwitch, bool) {
 	}
 }
 
-// Disconnects Switch mapped to dpid.
+/* Disconnects Switch mapped to dpid. */
 func DisconnectSwitch(dpid string) {
 	log.Printf("Closing connection with: %s", dpid)
 	switches[dpid].conn.Close()
 	delete(switches, dpid)
 }
 
-// Returns an OfpPhyPort from this Switch
-func (s *OFPSwitch) GetPort(portNo int) (*ofp10.PhyPort, error) {
+/* Returns a pointer to portNo OfpPhyPort from this Switch. */
+func (s *OFPSwitch) Port(portNo int) (*ofp10.PhyPort, error) {
 	if port, ok := s.Ports[portNo]; ok {
 		return &port, nil
 	} else {
@@ -100,12 +100,12 @@ func (s *OFPSwitch) GetPort(portNo int) (*ofp10.PhyPort, error) {
 	}
 }
 
-// Returns a map of all the OfpPhyPorts from this Switch
+/* Returns a map of all the OfpPhyPorts from this Switch. */
 func (s *OFPSwitch) AllPorts() map[int]ofp10.PhyPort {
 	return s.Ports
 }
 
-// Sends an OpenFlow message to this Switch
+/* Sends an OpenFlow message to this Switch. */
 func (s *OFPSwitch) Send(req ofp10.Packet) (err error) {
 	s.outbound <- req
 	return nil
