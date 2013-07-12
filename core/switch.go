@@ -27,7 +27,7 @@ type OFPSwitch struct {
 
 /* Builds and populates a Switch struct then starts listening
 for OpenFlow messages on conn. */
-func NewOpenFlowSwitch(conn *net.TCPConn) {
+func NewOFPSwitch(conn *net.TCPConn) {
 	if _, err := conn.ReadFrom(ofp10.NewHello()); err != nil {
 		log.Println("Could not send initial Hello message", err)
 		conn.Close()

@@ -31,7 +31,7 @@ func (o *OgoController) Start(port string) {
 		if err != nil {
 			log.Println(err)
 		}
-		go NewOpenFlowSwitch(conn)
+		go NewOFPSwitch(conn)
 	}
 }
 
