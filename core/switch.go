@@ -22,6 +22,7 @@ type OFPSwitch struct {
 	outbound chan ofp10.Packet
 	DPID net.HardwareAddr
 	Ports map[int]ofp10.PhyPort
+	Links map[string]PhyLink
 	requests map[uint32]chan ofp10.Msg
 }
 
@@ -64,6 +65,7 @@ func NewOFPSwitch(conn *net.TCPConn) {
 		s.outbound = make(chan ofp10.Packet)
 		s.DPID = res.DPID
 		s.Ports = make(map[int]ofp10.PhyPort)
+		s.Links = make(map[string]PhyLink)
 		s.requests = make(map[uint32]chan ofp10.Msg)
 		for _, p := range res.Ports {
 			s.Ports[int(p.PortNo)] = p
