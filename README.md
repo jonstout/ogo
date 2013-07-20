@@ -1,7 +1,7 @@
 # Ogo
 An OpenFlow Network Controller in Go
 
-## [Documentation](http://godoc.org/github.com/jonstout/ogo)
+### [Documentation](http://godoc.org/github.com/jonstout/ogo)
 
 ## The Basic Application
 All applications must implement the ogo.Application interface.
