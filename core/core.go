@@ -1,23 +1,31 @@
 package core
 
 import (
+	"log"
 	"time"
+	"github.com/jonstout/pacit"
 	"github.com/jonstout/ogo/openflow/ofp10"
 )
+
 
 type Core struct {
 	echoRequest chan ofp10.Msg
 	portStatus chan ofp10.Msg
+	packetIn chan ofp10.Msg
 }
+
 
 func (b *Core) InitApplication(args map[string]string) {
 	b.echoRequest = SubscribeTo(ofp10.T_ECHO_REQUEST)
 	b.portStatus = SubscribeTo(ofp10.T_PORT_STATUS)
+	b.packetIn = SubscribeTo(ofp10.T_PACKET_IN)
 }
+
 
 func (b *Core) Name() string {
 	return "Core"
 }
+
 
 func (b *Core) Receive() {
 	for {
@@ -26,9 +34,22 @@ func (b *Core) Receive() {
 			go b.SendEchoReply(m.DPID)
 		case m := <-b.portStatus:
 			go b.UpdatePortStatus(m)
+		case m := <-b.packetIn:
+			if pkt, ok := m.Data.(*ofp10.PacketIn); ok {
+				b.handlePacketIn(m.DPID, pkt)
+			}
 		}
 	}
 }
+
+
+func (b *Core) handlePacketIn(dpid string, msg *ofp10.PacketIn) {
+	eth := msg.Data
+	if buf, ok := eth.Data.(*pacit.PacitBuffer); ok {
+		log.Println(buf.String())
+	}
+}
+
 
 func (b *Core) SendEchoReply(dpid string) {
 	if s, ok := Switch(dpid); ok {
@@ -37,6 +58,7 @@ func (b *Core) SendEchoReply(dpid string) {
 		s.Send(res)
 	}
 }
+
 
 func (b *Core) UpdatePortStatus(msg ofp10.Msg) {
 	if _, ok := Switch(msg.DPID); ok {		
