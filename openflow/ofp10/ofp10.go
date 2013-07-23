@@ -217,10 +217,15 @@ func NewPacketOut() *PacketOut {
 	//p.Header.Length = 71
 	p.Header.Type = T_PACKET_OUT
 	p.BufferID = 0xffffffff
-	p.InPort = 0
-	//p.ActionsLen = 8
+	p.InPort = P_CONTROLLER
+	p.ActionsLen = 0
 	p.Actions = make([]Packetish,0)
 	return p
+}
+
+func (p *PacketOut) AddAction(act Action) {
+	p.Actions = append(p.Actions, act)
+	p.ActionsLen += act.Len()
 }
 
 func (p *PacketOut) GetHeader() *Header {

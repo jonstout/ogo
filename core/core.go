@@ -38,6 +38,23 @@ func (b *Core) Receive() {
 			if pkt, ok := m.Data.(*ofp10.PacketIn); ok {
 				b.handlePacketIn(m.DPID, pkt)
 			}
+		case <- time.After(time.Second * 1):
+			go b.discoverLinks()
+		}
+	}
+}
+
+
+func (b *Core) discoverLinks() {
+	for _, sw := range Switches() {
+		pkt := ofp10.NewPacketOut()
+		act := ofp10.NewActionOutput(ofp10.P_ALL)
+		pkt.AddAction(act)
+		if data, err := NewListDiscovery(sw.DPID.String()); err != nil {
+			log.Println(err)
+		} else {
+			pkt.Data = data
+			sw.Send(pkt)
 		}
 	}
 }
@@ -45,6 +62,7 @@ func (b *Core) Receive() {
 
 func (b *Core) handlePacketIn(dpid string, msg *ofp10.PacketIn) {
 	eth := msg.Data
+	log.Println("Handling packet ins!")
 	if buf, ok := eth.Data.(*pacit.PacitBuffer); ok {
 		log.Println(buf.String())
 	}

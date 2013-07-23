@@ -77,7 +77,7 @@ func NewOFPSwitch(conn *net.TCPConn) {
 	}
 }
 
-/* Returns a pointer to the Switch mapped to dpid. */
+// Returns a pointer to the Switch mapped to dpid.
 func Switch(dpid string) (*OFPSwitch, bool) {
 	if sw, ok := switches[dpid]; ok {
 		return sw, ok
@@ -86,14 +86,18 @@ func Switch(dpid string) (*OFPSwitch, bool) {
 	}
 }
 
-/* Disconnects Switch mapped to dpid. */
+func Switches() map[string]*OFPSwitch {
+	return switches
+}
+
+// Disconnects Switch mapped to dpid.
 func DisconnectSwitch(dpid string) {
 	log.Printf("Closing connection with: %s", dpid)
 	switches[dpid].conn.Close()
 	delete(switches, dpid)
 }
 
-/* Returns a pointer to portNo OfpPhyPort from this Switch. */
+// Returns a pointer to portNo OfpPhyPort from this Switch.
 func (s *OFPSwitch) Port(portNo int) (*ofp10.PhyPort, error) {
 	if port, ok := s.Ports[portNo]; ok {
 		return &port, nil
@@ -102,7 +106,7 @@ func (s *OFPSwitch) Port(portNo int) (*ofp10.PhyPort, error) {
 	}
 }
 
-/* Returns a map of all the OfpPhyPorts from this Switch. */
+// Returns a map of all the OfpPhyPorts from this Switch.
 func (s *OFPSwitch) AllPorts() map[int]ofp10.PhyPort {
 	return s.Ports
 }
