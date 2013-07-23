@@ -207,7 +207,7 @@ type PacketOut struct {
 	BufferID uint32
 	InPort uint16
 	ActionsLen uint16
-	Actions []Packetish//Header
+	Actions []Action
 	Data Packetish
 }
 
@@ -219,7 +219,7 @@ func NewPacketOut() *PacketOut {
 	p.BufferID = 0xffffffff
 	p.InPort = P_CONTROLLER
 	p.ActionsLen = 0
-	p.Actions = make([]Packetish,0)
+	p.Actions = make([]Action,0)
 	return p
 }
 
@@ -234,9 +234,7 @@ func (p *PacketOut) GetHeader() *Header {
 
 func (p *PacketOut) Len() (n uint16) {
 	n += p.Header.Len()
-	for _, e := range p.Actions {
-		n += e.Len()
-	}
+	n += p.ActionsLen
 	n += 8
 	n += p.Data.Len()
 	//if n < 72 { return 72 }
@@ -245,9 +243,6 @@ func (p *PacketOut) Len() (n uint16) {
 
 func (p *PacketOut) Read(b []byte) (n int, err error) {
 	p.Header.Length = p.Len()
-	for _, e := range p.Actions {
-		p.ActionsLen += e.Len()
-	}
 
 	buf := new(bytes.Buffer)
 	_, err = buf.ReadFrom(&p.Header)
@@ -284,8 +279,8 @@ func (p *PacketOut) Write(b []byte) (n int, err error) {
 		return
 	}
 	n += 2
-	actionCount := buf.Len() / 8
-	p.Actions = make([]Packetish, actionCount)
+	/*actionCount := buf.Len() / 8
+	//p.Actions = make([]Action, actionCount)
 	for i := 0; i < actionCount; i++ {
 		a := new(ActionOutput)//Header)
 		m := 0
@@ -295,7 +290,7 @@ func (p *PacketOut) Write(b []byte) (n int, err error) {
 		}
 		n += m
 		p.Actions[i] = a
-	}
+	}*/
 	return
 }
 

@@ -47,8 +47,7 @@ func (b *DemoApplication) parsePacketIn(dpid string, pkt *ofp10.PacketIn) {
 	}
 	if _, ok := b.hostMap[hwDst]; ok {
 		f1 := ofp10.NewFlowMod()
-		act1 := ofp10.NewActionOutput()
-		act1.Port = b.hostMap[hwDst]
+		act1 := ofp10.NewActionOutput(b.hostMap[hwDst])
 		f1.Actions = append(f1.Actions, act1)
 		m1 := ofp10.NewMatch()
 		m1.DLSrc = eth.HWSrc
@@ -57,8 +56,7 @@ func (b *DemoApplication) parsePacketIn(dpid string, pkt *ofp10.PacketIn) {
 		f1.IdleTimeout = 3
 		
 		f2 := ofp10.NewFlowMod()
-		act2 := ofp10.NewActionOutput()
-		act2.Port = b.hostMap[hwSrc]
+		act2 := ofp10.NewActionOutput(b.hostMap[hwSrc])
 		f2.Actions = append(f1.Actions, act2)
 		m2 := ofp10.NewMatch()
 		m2.DLSrc = eth.HWDst
@@ -72,7 +70,7 @@ func (b *DemoApplication) parsePacketIn(dpid string, pkt *ofp10.PacketIn) {
 	} else {
 		// Flood
 		pktOut := ofp10.NewPacketOut()
-		pktOut.Actions = append(pktOut.Actions, ofp10.NewActionOutput())
+		pktOut.AddAction(ofp10.NewActionOutput(ofp10.P_ALL))
 		pktOut.Data = &pkt.Data
 		if s, ok := core.Switch(dpid); ok {
 			s.Send(pktOut)
