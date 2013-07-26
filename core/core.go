@@ -50,7 +50,7 @@ func (b *Core) discoverLinks() {
 		pkt := ofp10.NewPacketOut()
 		act := ofp10.NewActionOutput(ofp10.P_ALL)
 		pkt.AddAction(act)
-		if data, err := NewListDiscovery(sw.DPID.String()); err != nil {
+		if data, err := NewListDiscovery(sw.DPID().String()); err != nil {
 			log.Println(err)
 		} else {
 			pkt.Data = data

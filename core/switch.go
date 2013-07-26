@@ -5,29 +5,28 @@ import (
 	"net"
 	"time"
 	"errors"
-	//"bufio"
-	//"io"
-	//"bytes"
-	//"encoding/binary"
 	"github.com/jonstout/ogo/openflow/ofp10"
 )
 
-/* A map from DPIDs to all Switches that have connected since
-Ogo started. */
+
+// A map from DPIDs to all Switches that have connected since
+// Ogo started.
 var switches map[string]*OFPSwitch
+
 
 type OFPSwitch struct {
 	conn net.TCPConn
 	messageStream *MessageStream
 	outbound chan ofp10.Packet
-	DPID net.HardwareAddr
+	dpid net.HardwareAddr
 	Ports map[int]ofp10.PhyPort
 	Links map[string]PhyLink
 	requests map[uint32]chan ofp10.Msg
 }
 
-/* Builds and populates a Switch struct then starts listening
-for OpenFlow messages on conn. */
+
+// Builds and populates a Switch struct then starts listening
+// for OpenFlow messages on conn.
 func NewOFPSwitch(conn *net.TCPConn) {
 	if _, err := conn.ReadFrom(ofp10.NewHello()); err != nil {
 		log.Println("Could not send initial Hello message", err)
@@ -53,7 +52,7 @@ func NewOFPSwitch(conn *net.TCPConn) {
 	}
 
 	if sw, ok := switches[res.DPID.String()]; ok {
-		log.Println("Recovered connection from:", sw.DPID)
+		log.Println("Recovered connection from:", sw.DPID())
 		sw.conn = *conn
 		sw.messageStream = NewMessageStream(*conn)
 		go sw.sendSync()
@@ -63,7 +62,7 @@ func NewOFPSwitch(conn *net.TCPConn) {
 		s := new(OFPSwitch)
 		s.conn = *conn
 		s.outbound = make(chan ofp10.Packet)
-		s.DPID = res.DPID
+		s.dpid = res.DPID
 		s.Ports = make(map[int]ofp10.PhyPort)
 		s.Links = make(map[string]PhyLink)
 		s.requests = make(map[uint32]chan ofp10.Msg)
@@ -71,11 +70,12 @@ func NewOFPSwitch(conn *net.TCPConn) {
 			s.Ports[int(p.PortNo)] = p
 		}
 		s.messageStream = NewMessageStream(*conn)
-		switches[s.DPID.String()] = s
+		switches[s.dpid.String()] = s
 		go s.sendSync()
 		go s.Receive()
 	}
 }
+
 
 // Returns a pointer to the Switch mapped to dpid.
 func Switch(dpid string) (*OFPSwitch, bool) {
@@ -86,9 +86,11 @@ func Switch(dpid string) (*OFPSwitch, bool) {
 	}
 }
 
+
 func Switches() map[string]*OFPSwitch {
 	return switches
 }
+
 
 // Disconnects Switch mapped to dpid.
 func DisconnectSwitch(dpid string) {
@@ -96,6 +98,7 @@ func DisconnectSwitch(dpid string) {
 	switches[dpid].conn.Close()
 	delete(switches, dpid)
 }
+
 
 // Returns a pointer to portNo OfpPhyPort from this Switch.
 func (s *OFPSwitch) Port(portNo int) (*ofp10.PhyPort, error) {
@@ -106,21 +109,30 @@ func (s *OFPSwitch) Port(portNo int) (*ofp10.PhyPort, error) {
 	}
 }
 
+
+// Returns the dpid of Switch s.
+func (s *OFPSwitch) DPID() net.HardwareAddr {
+	return s.dpid
+}
+
+
 // Returns a map of all the OfpPhyPorts from this Switch.
 func (s *OFPSwitch) AllPorts() map[int]ofp10.PhyPort {
 	return s.Ports
 }
 
-/* Sends an OpenFlow message to this Switch. */
+
+// Sends an OpenFlow message to this Switch.
 func (s *OFPSwitch) Send(req ofp10.Packet) (err error) {
 	s.outbound <- req
 	return nil
 }
 
+
 func (s *OFPSwitch) sendSync() {
 	for {
 		if _, err := s.conn.ReadFrom(<-s.outbound); err != nil {
-			log.Println("Closing connection from", s.DPID)
+			log.Println("Closing connection from", s.dpid)
 			s.conn.Close()
 			s.messageStream.Close()
 			break
@@ -128,12 +140,14 @@ func (s *OFPSwitch) sendSync() {
 	}
 }
 
-/* Receive loop for each Switch. */
+
+// Receive loop for each Switch.
 func (s *OFPSwitch) Receive() {
 	for p := range s.messageStream.Updates() {
-		s.distributeReceived( ofp10.Msg{p, s.DPID.String()} )
+		s.distributeReceived( ofp10.Msg{p, s.dpid.String()} )
 	}
 }
+
 
 func (s *OFPSwitch) distributeReceived(p ofp10.Msg) {
 	h := p.Data.GetHeader()
@@ -153,9 +167,10 @@ func (s *OFPSwitch) distributeReceived(p ofp10.Msg) {
 	}
 }
 
-/* Sends an OpenFlow message to s, and returns a channel to receive 
-a response on. Any error encountered during the send except io.EOF
-is returned. */
+
+// Sends an OpenFlow message to s, and returns a channel to receive 
+// a response on. Any error encountered during the send except io.EOF
+// is returned.
 func (s *OFPSwitch) SendAndReceive(req ofp10.Packet) (p chan ofp10.Msg, err error) {
 	p = make(chan ofp10.Msg)
 	s.requests[req.GetHeader().XID] = p
