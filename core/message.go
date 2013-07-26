@@ -6,15 +6,18 @@ import (
 	"net"
 	"time"
 	"encoding/binary"
+	"github.com/jonstout/pacit"
 )
 
 type LinkDiscovery struct {
+	eth pacit.Ethernet
 	src net.HardwareAddr
 	nsec uint64 /* Number of nanoseconds elapsed since Jan 1, 1970. */
 }
 
 func NewListDiscovery(s string) (d *LinkDiscovery, err error) {
 	d = new(LinkDiscovery)
+	d.eth = *new(pacit.Ethernet)
 	mac := *new(net.HardwareAddr)
 
 	if mac, err = net.ParseMAC(s); err != nil {
@@ -31,6 +34,9 @@ func (d *LinkDiscovery) Len() uint16 {
 
 func (d *LinkDiscovery) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
+	if n, err = d.eth.Read(b); err != nil {
+		return
+	}
 	binary.Write(buf, binary.BigEndian, d.src)
 	binary.Write(buf, binary.BigEndian, d.nsec)
 	n, err = buf.Read(b)
@@ -38,10 +44,11 @@ func (d *LinkDiscovery) Read(b []byte) (n int, err error) {
 }
 
 func (d *LinkDiscovery) Write(b []byte) (n int, err error) {
+	n, err = d.eth.Write(b)
 	d.src = make([]byte, 8)
-	d.src = b[:8]
+	d.src = b[n:n+8]
 	n += 8
-	d.nsec = binary.BigEndian.Uint64(b[8:16])
+	d.nsec = binary.BigEndian.Uint64(b[n:n+8])
 	n += 8
 	return
 }
