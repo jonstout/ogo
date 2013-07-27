@@ -29,7 +29,7 @@ func NewListDiscovery(s string) (d *LinkDiscovery, err error) {
 }
 
 func (d *LinkDiscovery) Len() uint16 {
-	return 16
+	return d.eth.Len() + 16
 }
 
 func (d *LinkDiscovery) Read(b []byte) (n int, err error) {
@@ -37,7 +37,8 @@ func (d *LinkDiscovery) Read(b []byte) (n int, err error) {
 	if n, err = d.eth.Read(b); err != nil {
 		return
 	}
-	binary.Write(buf, binary.BigEndian, d.src)
+	//binary.Write(buf, binary.BigEndian, d.src)
+	b = append(b, []byte(d.src)...)
 	binary.Write(buf, binary.BigEndian, d.nsec)
 	n, err = buf.Read(b)
 	return n, io.EOF
