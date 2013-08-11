@@ -3,6 +3,7 @@ package core
 import (
 	"log"
 	"time"
+	//"net"
 	"github.com/jonstout/pacit"
 	"github.com/jonstout/ogo/openflow/ofp10"
 )
@@ -48,14 +49,29 @@ func (b *Core) Receive() {
 func (b *Core) discoverLinks() {
 	for _, sw := range Switches() {
 		pkt := ofp10.NewPacketOut()
+
 		act := ofp10.NewActionOutput(ofp10.P_ALL)
 		pkt.AddAction(act)
-		if data, err := NewListDiscovery(sw.DPID().String()); err != nil {
+
+
+		if data, err := NewListDiscovery(sw.DPID()); err != nil {
 			log.Println(err)
 		} else {
-			pkt.Data = data
+			eth := pacit.NewEthernet()
+			eth.Ethertype = 0xa0f1
+			eth.Data = data
+			pkt.Data = eth
 			sw.Send(pkt)
 		}
+		/*
+		eth := pacit.NewEthernet()
+		eth.HWDst, _ = net.ParseMAC("01:23:20:00:00:01")
+		eth.HWSrc, _ = net.ParseMAC("e6:6e:89:0f:20:ba")
+		eth.Ethertype = 0x806
+		eth.Data = pacit.NewArp()
+		pkt.Data = eth
+
+		sw.Send(pkt)*/
 	}
 }
 

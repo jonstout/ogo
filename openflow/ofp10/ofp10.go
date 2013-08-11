@@ -214,10 +214,9 @@ type PacketOut struct {
 func NewPacketOut() *PacketOut {
 	p := new(PacketOut)
 	p.Header = *NewHeader()
-	//p.Header.Length = 71
 	p.Header.Type = T_PACKET_OUT
 	p.BufferID = 0xffffffff
-	p.InPort = P_CONTROLLER
+	p.InPort = P_NONE
 	p.ActionsLen = 0
 	p.Actions = make([]Action,0)
 	return p
