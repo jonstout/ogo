@@ -2,7 +2,7 @@ package core
 
 import (
 	"io"
-	//"bytes"
+	"bytes"
 	"net"
 	"time"
 	"encoding/binary"
@@ -26,13 +26,10 @@ func (d *LinkDiscovery) Len() uint16 {
 }
 
 func (d *LinkDiscovery) Read(b []byte) (n int, err error) {
-	//binary.Write(buf, binary.BigEndian, d.src)
-	b = append(b, []byte(d.src)...)
-	n += 8
-	//binary.Write(buf, binary.BigEndian, d.nsec)
-	binary.BigEndian.PutUint64(b, d.nsec)
-	//n, err = buf.Read(b)
-	n += 8
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.BigEndian, d.src)
+	binary.Write(buf, binary.BigEndian, d.nsec)
+	n, err = buf.Read(b)
 	return n, io.EOF
 }
 

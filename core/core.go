@@ -59,6 +59,7 @@ func (b *Core) discoverLinks() {
 		} else {
 			eth := pacit.NewEthernet()
 			eth.Ethertype = 0xa0f1
+			eth.HWSrc = sw.DPID()[2:]
 			eth.Data = data
 			pkt.Data = eth
 			sw.Send(pkt)
