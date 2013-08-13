@@ -64,15 +64,6 @@ func (b *Core) discoverLinks() {
 			pkt.Data = eth
 			sw.Send(pkt)
 		}
-		/*
-		eth := pacit.NewEthernet()
-		eth.HWDst, _ = net.ParseMAC("01:23:20:00:00:01")
-		eth.HWSrc, _ = net.ParseMAC("e6:6e:89:0f:20:ba")
-		eth.Ethertype = 0x806
-		eth.Data = pacit.NewArp()
-		pkt.Data = eth
-
-		sw.Send(pkt)*/
 	}
 }
 
@@ -84,7 +75,7 @@ func (b *Core) handlePacketIn(dpid string, msg *ofp10.PacketIn) {
 		lmsg := new(LinkDiscovery)
 		lmsg.Write(buf.Bytes())
 
-		log.Println(lmsg.SrcDPID, time.Unix(0, lmsg.Nsec))
+		log.Println("DPID:", dpid, "SrcDPID:", lmsg.SrcDPID, "Sent:", time.Unix(0, lmsg.Nsec))
 		log.Println(buf.String())
 	}
 }
