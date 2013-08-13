@@ -81,6 +81,10 @@ func (b *Core) handlePacketIn(dpid string, msg *ofp10.PacketIn) {
 	eth := msg.Data
 	log.Println("Handling packet ins!")
 	if buf, ok := eth.Data.(*pacit.PacitBuffer); ok {
+		lmsg := new(LinkDiscovery)
+		lmsg.Write(buf.Bytes())
+
+		log.Println(lmsg.SrcDPID, time.Unix(0, lmsg.Nsec))
 		log.Println(buf.String())
 	}
 }
