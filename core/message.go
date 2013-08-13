@@ -34,8 +34,8 @@ func (d *LinkDiscovery) Read(b []byte) (n int, err error) {
 }
 
 func (d *LinkDiscovery) Write(b []byte) (n int, err error) {
-	//d.src = make([]byte, 8)
-	d.src = b[n:n+8]
+	d.src = net.HardwareAddr(b[n:n+8])
+	//d.src = b[n:n+8]
 	n += 8
 	d.nsec = binary.BigEndian.Uint64(b[n:n+8])
 	n += 8
