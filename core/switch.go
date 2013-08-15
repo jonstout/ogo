@@ -20,7 +20,7 @@ type OFPSwitch struct {
 	outbound chan ofp10.Packet
 	dpid net.HardwareAddr
 	Ports map[int]ofp10.PhyPort
-	Links map[string]PhyLink
+	links map[string]*Link
 	requests map[uint32]chan ofp10.Msg
 }
 
@@ -64,7 +64,7 @@ func NewOFPSwitch(conn *net.TCPConn) {
 		s.outbound = make(chan ofp10.Packet)
 		s.dpid = res.DPID
 		s.Ports = make(map[int]ofp10.PhyPort)
-		s.Links = make(map[string]PhyLink)
+		s.links = make(map[string]*Link)
 		s.requests = make(map[uint32]chan ofp10.Msg)
 		for _, p := range res.Ports {
 			s.Ports[int(p.PortNo)] = p
@@ -78,8 +78,8 @@ func NewOFPSwitch(conn *net.TCPConn) {
 
 
 // Returns a pointer to the Switch mapped to dpid.
-func Switch(dpid string) (*OFPSwitch, bool) {
-	if sw, ok := switches[dpid]; ok {
+func Switch(dpid net.HardwareAddr) (*OFPSwitch, bool) {
+	if sw, ok := switches[dpid.String()]; ok {
 		return sw, ok
 	} else {
 		return nil, false
@@ -109,6 +109,17 @@ func (s *OFPSwitch) Port(portNo int) (*ofp10.PhyPort, error) {
 	}
 }
 
+
+// Returns the link between Switch s and the Switch at dpid
+func (s *OFPSwitch) Link(dpid string) *Link {
+	return s.links[dpid]
+}
+
+
+func (s *OFPSwitch) SetLink(dpid net.HardwareAddr, l *Link) {
+	log.Println(s.dpid, "discovered link to", l.DPID, "port:", l.Port)
+	s.links[dpid.String()] = l
+}
 
 // Returns the dpid of Switch s.
 func (s *OFPSwitch) DPID() net.HardwareAddr {
@@ -144,7 +155,7 @@ func (s *OFPSwitch) sendSync() {
 // Receive loop for each Switch.
 func (s *OFPSwitch) Receive() {
 	for p := range s.messageStream.Updates() {
-		s.distributeReceived( ofp10.Msg{p, s.dpid.String()} )
+		s.distributeReceived( ofp10.Msg{p, s.dpid} )
 	}
 }
 

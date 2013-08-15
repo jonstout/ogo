@@ -3,7 +3,7 @@ package core
 import (
 	"log"
 	"time"
-	//"net"
+	"net"
 	"github.com/jonstout/pacit"
 	"github.com/jonstout/ogo/openflow/ofp10"
 )
@@ -39,18 +39,20 @@ func (b *Core) Receive() {
 			if pkt, ok := m.Data.(*ofp10.PacketIn); ok {
 				b.handlePacketIn(m.DPID, pkt)
 			}
-		case <- time.After(time.Second * 1):
-			go b.discoverLinks()
+		case <- time.After(time.Second * 2):
+			log.Println("discoverLinks")
+			b.discoverLinks()
 		}
 	}
 }
 
 
 func (b *Core) discoverLinks() {
-	for _, sw := range Switches() {
+	for k, sw := range Switches() {
+		log.Println(k)
 		pkt := ofp10.NewPacketOut()
 
-		act := ofp10.NewActionOutput(ofp10.P_ALL)
+		act := ofp10.NewActionOutput(ofp10.P_FLOOD)
 		pkt.AddAction(act)
 
 
@@ -62,26 +64,30 @@ func (b *Core) discoverLinks() {
 			eth.HWSrc = sw.DPID()[2:]
 			eth.Data = data
 			pkt.Data = eth
+			log.Println(sw.DPID(), "OUT")
 			sw.Send(pkt)
 		}
 	}
 }
 
 
-func (b *Core) handlePacketIn(dpid string, msg *ofp10.PacketIn) {
+func (b *Core) handlePacketIn(dpid net.HardwareAddr, msg *ofp10.PacketIn) {
 	eth := msg.Data
-	log.Println("Handling packet ins!")
 	if buf, ok := eth.Data.(*pacit.PacitBuffer); ok {
 		lmsg := new(LinkDiscovery)
 		lmsg.Write(buf.Bytes())
 
-		log.Println("DPID:", dpid, "SrcDPID:", lmsg.SrcDPID, "Sent:", time.Unix(0, lmsg.Nsec))
-		log.Println(buf.String())
+
+		latency := time.Since(time.Unix(0, lmsg.Nsec))
+		l := &Link{lmsg.SrcDPID, msg.InPort, latency, -1}
+		if sw, ok := Switch(dpid); ok {
+			sw.SetLink(dpid, l)
+		}
 	}
 }
 
 
-func (b *Core) SendEchoReply(dpid string) {
+func (b *Core) SendEchoReply(dpid net.HardwareAddr) {
 	if s, ok := Switch(dpid); ok {
 		<-time.After(time.Second * 3)
 		res := ofp10.NewEchoReply()

@@ -10,6 +10,7 @@ package ofp10
 import (
 	//"fmt"
 	"io"
+	"net"
 	"bytes"
 	"encoding/binary"
 	"github.com/jonstout/pacit"
@@ -29,7 +30,7 @@ type Packet interface {
 // Msg is any Packet with its originating DPID.
 type Msg struct {
 	Data Packet
-	DPID string
+	DPID net.HardwareAddr
 }
 
 const (

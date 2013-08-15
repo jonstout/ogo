@@ -2,6 +2,7 @@ package main
 
 import (
 	//"runtime"
+	"net"
 	"fmt"
 	"github.com/jonstout/ogo/core"
 	"github.com/jonstout/ogo/openflow/ofp10"
@@ -38,7 +39,7 @@ func (b *DemoApplication) Receive() {
 	}
 }
 
-func (b *DemoApplication) parsePacketIn(dpid string, pkt *ofp10.PacketIn) {
+func (b *DemoApplication) parsePacketIn(dpid net.HardwareAddr, pkt *ofp10.PacketIn) {
 	eth := pkt.Data
 	hwSrc := eth.HWSrc.String()
 	hwDst := eth.HWDst.String()
@@ -66,14 +67,6 @@ func (b *DemoApplication) parsePacketIn(dpid string, pkt *ofp10.PacketIn) {
 		if s, ok := core.Switch(dpid); ok {
 			s.Send(f1)
 			s.Send(f2)
-		}
-	} else {
-		// Flood
-		pktOut := ofp10.NewPacketOut()
-		pktOut.AddAction(ofp10.NewActionOutput(ofp10.P_ALL))
-		pktOut.Data = &pkt.Data
-		if s, ok := core.Switch(dpid); ok {
-			s.Send(pktOut)
 		}
 	}
 }
