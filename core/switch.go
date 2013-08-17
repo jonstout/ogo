@@ -110,15 +110,18 @@ func (s *OFPSwitch) Port(portNo int) (*ofp10.PhyPort, error) {
 }
 
 
-// Returns the link between Switch s and the Switch at dpid
-func (s *OFPSwitch) Link(dpid string) *Link {
+func (s *OFPSwitch) Links() map[string]*Link {
+	return s.links
+}
+
+// Returns the port linking Switch s and the Switch at dpid
+func (s *OFPSwitch) LinkPort(dpid string) *Link {
 	return s.links[dpid]
 }
 
 
-func (s *OFPSwitch) SetLink(dpid net.HardwareAddr, l *Link) {
-	log.Println(s.dpid, "discovered link to", l.DPID, "port:", l.Port)
-	s.links[dpid.String()] = l
+func (s *OFPSwitch) setLink(dpid net.HardwareAddr, l *Link) {
+	s.links[l.DPID.String()] = l
 }
 
 // Returns the dpid of Switch s.
