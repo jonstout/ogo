@@ -10,7 +10,7 @@ import (
 )
 
 type MessageStream struct {
-	connection net.TCPConn
+	connection *net.TCPConn
 	errorMessage chan error
 	newMessages chan ofp10.Packet
 	parseRoutines chan int
@@ -19,11 +19,11 @@ type MessageStream struct {
 
 /* Returns a pointer to a new MessageStream. Used to parse
 OpenFlow messages from conn. */
-func NewMessageStream(conn net.TCPConn) *MessageStream {
+func NewMessageStream(conn *net.TCPConn) *MessageStream {
 	m := &MessageStream{conn,
 		make(chan error),
 		make(chan ofp10.Packet),
-		make(chan int, 10),
+		make(chan int, 1),
 		make(chan ofp10.Packet)}
 	go m.loop()
 	return m
@@ -56,25 +56,30 @@ func (m *MessageStream) loop() {
 	}()
 
 	cursor := 0
-	unreadBytes := make([]byte, 0)
+	unreadBytes := make([]byte, 1024)
+	unreadByteLength := 0
 	for {
-		buf := make([]byte, 2048)
+		buf := make([]byte, 512)
 		if n, err := m.connection.Read(buf); err != nil {
 			log.Println("Read timeout...")
 			m.errorMessage <- err
 			return
 		} else {
+
+			copy(unreadBytes, unreadBytes[cursor:])
+			copy(unreadBytes[unreadByteLength:], buf)
+
 			cursor = 0
-			unreadBytes = append( append([]byte(nil), unreadBytes[cursor:]...), buf[:n]...)
-			unreadByteLength := len(unreadBytes)
+			unreadByteLength = unreadByteLength + n
+			
 			// A minimum of 4 bytes should be in the buffer
 			for unreadByteLength >= 4 {
 				messageLength := int( binary.BigEndian.Uint16(unreadBytes[cursor+2:cursor+4]) )
+
 				if unreadByteLength >= messageLength {
 					end := cursor + messageLength
-					// Run m.parse upto the size of m.parseRoutines at a time
-					m.parseRoutines <- 1
-					go m.parse(unreadBytes[cursor:end])
+					m.parse(unreadBytes[cursor:end])
+
 					cursor = end
 					unreadByteLength = unreadByteLength - messageLength
 				} else {
@@ -129,7 +134,7 @@ func (m *MessageStream) parse(buf []byte) {
 	}
 	select {
 	case m.parsedMessage <- d:
-		<- m.parseRoutines
+		//<- m.parseRoutines
 	case <- time.After(time.Millisecond * 100):
 	}
 }

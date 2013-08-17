@@ -49,7 +49,7 @@ func (b *Core) Receive() {
 
 func (b *Core) discoverLinks() {
 	for k, sw := range Switches() {
-		log.Println(k)
+		log.Println("Sending Link Discovery Msg from:", k)
 		pkt := ofp10.NewPacketOut()
 
 		act := ofp10.NewActionOutput(ofp10.P_FLOOD)
@@ -64,7 +64,6 @@ func (b *Core) discoverLinks() {
 			eth.HWSrc = sw.DPID()[2:]
 			eth.Data = data
 			pkt.Data = eth
-			log.Println(sw.DPID(), "OUT")
 			sw.Send(pkt)
 		}
 	}
@@ -73,6 +72,7 @@ func (b *Core) discoverLinks() {
 
 func (b *Core) handlePacketIn(dpid net.HardwareAddr, msg *ofp10.PacketIn) {
 	eth := msg.Data
+	//log.Println(msg)
 	if buf, ok := eth.Data.(*pacit.PacitBuffer); ok {
 		lmsg := new(LinkDiscovery)
 		lmsg.Write(buf.Bytes())

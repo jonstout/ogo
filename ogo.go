@@ -40,7 +40,7 @@ func (b *DemoApplication) Receive() {
 }
 
 func (b *DemoApplication) parsePacketIn(dpid net.HardwareAddr, pkt *ofp10.PacketIn) {
-	eth := pkt.Data
+	/*eth := pkt.Data
 	hwSrc := eth.HWSrc.String()
 	hwDst := eth.HWDst.String()
 	if _, ok := b.hostMap[hwSrc]; !ok {
@@ -68,13 +68,14 @@ func (b *DemoApplication) parsePacketIn(dpid net.HardwareAddr, pkt *ofp10.Packet
 			s.Send(f1)
 			s.Send(f2)
 		}
-	}
+	}*/
 }
 
 func main() {
 	//runtime.GOMAXPROCS(16)
 	fmt.Println("Ogo 2013")
 	ctrl := core.NewController()
-	ctrl.RegisterApplication(new(DemoApplication))
+	//new(DemoApplication)
+	//ctrl.RegisterApplication(new(DemoApplication))
 	ctrl.Start(":6633")
 }

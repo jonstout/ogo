@@ -15,7 +15,7 @@ var switches map[string]*OFPSwitch
 
 
 type OFPSwitch struct {
-	conn net.TCPConn
+	conn *net.TCPConn
 	messageStream *MessageStream
 	outbound chan ofp10.Packet
 	dpid net.HardwareAddr
@@ -53,14 +53,14 @@ func NewOFPSwitch(conn *net.TCPConn) {
 
 	if sw, ok := switches[res.DPID.String()]; ok {
 		log.Println("Recovered connection from:", sw.DPID())
-		sw.conn = *conn
-		sw.messageStream = NewMessageStream(*conn)
+		sw.conn = conn
+		sw.messageStream = NewMessageStream(conn)
 		go sw.sendSync()
 		go sw.Receive()
 	} else {
 		log.Printf("Openflow 1.%d Connection: %s", res.Header.Version - 1, res.DPID.String())
 		s := new(OFPSwitch)
-		s.conn = *conn
+		s.conn = conn
 		s.outbound = make(chan ofp10.Packet)
 		s.dpid = res.DPID
 		s.Ports = make(map[int]ofp10.PhyPort)
@@ -69,7 +69,7 @@ func NewOFPSwitch(conn *net.TCPConn) {
 		for _, p := range res.Ports {
 			s.Ports[int(p.PortNo)] = p
 		}
-		s.messageStream = NewMessageStream(*conn)
+		s.messageStream = NewMessageStream(conn)
 		switches[s.dpid.String()] = s
 		go s.sendSync()
 		go s.Receive()
