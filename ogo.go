@@ -1,7 +1,7 @@
 package main
 
 import (
-	//"runtime"
+	"net"
 	"fmt"
 	"github.com/jonstout/ogo/core"
 	"github.com/jonstout/ogo/openflow/ofp10"
@@ -15,7 +15,7 @@ type DemoApplication struct {
 
 func (b *DemoApplication) InitApplication(args map[string]string) {
 	// SubscribeTo returns a chan to receive a specific message type.
-	b.packetIn = ogo.SubscribeTo(ofp10.T_PACKET_IN)
+	b.packetIn = core.SubscribeTo(ofp10.T_PACKET_IN)
 	// A place to store the source ports of MAC Addresses
 	b.hostMap = make(map[string]uint16)
 }
@@ -30,25 +30,25 @@ func (b *DemoApplication) Receive() {
 		select {
 		case m := <-b.packetIn:
 			if pkt, ok := m.Data.(*ofp10.PacketIn); ok {
-				// This could be launched in a separate goroutine,
-				// but maps in Go aren't thread safe.
-				b.parsePacketIn(m.DPID, pkt)
+				if pkt.Data.Ethertype == 0x806 {
+					b.parsePacketIn(m.DPID, pkt)
+				}
 			}
 		}
 	}
 }
 
-func (b *DemoApplication) parsePacketIn(dpid string, pkt *ofp10.PacketIn) {
+func (b *DemoApplication) parsePacketIn(dpid net.HardwareAddr, pkt *ofp10.PacketIn) {
 	eth := pkt.Data
 	hwSrc := eth.HWSrc.String()
 	hwDst := eth.HWDst.String()
 	if _, ok := b.hostMap[hwSrc]; !ok {
+		fmt.Println("Learning host", hwSrc)
 		b.hostMap[hwSrc] = pkt.InPort
 	}
 	if _, ok := b.hostMap[hwDst]; ok {
 		f1 := ofp10.NewFlowMod()
-		act1 := ofp10.NewActionOutput()
-		act1.Port = b.hostMap[hwDst]
+		act1 := ofp10.NewActionOutput(b.hostMap[hwDst])
 		f1.Actions = append(f1.Actions, act1)
 		m1 := ofp10.NewMatch()
 		m1.DLSrc = eth.HWSrc
@@ -57,33 +57,31 @@ func (b *DemoApplication) parsePacketIn(dpid string, pkt *ofp10.PacketIn) {
 		f1.IdleTimeout = 3
 		
 		f2 := ofp10.NewFlowMod()
-		act2 := ofp10.NewActionOutput()
-		act2.Port = b.hostMap[hwSrc]
+		act2 := ofp10.NewActionOutput(b.hostMap[hwSrc])
 		f2.Actions = append(f1.Actions, act2)
 		m2 := ofp10.NewMatch()
 		m2.DLSrc = eth.HWDst
 		m2.DLDst = eth.HWSrc
 		f2.Match = *m2
 		f2.IdleTimeout = 3
-		if s, ok := ogo.GetSwitch(dpid); ok {
+		if s, ok := core.Switch(dpid); ok {
 			s.Send(f1)
 			s.Send(f2)
 		}
 	} else {
-		// Flood
-		pktOut := ofp10.NewPacketOut()
-		pktOut.Actions = append(pktOut.Actions, ofp10.NewActionOutput())
-		pktOut.Data = &pkt.Data
-		if s, ok := ogo.GetSwitch(dpid); ok {
-			s.Send(pktOut)
+		p := ofp10.NewPacketOut()
+		a := ofp10.NewActionOutput(ofp10.P_FLOOD)
+		p.AddAction(a)
+		p.Data = &eth
+		if sw, ok := core.Switch(dpid); ok {
+			sw.Send(p)
 		}
 	}
 }
 
 func main() {
-	//runtime.GOMAXPROCS(16)
 	fmt.Println("Ogo 2013")
-	ctrl := ogo.NewController()
+	ctrl := core.NewController()
 	ctrl.RegisterApplication(new(DemoApplication))
 	ctrl.Start(":6633")
 }
