@@ -24,6 +24,11 @@ const (
 	AT_VENDOR = 0xffff
 )
 
+type Action interface {
+	Packetish
+	ActionType() uint16
+}
+
 // ofp_action_header 1.0
 type ActionHeader struct {
 	Type uint16
@@ -66,12 +71,16 @@ type ActionOutput struct {
 	MaxLen uint16
 }
 
-func NewActionOutput() *ActionOutput {
+func NewActionOutput(t uint16) *ActionOutput {
 	act := new(ActionOutput)
 	act.Type = AT_OUTPUT
 	act.Length = 8
 	act.Port = P_FLOOD
 	return act
+}
+
+func (a *ActionOutput) ActionType() (n uint16) {
+	return 8
 }
 
 func (a *ActionOutput) Len() (n uint16) {

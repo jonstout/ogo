@@ -10,6 +10,7 @@ package ofp10
 import (
 	//"fmt"
 	"io"
+	"net"
 	"bytes"
 	"encoding/binary"
 	"github.com/jonstout/pacit"
@@ -29,7 +30,7 @@ type Packet interface {
 // Msg is any Packet with its originating DPID.
 type Msg struct {
 	Data Packet
-	DPID string
+	DPID net.HardwareAddr
 }
 
 const (
@@ -85,6 +86,7 @@ func (h *Header) Read(b []byte) (n int, err error) {
 	return n, io.EOF
 }
 
+
 func (h *Header) ReadFrom(r io.Reader) (n int64, err error) {
 	if err = binary.Read(r, binary.BigEndian, &h.Version); err != nil {
 		return
@@ -105,27 +107,32 @@ func (h *Header) ReadFrom(r io.Reader) (n int64, err error) {
 	return
 }
 
+
 func (h *Header) Write(b []byte) (n int, err error) {
-	//r := bytes.NewBuffer(b)
+	r := bytes.NewBuffer(b)
 	/*if err = binary.Read(r, binary.BigEndian, &h.Version); err != nil {
 		return
 	}*/
-	h.Version = b[0]
+	//h.Version = b[0]
+	binary.Read(r, binary.BigEndian, &h.Version)
 	n += 1
 	/*if err = binary.Read(r, binary.BigEndian, &h.Type); err != nil {
 		return
 	}*/
-	h.Type = b[1]
+	//h.Type = b[1]
+	binary.Read(r, binary.BigEndian, &h.Type)
 	n += 1
 	/*if err = binary.Read(r, binary.BigEndian, &h.Length); err != nil {
 		return
 	}*/
-	h.Length = binary.BigEndian.Uint16(b[2:4])
+	//h.Length = binary.BigEndian.Uint16(b[2:4])
+	binary.Read(r, binary.BigEndian, &h.Length)
 	n += 2
 	/*if err = binary.Read(r, binary.BigEndian, &h.XID); err != nil {
 		return
 	}*/
-	h.XID = binary.BigEndian.Uint32(b[4:8])
+	//h.XID = binary.BigEndian.Uint32(b[4:8])
+	binary.Read(r, binary.BigEndian, &h.XID)
 	n += 4
 	return n, err
 }
@@ -207,20 +214,24 @@ type PacketOut struct {
 	BufferID uint32
 	InPort uint16
 	ActionsLen uint16
-	Actions []Packetish//Header
+	Actions []Action
 	Data Packetish
 }
 
 func NewPacketOut() *PacketOut {
 	p := new(PacketOut)
 	p.Header = *NewHeader()
-	//p.Header.Length = 71
 	p.Header.Type = T_PACKET_OUT
 	p.BufferID = 0xffffffff
-	p.InPort = 0
-	//p.ActionsLen = 8
-	p.Actions = make([]Packetish,0)
+	p.InPort = P_NONE
+	p.ActionsLen = 0
+	p.Actions = make([]Action,0)
 	return p
+}
+
+func (p *PacketOut) AddAction(act Action) {
+	p.Actions = append(p.Actions, act)
+	p.ActionsLen += act.Len()
 }
 
 func (p *PacketOut) GetHeader() *Header {
@@ -229,9 +240,7 @@ func (p *PacketOut) GetHeader() *Header {
 
 func (p *PacketOut) Len() (n uint16) {
 	n += p.Header.Len()
-	for _, e := range p.Actions {
-		n += e.Len()
-	}
+	n += p.ActionsLen
 	n += 8
 	n += p.Data.Len()
 	//if n < 72 { return 72 }
@@ -240,9 +249,6 @@ func (p *PacketOut) Len() (n uint16) {
 
 func (p *PacketOut) Read(b []byte) (n int, err error) {
 	p.Header.Length = p.Len()
-	for _, e := range p.Actions {
-		p.ActionsLen += e.Len()
-	}
 
 	buf := new(bytes.Buffer)
 	_, err = buf.ReadFrom(&p.Header)
@@ -279,8 +285,8 @@ func (p *PacketOut) Write(b []byte) (n int, err error) {
 		return
 	}
 	n += 2
-	actionCount := buf.Len() / 8
-	p.Actions = make([]Packetish, actionCount)
+	/*actionCount := buf.Len() / 8
+	//p.Actions = make([]Action, actionCount)
 	for i := 0; i < actionCount; i++ {
 		a := new(ActionOutput)//Header)
 		m := 0
@@ -290,7 +296,7 @@ func (p *PacketOut) Write(b []byte) (n int, err error) {
 		}
 		n += m
 		p.Actions[i] = a
-	}
+	}*/
 	return
 }
 
@@ -316,36 +322,6 @@ func (p *PacketIn) Read(b []byte) (n int, err error) {
 		return
 	}
 	return n, io.EOF
-}
-
-func (p *PacketIn) ReadFrom(r io.Reader) (n int64, err error) {
-	if n, err = p.Header.ReadFrom(r); n == 0 {
-		return
-	}
-	if err = binary.Read(r, binary.BigEndian, &p.BufferID); err != nil {
-		return
-	}
-	n += 4
-	if err = binary.Read(r, binary.BigEndian, &p.TotalLen); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(r, binary.BigEndian, &p.InPort); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(r, binary.BigEndian, &p.Reason); err != nil {
-		return
-	}
-	n += 1
-	/*m := 0
-	p.Data = pacit.Ethernet{}
-	if m, err := p.Data.ReadFrom(r); m == 0 {
-		return m, err
-	} else {
-		n += m
-	}*/
-	return
 }
 
 func (p *PacketIn) Write(b []byte) (n int, err error) {

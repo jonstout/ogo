@@ -1,4 +1,4 @@
-package ogo
+package core
 
 import (
 	"log"
@@ -6,20 +6,20 @@ import (
 	"github.com/jonstout/ogo/openflow/ofp10"
 )
 
-type OgoController struct { }
+type Controller struct { }
 
-func NewController() *OgoController {
-	o := new(OgoController)
+func NewController() *Controller {
+	o := new(Controller)
 	Applications = make(map[string]Application)
 	messageChans = make(map[uint8][]chan ofp10.Msg)
-	Switches = make(map[string]*Switch)
+	switches = make(map[string]*OFPSwitch)
 	// Register ogo core
 	b := new(Core)
 	o.RegisterApplication(b)
 	return o
 }
 
-func (o *OgoController) Start(port string) {
+func (o *Controller) Start(port string) {
 	// Listen for Switch Connections
 	addr, _ := net.ResolveTCPAddr("tcp", port)
 	l, err := net.ListenTCP("tcp", addr)
@@ -31,11 +31,11 @@ func (o *OgoController) Start(port string) {
 		if err != nil {
 			log.Println(err)
 		}
-		go NewOpenFlowSwitch(conn)
+		go NewOFPSwitch(conn)
 	}
 }
 
-func (o *OgoController) RegisterApplication(app Application) {
+func (o *Controller) RegisterApplication(app Application) {
 	// Setup Openflow Message Channels
 	app.InitApplication(make(map[string]string))
 	go app.Receive()
