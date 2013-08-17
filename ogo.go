@@ -1,7 +1,6 @@
 package main
 
 import (
-	//"runtime"
 	"net"
 	"fmt"
 	"github.com/jonstout/ogo/core"
@@ -31,22 +30,24 @@ func (b *DemoApplication) Receive() {
 		select {
 		case m := <-b.packetIn:
 			if pkt, ok := m.Data.(*ofp10.PacketIn); ok {
-				// This could be launched in a separate goroutine,
-				// but maps in Go aren't thread safe.
-				b.parsePacketIn(m.DPID, pkt)
+				if pkt.Data.Ethertype == 0x806 {
+					b.parsePacketIn(m.DPID, pkt)
+				}
 			}
 		}
 	}
 }
 
 func (b *DemoApplication) parsePacketIn(dpid net.HardwareAddr, pkt *ofp10.PacketIn) {
-	/*eth := pkt.Data
+	eth := pkt.Data
 	hwSrc := eth.HWSrc.String()
 	hwDst := eth.HWDst.String()
 	if _, ok := b.hostMap[hwSrc]; !ok {
+		fmt.Println("Learning host", hwSrc)
 		b.hostMap[hwSrc] = pkt.InPort
 	}
 	if _, ok := b.hostMap[hwDst]; ok {
+		fmt.Println("Installing flow mods")
 		f1 := ofp10.NewFlowMod()
 		act1 := ofp10.NewActionOutput(b.hostMap[hwDst])
 		f1.Actions = append(f1.Actions, act1)
@@ -68,14 +69,21 @@ func (b *DemoApplication) parsePacketIn(dpid net.HardwareAddr, pkt *ofp10.Packet
 			s.Send(f1)
 			s.Send(f2)
 		}
-	}*/
+	} else {
+		fmt.Println("Floodingggg")
+		p := ofp10.NewPacketOut()
+		a := ofp10.NewActionOutput(ofp10.P_FLOOD)
+		p.AddAction(a)
+		p.Data = &eth
+		if sw, ok := core.Switch(dpid); ok {
+			sw.Send(p)
+		}
+	}
 }
 
 func main() {
-	//runtime.GOMAXPROCS(16)
 	fmt.Println("Ogo 2013")
 	ctrl := core.NewController()
-	//new(DemoApplication)
-	//ctrl.RegisterApplication(new(DemoApplication))
+	ctrl.RegisterApplication(new(DemoApplication))
 	ctrl.Start(":6633")
 }
