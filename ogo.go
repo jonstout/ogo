@@ -47,7 +47,6 @@ func (b *DemoApplication) parsePacketIn(dpid net.HardwareAddr, pkt *ofp10.Packet
 		b.hostMap[hwSrc] = pkt.InPort
 	}
 	if _, ok := b.hostMap[hwDst]; ok {
-		fmt.Println("Installing flow mods")
 		f1 := ofp10.NewFlowMod()
 		act1 := ofp10.NewActionOutput(b.hostMap[hwDst])
 		f1.Actions = append(f1.Actions, act1)
@@ -70,7 +69,6 @@ func (b *DemoApplication) parsePacketIn(dpid net.HardwareAddr, pkt *ofp10.Packet
 			s.Send(f2)
 		}
 	} else {
-		fmt.Println("Floodingggg")
 		p := ofp10.NewPacketOut()
 		a := ofp10.NewActionOutput(ofp10.P_FLOOD)
 		p.AddAction(a)
