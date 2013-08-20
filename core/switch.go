@@ -19,7 +19,7 @@ type OFPSwitch struct {
 	messageStream *MessageStream
 	outbound chan ofp10.Packet
 	dpid net.HardwareAddr
-	Ports map[int]ofp10.PhyPort
+	ports map[int]*ofp10.PhyPort
 	links map[string]*Link
 	requests map[uint32]chan ofp10.Msg
 }
@@ -56,23 +56,23 @@ func NewOFPSwitch(conn *net.TCPConn) {
 		sw.conn = conn
 		sw.messageStream = NewMessageStream(conn)
 		go sw.sendSync()
-		go sw.Receive()
+		go sw.receive()
 	} else {
 		log.Printf("Openflow 1.%d Connection: %s", res.Header.Version - 1, res.DPID.String())
 		s := new(OFPSwitch)
 		s.conn = conn
 		s.outbound = make(chan ofp10.Packet)
 		s.dpid = res.DPID
-		s.Ports = make(map[int]ofp10.PhyPort)
+		s.ports = make(map[int]*ofp10.PhyPort)
 		s.links = make(map[string]*Link)
 		s.requests = make(map[uint32]chan ofp10.Msg)
 		for _, p := range res.Ports {
-			s.Ports[int(p.PortNo)] = p
+			s.ports[int(p.PortNo)] = &p
 		}
 		s.messageStream = NewMessageStream(conn)
 		switches[s.dpid.String()] = s
 		go s.sendSync()
-		go s.Receive()
+		go s.receive()
 	}
 }
 
@@ -87,42 +87,50 @@ func Switch(dpid net.HardwareAddr) (*OFPSwitch, bool) {
 }
 
 
-func Switches() map[string]*OFPSwitch {
-	return switches
-}
-
-
-// Disconnects Switch mapped to dpid.
-func DisconnectSwitch(dpid string) {
-	log.Printf("Closing connection with: %s", dpid)
-	switches[dpid].conn.Close()
-	delete(switches, dpid)
-}
-
-
-// Returns a pointer to portNo OfpPhyPort from this Switch.
-func (s *OFPSwitch) Port(portNo int) (*ofp10.PhyPort, error) {
-	if port, ok := s.Ports[portNo]; ok {
-		return &port, nil
-	} else {
-		return nil, errors.New("ERROR::Undefined port number")
+// Returns a slice of *OFPSwitches for operations across all
+// switches.
+func Switches() []*OFPSwitch {
+	a := make([]*OFPSwitch, len(switches))
+	i := 0
+	for _, v := range switches {
+		a[i] = v
+		i++
 	}
+	return a
 }
 
 
-func (s *OFPSwitch) Links() map[string]*Link {
-	return s.links
+// Disconnects Switch dpid.
+func Disconnect(dpid net.HardwareAddr) {
+	log.Printf("Closing connection with: %s", dpid)
+	switches[dpid.String()].conn.Close()
+	delete(switches, dpid.String())
 }
 
-// Returns the port linking Switch s and the Switch at dpid
-func (s *OFPSwitch) LinkPort(dpid string) *Link {
-	return s.links[dpid]
+
+// Returns a slice of all links connected to Switch s.
+func (s *OFPSwitch) Links() []*Link {
+	a := make([]*Link, len(s.links))
+	i := 0
+	for _, v := range s.links {
+		a[i] = v
+		i++
+	}
+	return a
 }
 
 
+// Returns the link between Switch s and the Switch dpid.
+func (s *OFPSwitch) Link(dpid net.HardwareAddr) *Link {
+	return s.links[dpid.String()]
+}
+
+
+// Updates the link between s.DPID and l.DPID.
 func (s *OFPSwitch) setLink(dpid net.HardwareAddr, l *Link) {
 	s.links[l.DPID.String()] = l
 }
+
 
 // Returns the dpid of Switch s.
 func (s *OFPSwitch) DPID() net.HardwareAddr {
@@ -130,9 +138,25 @@ func (s *OFPSwitch) DPID() net.HardwareAddr {
 }
 
 
-// Returns a map of all the OfpPhyPorts from this Switch.
-func (s *OFPSwitch) AllPorts() map[int]ofp10.PhyPort {
-	return s.Ports
+// Returns a slice of all the ports from Switch s.
+func (s *OFPSwitch) Ports() []*ofp10.PhyPort {
+	a := make([]*ofp10.PhyPort, len(s.ports))
+	i := 0
+	for _, v := range s.ports {
+		a[i] = v
+		i++
+	}
+	return a
+}
+
+
+// Returns a pointer to the OfpPhyPort at port number from Switch s.
+func (s *OFPSwitch) Port(number int) (*ofp10.PhyPort, error) {
+	if port, ok := s.ports[number]; ok {
+		return port, nil
+	} else {
+		return nil, errors.New("ERROR::Undefined port number")
+	}
 }
 
 
@@ -156,7 +180,7 @@ func (s *OFPSwitch) sendSync() {
 
 
 // Receive loop for each Switch.
-func (s *OFPSwitch) Receive() {
+func (s *OFPSwitch) receive() {
 	for p := range s.messageStream.Updates() {
 		s.distributeReceived( ofp10.Msg{p, s.dpid} )
 	}

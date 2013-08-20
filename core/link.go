@@ -3,10 +3,9 @@ package core
 import "time"
 import "net"
 
-/*
-In general. Each switch should keep track of any switches
-connected to itself.
-*/
+// Internal representation of a network link. Can be used to
+// describe the state of the link. Each switch maintains its own
+// set of links.
 type Link struct {
 	DPID net.HardwareAddr
 	Port uint16
