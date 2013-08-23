@@ -7,6 +7,7 @@ import (
 	"net"
 )
 
+
 // ofp_action_type 1.0
 const (
 	AT_OUTPUT = iota
@@ -24,46 +25,18 @@ const (
 	AT_VENDOR = 0xffff
 )
 
+
 type Action interface {
 	Packetish
 	ActionType() uint16
 }
 
-// ofp_action_header 1.0
-type ActionHeader struct {
-	Type   uint16
-	Length uint16
-	Pad    [4]uint8
-}
-
-func (a *ActionHeader) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	err = binary.Write(buf, binary.BigEndian, a)
-	n, err = buf.Read(b)
-	if n == 0 {
-		return
-	}
-	return n, io.EOF
-}
-
-func (a *ActionHeader) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	if err = binary.Read(buf, binary.BigEndian, &a.Type); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.Length); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.Pad); err != nil {
-		return
-	}
-	n += 4
-	return
-}
 
 // ofp_action_output 1.0
+// Action structure for OFPAT_OUTPUT, which sends packets out ’port’.
+// When the ’port’ is the OFPP_CONTROLLER, ’max_len’ indicates the max
+// number of bytes to send. A ’max_len’ of zero means no bytes of the
+// packet should be sent.
 type ActionOutput struct {
 	Type   uint16
 	Length uint16
@@ -71,31 +44,53 @@ type ActionOutput struct {
 	MaxLen uint16
 }
 
-func NewActionOutput(t uint16) *ActionOutput {
+
+// Returns a new Action Output message which sends packets out
+// port number.
+func NewActionOutput(number uint16) *ActionOutput {
 	act := new(ActionOutput)
 	act.Type = AT_OUTPUT
 	act.Length = 8
-	act.Port = t
+	act.Port = number
+	act.MaxLen = 0
 	return act
 }
 
+
 func (a *ActionOutput) ActionType() (n uint16) {
+	return AT_OUTPUT
+}
+
+
+func (a *ActionOutput) Len() (n uint16) {
 	return 8
 }
 
-func (a *ActionOutput) Len() (n uint16) {
-	return a.Length
-}
 
 func (a *ActionOutput) Read(b []byte) (n int, err error) {
-	a.Length = a.Len()
 	buf := new(bytes.Buffer)
-	err = binary.Write(buf, binary.BigEndian, a)
+	if err = binary.Write(buf, binary.BigEndian, a.Type); err != nil {
+		return
+	}
+	n += 2
+	if err = binary.Write(buf, binary.BigEndian, a.Length); err != nil {
+		return
+	}
+	n += 2
+	if err = binary.Write(buf, binary.BigEndian, a.Port); err != nil {
+		return
+	}
+	n += 2
+	if err = binary.Write(buf, binary.BigEndian, a.MaxLen); err != nil {
+		return
+	}
+	n += 2
 	if n, err = buf.Read(b); n == 0 {
 		return
 	}
 	return n, io.EOF
 }
+
 
 func (a *ActionOutput) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
@@ -117,6 +112,7 @@ func (a *ActionOutput) Write(b []byte) (n int, err error) {
 	n += 2
 	return
 }
+
 
 // ofp_action_enqueue 1.0
 type ActionEnqueue struct {
