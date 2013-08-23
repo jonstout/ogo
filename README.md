@@ -1,7 +1,7 @@
 # Ogo
 An OpenFlow Network Controller in Go.
 
-You can find an example application which allows hosts to communicate on a single OpenFlow switch in `ogo.go`. 
+You can find an example application which allows hosts to communicate on a single OpenFlow switch in `ogo.go`. Find full package docs below.
 
 ### [Documentation](http://godoc.org/github.com/jonstout/ogo)
 
