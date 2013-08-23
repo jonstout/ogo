@@ -1,10 +1,10 @@
 package ofp10
 
 import (
-	"io"
-	"net"
 	"bytes"
 	"encoding/binary"
+	"io"
+	"net"
 )
 
 // ofp_action_type 1.0
@@ -31,9 +31,9 @@ type Action interface {
 
 // ofp_action_header 1.0
 type ActionHeader struct {
-	Type uint16
+	Type   uint16
 	Length uint16
-	Pad [4]uint8
+	Pad    [4]uint8
 }
 
 func (a *ActionHeader) Read(b []byte) (n int, err error) {
@@ -49,11 +49,11 @@ func (a *ActionHeader) Read(b []byte) (n int, err error) {
 func (a *ActionHeader) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
 	if err = binary.Read(buf, binary.BigEndian, &a.Type); err != nil {
-		return 
+		return
 	}
 	n += 2
 	if err = binary.Read(buf, binary.BigEndian, &a.Length); err != nil {
-		return 
+		return
 	}
 	n += 2
 	if err = binary.Read(buf, binary.BigEndian, &a.Pad); err != nil {
@@ -65,9 +65,9 @@ func (a *ActionHeader) Write(b []byte) (n int, err error) {
 
 // ofp_action_output 1.0
 type ActionOutput struct {
-	Type uint16
+	Type   uint16
 	Length uint16
-	Port uint16
+	Port   uint16
 	MaxLen uint16
 }
 
@@ -120,10 +120,10 @@ func (a *ActionOutput) Write(b []byte) (n int, err error) {
 
 // ofp_action_enqueue 1.0
 type ActionEnqueue struct {
-	Type uint16
-	Length uint16
-	Port uint16
-	Pad [6]uint8
+	Type    uint16
+	Length  uint16
+	Port    uint16
+	Pad     [6]uint8
 	QueueId uint32
 }
 
@@ -173,10 +173,10 @@ func (a *ActionEnqueue) Write(b []byte) (n int, err error) {
 
 // ofp_action_vlan_vid 1.0
 type ActionVLANVID struct {
-	Type uint16
-	Length uint16
+	Type    uint16
+	Length  uint16
 	VLANVID uint16
-	Pad [2]uint8
+	Pad     [2]uint8
 }
 
 func NewActionVLANVID() *ActionVLANVID {
@@ -222,10 +222,10 @@ func (a *ActionVLANVID) Write(b []byte) (n int, err error) {
 
 // ofp_action_vlan_pcp 1.0
 type ActionVLANPCP struct {
-	Type uint16
-	Length uint16
+	Type    uint16
+	Length  uint16
 	VLANPCP uint8
-	Pad [3]uint8
+	Pad     [3]uint8
 }
 
 func NewActionVLANPCP() *ActionVLANPCP {
@@ -270,10 +270,10 @@ func (a *ActionVLANPCP) Write(b []byte) (n int, err error) {
 
 // ofp_action_dl_addr 1.0
 type ActionDLAddr struct {
-	Type uint16
+	Type   uint16
 	Length uint16
 	DLAddr net.HardwareAddr
-	Pad [6]uint8
+	Pad    [6]uint8
 }
 
 func NewActionDLSrc() *ActionDLAddr {
@@ -331,7 +331,7 @@ func (a *ActionDLAddr) Write(b []byte) (n int, err error) {
 
 // ofp_action_nw_addr 1.0
 type ActionNWAddr struct {
-	Type uint16
+	Type   uint16
 	Length uint16
 	NWAddr net.IP
 }
@@ -386,10 +386,10 @@ func (a *ActionNWAddr) Write(b []byte) (n int, err error) {
 
 // ofp_action_nw_tos 1.0
 type ActionNWTOS struct {
-	Type uint16
+	Type   uint16
 	Length uint16
-	NWTOS uint8
-	Pad [3]uint8
+	NWTOS  uint8
+	Pad    [3]uint8
 }
 
 func NewActionNWTOS() *ActionNWTOS {
@@ -434,10 +434,10 @@ func (a *ActionNWTOS) Write(b []byte) (n int, err error) {
 
 // ofp_action_tp_port 1.0
 type ActionTPPort struct {
-	Type uint16
+	Type   uint16
 	Length uint16
 	TPPort uint16
-	Pad [2]uint8
+	Pad    [2]uint8
 }
 
 func NewActionTPSrc() *ActionTPPort {
@@ -489,7 +489,7 @@ func (a *ActionTPPort) Write(b []byte) (n int, err error) {
 
 // ofp_action_vendor_header 1.0
 type ActionVendorPort struct {
-	Type uint16
+	Type   uint16
 	Length uint16
 	Vendor uint32
 }

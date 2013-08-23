@@ -1,20 +1,18 @@
 package core
 
 import (
-	"log"
-	"time"
-	"net"
-	"github.com/jonstout/pacit"
 	"github.com/jonstout/ogo/openflow/ofp10"
+	"github.com/jonstout/pacit"
+	"log"
+	"net"
+	"time"
 )
-
 
 type Core struct {
 	echoRequest chan ofp10.Msg
-	portStatus chan ofp10.Msg
-	packetIn chan ofp10.Msg
+	portStatus  chan ofp10.Msg
+	packetIn    chan ofp10.Msg
 }
-
 
 func (b *Core) InitApplication(args map[string]string) {
 	b.echoRequest = SubscribeTo(ofp10.T_ECHO_REQUEST)
@@ -22,11 +20,9 @@ func (b *Core) InitApplication(args map[string]string) {
 	b.packetIn = SubscribeTo(ofp10.T_PACKET_IN)
 }
 
-
 func (b *Core) Name() string {
 	return "Core"
 }
-
 
 func (b *Core) Receive() {
 	for {
@@ -39,12 +35,11 @@ func (b *Core) Receive() {
 			if pkt, ok := m.Data.(*ofp10.PacketIn); ok {
 				b.handlePacketIn(m.DPID, pkt)
 			}
-		case <- time.After(time.Second * 2):
+		case <-time.After(time.Second * 2):
 			b.discoverLinks()
 		}
 	}
 }
-
 
 func (b *Core) discoverLinks() {
 	for _, sw := range Switches() {
@@ -52,7 +47,6 @@ func (b *Core) discoverLinks() {
 
 		act := ofp10.NewActionOutput(ofp10.P_FLOOD)
 		pkt.AddAction(act)
-
 
 		if data, err := NewListDiscovery(sw.DPID()); err != nil {
 			log.Println(err)
@@ -66,7 +60,6 @@ func (b *Core) discoverLinks() {
 		}
 	}
 }
-
 
 func (b *Core) handlePacketIn(dpid net.HardwareAddr, msg *ofp10.PacketIn) {
 	eth := msg.Data
@@ -82,7 +75,6 @@ func (b *Core) handlePacketIn(dpid net.HardwareAddr, msg *ofp10.PacketIn) {
 	}
 }
 
-
 func (b *Core) SendEchoReply(dpid net.HardwareAddr) {
 	if s, ok := Switch(dpid); ok {
 		<-time.After(time.Second * 3)
@@ -91,8 +83,7 @@ func (b *Core) SendEchoReply(dpid net.HardwareAddr) {
 	}
 }
 
-
 func (b *Core) UpdatePortStatus(msg ofp10.Msg) {
-	if _, ok := Switch(msg.DPID); ok {		
+	if _, ok := Switch(msg.DPID); ok {
 	}
 }

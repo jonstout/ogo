@@ -1,25 +1,25 @@
 package ofp10
 
 import (
-	"io"
 	"bytes"
 	"encoding/binary"
+	"io"
 )
 
 // ofp_flow_mod
 type FlowMod struct {
 	Header Header
-	Match Match
+	Match  Match
 	Cookie uint64
 
-	Command uint16
+	Command     uint16
 	IdleTimeout uint16
 	HardTimeout uint16
-	Priority uint16
-	BufferID uint32
-	OutPort uint16
-	Flags uint16
-	Actions []Action
+	Priority    uint16
+	BufferID    uint32
+	OutPort     uint16
+	Flags       uint16
+	Actions     []Action
 }
 
 func NewFlowMod() *FlowMod {
@@ -42,11 +42,9 @@ func NewFlowMod() *FlowMod {
 	return f
 }
 
-
 func (f *FlowMod) AddAction(a Action) {
 	f.Actions = append(f.Actions, a)
 }
-
 
 func (f *FlowMod) GetHeader() *Header {
 	return &f.Header
@@ -143,36 +141,36 @@ func (f *FlowMod) Write(b []byte) (n int, err error) {
 
 // ofp_flow_mod_command 1.0
 const (
-      FC_ADD = iota // OFPFC_ADD == 0
-      FC_MODIFY
-      FC_MODIFY_STRICT
-      FC_DELETE
-      FC_DELETE_STRICT
+	FC_ADD = iota // OFPFC_ADD == 0
+	FC_MODIFY
+	FC_MODIFY_STRICT
+	FC_DELETE
+	FC_DELETE_STRICT
 )
 
 // ofp_flow_mod_flags 1.0
 const (
 	FF_SEND_FLOW_REM = 1 << 0
 	FF_CHECK_OVERLAP = 1 << 1
-	FF_EMERG = 1 << 2
+	FF_EMERG         = 1 << 2
 )
 
 // BEGIN: ofp10 - 5.4.2
 type FlowRemoved struct {
-	Header Header
-	Match Match
-	Cookie uint64
+	Header   Header
+	Match    Match
+	Cookie   uint64
 	Priority uint16
-	Reason uint8
-	Pad [1]uint8
+	Reason   uint8
+	Pad      [1]uint8
 
-	DurationSec uint32
+	DurationSec  uint32
 	DurationNSec uint32
 
 	IdleTimeout uint16
-	Pad2 [2]uint8
+	Pad2        [2]uint8
 	PacketCount uint64
-	ByteCount uint64
+	ByteCount   uint64
 }
 
 func (f *FlowRemoved) GetHeader() *Header {

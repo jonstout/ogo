@@ -1,12 +1,12 @@
 package core
 
 import (
+	"github.com/jonstout/ogo/openflow/ofp10"
 	"log"
 	"net"
-	"github.com/jonstout/ogo/openflow/ofp10"
 )
 
-type Controller struct { }
+type Controller struct{}
 
 func NewController() *Controller {
 	o := new(Controller)
