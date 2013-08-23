@@ -1,17 +1,17 @@
 package core
 
 import (
-	"io"
 	"bytes"
+	"encoding/binary"
+	"io"
 	"net"
 	"time"
-	"encoding/binary"
 	//"github.com/jonstout/pacit"
 )
 
 type LinkDiscovery struct {
 	SrcDPID net.HardwareAddr
-	Nsec int64 /* Number of nanoseconds elapsed since Jan 1, 1970. */
+	Nsec    int64 /* Number of nanoseconds elapsed since Jan 1, 1970. */
 }
 
 func NewListDiscovery(srcDPID net.HardwareAddr) (d *LinkDiscovery, err error) {
@@ -34,10 +34,10 @@ func (d *LinkDiscovery) Read(b []byte) (n int, err error) {
 }
 
 func (d *LinkDiscovery) Write(b []byte) (n int, err error) {
-	d.SrcDPID = net.HardwareAddr(b[n:n+8])
+	d.SrcDPID = net.HardwareAddr(b[n : n+8])
 	//d.src = b[n:n+8]
 	n += 8
-	d.Nsec = int64(binary.BigEndian.Uint64(b[n:n+8]))
+	d.Nsec = int64(binary.BigEndian.Uint64(b[n : n+8]))
 	n += 8
 	return
 }

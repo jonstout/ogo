@@ -1,8 +1,8 @@
 package core
 
 import (
-	"errors"
 	"encoding/binary"
+	"errors"
 	"github.com/jonstout/ogo/openflow/ofp10"
 	"log"
 	"net"
@@ -10,9 +10,9 @@ import (
 )
 
 type MessageStream struct {
-	connection *net.TCPConn
-	errorMessage chan error
-	newMessages chan ofp10.Packet
+	connection    *net.TCPConn
+	errorMessage  chan error
+	newMessages   chan ofp10.Packet
 	parseRoutines chan int
 	parsedMessage chan ofp10.Packet
 }
@@ -37,7 +37,7 @@ func (m *MessageStream) Close() {
 
 // Returns a chan that can be used with range to receive a
 // a stream of of type ofp10.Packet.
-func (m *MessageStream) Updates() <- chan ofp10.Packet {
+func (m *MessageStream) Updates() <-chan ofp10.Packet {
 	return m.newMessages
 }
 
@@ -45,11 +45,11 @@ func (m *MessageStream) loop() {
 	go func() {
 		for {
 			select {
-			case <- m.errorMessage: // Close the m.newMessages chan to end Updates()
+			case <-m.errorMessage: // Close the m.newMessages chan to end Updates()
 				close(m.newMessages)
 				m.connection.Close()
 				return
-			case msg := <- m.parsedMessage: // Forward parsed messages to Updates()
+			case msg := <-m.parsedMessage: // Forward parsed messages to Updates()
 				m.newMessages <- msg
 			}
 		}
@@ -71,10 +71,10 @@ func (m *MessageStream) loop() {
 
 			cursor = 0
 			unreadByteLength = unreadByteLength + n
-			
+
 			// A minimum of 4 bytes should be in the buffer
 			for unreadByteLength >= 4 {
-				messageLength := int( binary.BigEndian.Uint16(unreadBytes[cursor+2:cursor+4]) )
+				messageLength := int(binary.BigEndian.Uint16(unreadBytes[cursor+2 : cursor+4]))
 
 				if unreadByteLength >= messageLength {
 					end := cursor + messageLength
@@ -134,6 +134,6 @@ func (m *MessageStream) parse(buf []byte) {
 	}
 	select {
 	case m.parsedMessage <- d:
-	case <- time.After(time.Millisecond * 100):
+	case <-time.After(time.Millisecond * 100):
 	}
 }

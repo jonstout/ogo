@@ -1,17 +1,17 @@
 package ofp10
 
 import (
-	"io"
 	"bytes"
 	"encoding/binary"
+	"io"
 )
 
 // BEGIN: ofp10 - 5.4.4
 // ofp_error_msg 1.0
 type ErrorMsg struct {
 	Header Header
-	Code uint16
-	Data []uint8
+	Code   uint16
+	Data   []uint8
 }
 
 func (e *ErrorMsg) GetHeader() *Header {
@@ -112,5 +112,6 @@ const (
 	QOFC_BAD_QUEUE
 	QOFC_EPERM
 )
+
 // END: ofp10 - 5.4.4
 // END: ofp10 - 5.4

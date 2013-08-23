@@ -9,9 +9,9 @@ import (
 // ofp_stats_request 1.0
 type StatsRequest struct {
 	Header Header
-	Type uint16
-	Flags uint16
-	Body interface{}
+	Type   uint16
+	Flags  uint16
+	Body   interface{}
 }
 
 func (s *StatsRequest) GetHeader() *Header {
@@ -82,9 +82,9 @@ func (s *StatsRequest) Write(b []byte) (n int, err error) {
 // _stats_reply 1.0
 type StatsReply struct {
 	Header Header
-	Type uint16
-	Flags uint16
-	Body []uint8
+	Type   uint16
+	Flags  uint16
+	Body   []uint8
 }
 
 func (s *StatsReply) GetHeader() *Header {
@@ -112,58 +112,58 @@ func (s *StatsReply) Write(b []byte) (n int, err error) {
 	err = binary.Read(buf, binary.BigEndian, &s.Flags)
 	n += 2
 	switch s.Type {
-		case ST_AGGREGATE:
-			a := new(AggregateStatsReply)
-			m, aErr := a.Write(buf.Bytes())
-			if aErr != nil {
+	case ST_AGGREGATE:
+		a := new(AggregateStatsReply)
+		m, aErr := a.Write(buf.Bytes())
+		if aErr != nil {
+			return
+		}
+		n += m
+	case ST_DESC:
+		d := new(DescStats)
+		m, dErr := d.Write(buf.Bytes())
+		if dErr != nil {
+			return
+		}
+		n += m
+	case ST_FLOW:
+		for flowCount := buf.Len() / 24; flowCount > 0; flowCount-- {
+			f := new(FlowStats)
+			m, fErr := f.Write(buf.Next(24))
+			if fErr != nil {
 				return
 			}
 			n += m
-		case ST_DESC:
-			d := new(DescStats)
-			m, dErr := d.Write(buf.Bytes())
-			if dErr != nil {
+		}
+	case ST_PORT:
+		for portCount := buf.Len() / 104; portCount > 0; portCount-- {
+			p := new(FlowStats)
+			m, pErr := p.Write(buf.Next(104))
+			if pErr != nil {
 				return
 			}
 			n += m
-		case ST_FLOW:
-			for flowCount := buf.Len() / 24; flowCount > 0; flowCount-- {
-				f := new(FlowStats)
-				m, fErr := f.Write(buf.Next(24))
-				if fErr != nil {
-					return
-				}
-				n += m
+		}
+	case ST_TABLE:
+		for tableCount := buf.Len() / 32; tableCount > 0; tableCount-- {
+			t := new(FlowStats)
+			m, tErr := t.Write(buf.Next(32))
+			if tErr != nil {
+				return
 			}
-		case ST_PORT:
-			for portCount := buf.Len() / 104; portCount > 0; portCount-- {
-				p := new(FlowStats)
-				m, pErr := p.Write(buf.Next(104))
-				if pErr != nil {
-					return
-				}
-				n += m
+			n += m
+		}
+	case ST_QUEUE:
+		for queueCount := buf.Len() / 32; queueCount > 0; queueCount-- {
+			q := new(QueueStats)
+			m, qErr := q.Write(buf.Next(32))
+			if qErr != nil {
+				return
 			}
-		case ST_TABLE:
-			for tableCount := buf.Len() / 32; tableCount > 0; tableCount-- {
-				t := new(FlowStats)
-				m, tErr := t.Write(buf.Next(32))
-				if tErr != nil {
-					return
-				}
-				n += m
-			}
-		case ST_QUEUE:
-			for queueCount := buf.Len() / 32; queueCount > 0; queueCount-- {
-				q := new(QueueStats)
-				m, qErr := q.Write(buf.Next(32))
-				if qErr != nil {
-					return
-				}
-				n += m
-			}
-		case ST_VENDOR:
-			break
+			n += m
+		}
+	case ST_VENDOR:
+		break
 	}
 	return n, nil
 }
@@ -202,11 +202,11 @@ const (
 
 // ofp_desc_stats 1.0
 type DescStats struct {
-	MfrDesc [DESC_STR_LEN]byte
-	HWDesc [DESC_STR_LEN]byte
-	SWDesc [DESC_STR_LEN]byte
+	MfrDesc   [DESC_STR_LEN]byte
+	HWDesc    [DESC_STR_LEN]byte
+	SWDesc    [DESC_STR_LEN]byte
 	SerialNum [SERIAL_NUM_LEN]byte
-	DPDesc [DESC_STR_LEN]byte
+	DPDesc    [DESC_STR_LEN]byte
 }
 
 func (s *DescStats) Read(b []byte) (n int, err error) {
@@ -250,15 +250,15 @@ func (s *DescStats) Write(b []byte) (n int, err error) {
 }
 
 const (
-	DESC_STR_LEN = 256
+	DESC_STR_LEN   = 256
 	SERIAL_NUM_LEN = 32
 )
 
 // ofp_flow_stats_request 1.0
 type FlowStatsRequest struct {
-	Match Match
+	Match   Match
 	TableID uint8
-	Pad uint8
+	Pad     uint8
 	OutPort uint16
 }
 
@@ -298,20 +298,20 @@ func (s *FlowStatsRequest) Write(b []byte) (n int, err error) {
 
 // ofp_flow_stats 1.0
 type FlowStats struct {
-	Length uint16
-	TableID uint8
-	Pad uint8
-	Match Match
-	DurationSec uint32
+	Length       uint16
+	TableID      uint8
+	Pad          uint8
+	Match        Match
+	DurationSec  uint32
 	DurationNSec uint32
-	Priority uint16
-	IdleTimeout uint16
-	HardTimeout uint16
-	Pad2 [6]uint8
-	Cookie uint64
-	PacketCount uint64
-	ByteCount uint64
-	Actions []ActionHeader
+	Priority     uint16
+	IdleTimeout  uint16
+	HardTimeout  uint16
+	Pad2         [6]uint8
+	Cookie       uint64
+	PacketCount  uint64
+	ByteCount    uint64
+	Actions      []ActionHeader
 }
 
 func (s *FlowStats) Read(b []byte) (n int, err error) {
@@ -401,9 +401,9 @@ func (s *FlowStats) Write(b []byte) (n int, err error) {
 
 // ofp_aggregate_stats_request 1.0
 type AggregateStatsRequest struct {
-	Match Match
+	Match   Match
 	TableID uint8
-	Pad uint8
+	Pad     uint8
 	OutPort uint16
 }
 
@@ -441,9 +441,9 @@ func (s *AggregateStatsRequest) Write(b []byte) (n int, err error) {
 // ofp_aggregate_stats_reply 1.0
 type AggregateStatsReply struct {
 	PacketCount uint64
-	ByteCount uint64
-	FlowCount uint32
-	Pad [4]uint8
+	ByteCount   uint64
+	FlowCount   uint32
+	Pad         [4]uint8
 }
 
 func (s *AggregateStatsReply) Read(b []byte) (n int, err error) {
@@ -480,15 +480,16 @@ func (s *AggregateStatsReply) Write(b []byte) (n int, err error) {
 	n += 4
 	return
 }
+
 // ofp_table_stats 1.0
 type TableStats struct {
-	TableID uint8
-	Pad [3]uint8
-	Name [MAX_TABLE_NAME_LEN]byte
-	Wildcards uint32
-	MaxEntries uint32
-	ActiveCount uint32
-	LookupCount uint64
+	TableID      uint8
+	Pad          [3]uint8
+	Name         [MAX_TABLE_NAME_LEN]byte
+	Wildcards    uint32
+	MaxEntries   uint32
+	ActiveCount  uint32
+	LookupCount  uint64
 	MatchedCount uint64
 }
 
@@ -554,7 +555,7 @@ const (
 // ofp_port_stats_request 1.0
 type PortStatsRequest struct {
 	PortNo uint16
-	Pad [6]uint8
+	Pad    [6]uint8
 }
 
 func (s *PortStatsRequest) Read(b []byte) (n int, err error) {
@@ -584,19 +585,19 @@ func (s *PortStatsRequest) Write(b []byte) (n int, err error) {
 
 // ofp_port_stats 1.0
 type PortStats struct {
-	PortNo uint16
-	Pad [6]uint8
-	RxPackets uint64
-	TxPackets uint64
-	RxBytes uint64
-	TxBytes uint64
-	RxDropped uint64
-	TxDropped uint64
-	RxErrors uint64
-	TxErrors uint64
+	PortNo     uint16
+	Pad        [6]uint8
+	RxPackets  uint64
+	TxPackets  uint64
+	RxBytes    uint64
+	TxBytes    uint64
+	RxDropped  uint64
+	TxDropped  uint64
+	RxErrors   uint64
+	TxErrors   uint64
 	RxFrameErr uint64
-	RxOverErr uint64
-	RxCRCErr uint64
+	RxOverErr  uint64
+	RxCRCErr   uint64
 	Collisions uint64
 }
 
@@ -642,22 +643,22 @@ func (s *PortStats) Write(b []byte) (n int, err error) {
 		return
 	}
 	n += 8
-		err = binary.Read(buf, binary.BigEndian, &s.RxPackets)
+	err = binary.Read(buf, binary.BigEndian, &s.RxPackets)
 	if err != nil {
 		return
 	}
 	n += 8
-		err = binary.Read(buf, binary.BigEndian, &s.RxPackets)
+	err = binary.Read(buf, binary.BigEndian, &s.RxPackets)
 	if err != nil {
 		return
 	}
 	n += 8
-		err = binary.Read(buf, binary.BigEndian, &s.RxDropped)
+	err = binary.Read(buf, binary.BigEndian, &s.RxDropped)
 	if err != nil {
 		return
 	}
 	n += 8
-		err = binary.Read(buf, binary.BigEndian, &s.TxDropped)
+	err = binary.Read(buf, binary.BigEndian, &s.TxDropped)
 	if err != nil {
 		return
 	}
@@ -697,8 +698,8 @@ func (s *PortStats) Write(b []byte) (n int, err error) {
 
 // ofp_queue_stats_request 1.0
 type QueueStatsRequest struct {
-	PortNo uint16
-	Pad [2]uint8
+	PortNo  uint16
+	Pad     [2]uint8
 	QueueID uint32
 }
 
@@ -734,12 +735,12 @@ func (s *QueueStatsRequest) Write(b []byte) (n int, err error) {
 
 // ofp_queue_stats 1.0
 type QueueStats struct {
-	PortNo uint16
-	Pad [2]uint8
-	QueueID uint32
-	TxBytes uint64
+	PortNo    uint16
+	Pad       [2]uint8
+	QueueID   uint32
+	TxBytes   uint64
 	TxPackets uint64
-	TxErrors uint64
+	TxErrors  uint64
 }
 
 func (s *QueueStats) Read(b []byte) (n int, err error) {
@@ -791,8 +792,8 @@ func (s *QueueStats) Write(b []byte) (n int, err error) {
 type PortStatus struct {
 	Header Header
 	Reason uint8
-	Pad [7]uint8
-	Desc PhyPort
+	Pad    [7]uint8
+	Desc   PhyPort
 }
 
 func (p *PortStatus) GetHeader() *Header {

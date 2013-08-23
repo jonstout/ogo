@@ -1,28 +1,29 @@
 package ofp10
 
 import (
+	"bytes"
+	"encoding/binary"
 	"io"
 	"net"
-	"encoding/binary"
-	"bytes"
 )
+
 // ofp_match 1.0
 type Match struct {
-	Wildcards uint32 /* Wildcard fields. */
-	InPort uint16 /* Input switch port. */
-	DLSrc net.HardwareAddr//[ETH_ALEN]uint8 /* Ethernet source address. */
-	DLDst net.HardwareAddr//[ETH_ALEN]uint8 /* Ethernet destination address. */
-	DLVLAN uint16 /* Input VLAN id. */
-	DLVLANPcp uint8 /* Input VLAN priority. */
-	Pad [1]uint8 /* Align to 64-bits */
-	DLType uint16 /* Ethernet frame type. */
-	NWTos uint8 /* IP ToS (actually DSCP field, 6 bits). */
-	NWProto uint8 /* IP protocol or lower 8 bits of ARP opcode. */
-	Pad1 [2]uint8 /* Align to 64-bits */
-	NWSrc net.IP /* IP source address. */
-	NWDst net.IP /* IP destination address. */
-	TPSrc uint16 /* TCP/UDP source port. */
-	TPDst uint16 /* TCP/UDP destination port. */
+	Wildcards uint32           /* Wildcard fields. */
+	InPort    uint16           /* Input switch port. */
+	DLSrc     net.HardwareAddr //[ETH_ALEN]uint8 /* Ethernet source address. */
+	DLDst     net.HardwareAddr //[ETH_ALEN]uint8 /* Ethernet destination address. */
+	DLVLAN    uint16           /* Input VLAN id. */
+	DLVLANPcp uint8            /* Input VLAN priority. */
+	Pad       [1]uint8         /* Align to 64-bits */
+	DLType    uint16           /* Ethernet frame type. */
+	NWTos     uint8            /* IP ToS (actually DSCP field, 6 bits). */
+	NWProto   uint8            /* IP protocol or lower 8 bits of ARP opcode. */
+	Pad1      [2]uint8         /* Align to 64-bits */
+	NWSrc     net.IP           /* IP source address. */
+	NWDst     net.IP           /* IP destination address. */
+	TPSrc     uint16           /* TCP/UDP source port. */
+	TPDst     uint16           /* TCP/UDP destination port. */
 }
 
 func NewMatch() *Match {
@@ -167,27 +168,27 @@ func (m *Match) Write(b []byte) (n int, err error) {
 
 // ofp_flow_wildcards 1.0
 const (
-	FW_IN_PORT = 1 << 0
-	FW_DL_VLAN = 1 << 1
-	FW_DL_SRC = 1 << 2
-	FW_DL_DST = 1 << 3
-	FW_DL_TYPE = 1 << 4
+	FW_IN_PORT  = 1 << 0
+	FW_DL_VLAN  = 1 << 1
+	FW_DL_SRC   = 1 << 2
+	FW_DL_DST   = 1 << 3
+	FW_DL_TYPE  = 1 << 4
 	FW_NW_PROTO = 1 << 5
-	FW_TP_SRC = 1 << 6
-	FW_TP_DST = 1 << 7
+	FW_TP_SRC   = 1 << 6
+	FW_TP_DST   = 1 << 7
 
 	FW_NW_SRC_SHIFT = 8
-	FW_NW_SRC_BITS = 6
-	FW_NW_SRC_MASK = ((1 << FW_NW_SRC_BITS) - 1) << FW_NW_SRC_SHIFT
-	FW_NW_SRC_ALL = 32 << FW_NW_SRC_SHIFT
+	FW_NW_SRC_BITS  = 6
+	FW_NW_SRC_MASK  = ((1 << FW_NW_SRC_BITS) - 1) << FW_NW_SRC_SHIFT
+	FW_NW_SRC_ALL   = 32 << FW_NW_SRC_SHIFT
 
 	FW_NW_DST_SHIFT = 14
-	FW_NW_DST_BITS = 6
-	FW_NW_DST_MASK = ((1 << FW_NW_DST_BITS) - 1) << FW_NW_DST_SHIFT
-	FW_NW_DST_ALL = 32 << FW_NW_DST_SHIFT
+	FW_NW_DST_BITS  = 6
+	FW_NW_DST_MASK  = ((1 << FW_NW_DST_BITS) - 1) << FW_NW_DST_SHIFT
+	FW_NW_DST_ALL   = 32 << FW_NW_DST_SHIFT
 
 	FW_DL_VLAN_PCP = 1 << 20
-	FW_NW_TOS = 1 << 21
+	FW_NW_TOS      = 1 << 21
 
 	FW_ALL = ((1 << 22) - 1)
 )
