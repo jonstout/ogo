@@ -19,14 +19,14 @@ type FlowMod struct {
 	BufferID uint32
 	OutPort uint16
 	Flags uint16
-	Actions []Packetish
+	Actions []Action
 }
 
 func NewFlowMod() *FlowMod {
 	f := new(FlowMod)
 	f.Header = *NewHeader()
 	f.Header.Type = T_FLOW_MOD
-	f.Match = *new(Match)
+	f.Match = *NewMatch()
 	// Add a generator for f.Cookie here
 	f.Cookie = 0
 
@@ -38,9 +38,15 @@ func NewFlowMod() *FlowMod {
 	f.BufferID = 0xffffffff
 	f.OutPort = P_NONE
 	f.Flags = 0
-	f.Actions = make([]Packetish, 0)
+	f.Actions = make([]Action, 0)
 	return f
 }
+
+
+func (f *FlowMod) AddAction(a Action) {
+	f.Actions = append(f.Actions, a)
+}
+
 
 func (f *FlowMod) GetHeader() *Header {
 	return &f.Header
@@ -122,7 +128,7 @@ func (f *FlowMod) Write(b []byte) (n int, err error) {
 	}
 	n += 2
 	actionCount := buf.Len() / 8
-	f.Actions = make([]Packetish, actionCount)
+	f.Actions = make([]Action, actionCount)
 	for i := 0; i < actionCount; i++ {
 		a := new(ActionOutput)
 		m, err = a.Write(buf.Next(8))

@@ -75,7 +75,7 @@ func NewActionOutput(t uint16) *ActionOutput {
 	act := new(ActionOutput)
 	act.Type = AT_OUTPUT
 	act.Length = 8
-	act.Port = P_FLOOD
+	act.Port = t
 	return act
 }
 
