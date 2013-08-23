@@ -32,7 +32,6 @@ type Action interface {
 }
 
 
-// ofp_action_output 1.0
 // Action structure for OFPAT_OUTPUT, which sends packets out ’port’.
 // When the ’port’ is the OFPP_CONTROLLER, ’max_len’ indicates the max
 // number of bytes to send. A ’max_len’ of zero means no bytes of the
@@ -57,13 +56,13 @@ func NewActionOutput(number uint16) *ActionOutput {
 }
 
 
-func (a *ActionOutput) ActionType() (n uint16) {
-	return AT_OUTPUT
+func (a *ActionOutput) ActionType() uint16 {
+	return a.Type
 }
 
 
 func (a *ActionOutput) Len() (n uint16) {
-	return 8
+	return a.Length
 }
 
 
@@ -114,33 +113,72 @@ func (a *ActionOutput) Write(b []byte) (n int, err error) {
 }
 
 
-// ofp_action_enqueue 1.0
+// The enqueue action maps a flow to an already-configured queue, regardless of
+// the TOS and VLAN PCP bits. The packet should not change after an enqueue
+// action. If the switch needs to set the TOS/PCP bits for internal handling, the
+// original values should be restored before sending the packet out.
+// A switch may support only queues that are tied to specific PCP/TOS bits.
+// In that case, we cannot map an arbitrary flow to a specific queue, therefore the
+// action ENQUEUE is not supported. The user can still use these queues and
+// map flows to them by setting the relevant fields (TOS, VLAN PCP).
 type ActionEnqueue struct {
 	Type    uint16
 	Length  uint16
 	Port    uint16
-	Pad     [6]uint8
-	QueueId uint32
+	pad     []uint8
+	QueueID uint32
 }
 
-func NewActionEnqueue() *ActionEnqueue {
+
+func NewActionEnqueue(number uint16, queue uint32) *ActionEnqueue {
 	a := new(ActionEnqueue)
 	a.Type = AT_ENQUEUE
 	a.Length = 16
+	a.Port = number
+	a.pad = make([]uint8, 6)
+	a.QueueID = queue
 	return a
 }
+
+
+func (a *ActionEnqueue) ActionType() uint16 {
+	return a.Type
+}
+
 
 func (a *ActionEnqueue) Len() (n uint16) {
 	return a.Length
 }
 
+
 func (a *ActionEnqueue) Read(b []byte) (n int, err error) {
-	a.Length = a.Len()
 	buf := new(bytes.Buffer)
-	err = binary.Write(buf, binary.BigEndian, a)
-	n, err = buf.Read(b)
-	return
+	if err = binary.Write(buf, binary.BigEndian, a.Type); err != nil {
+		return
+	}
+	n += 2
+	if err = binary.Write(buf, binary.BigEndian, a.Length); err != nil {
+		return
+	}
+	n += 2
+	if err = binary.Write(buf, binary.BigEndian, a.Port); err != nil {
+		return
+	}
+	n += 2
+	if err = binary.Write(buf, binary.BigEndian, a.pad); err != nil {
+		return
+	}
+	n += 6
+	if err = binary.Write(buf, binary.BigEndian, a.QueueID); err != nil {
+		return
+	}
+	n += 4
+	if n, err = buf.Read(b); n == 0 {
+		return
+	}
+	return n, io.EOF
 }
+
 
 func (a *ActionEnqueue) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
@@ -166,6 +204,7 @@ func (a *ActionEnqueue) Write(b []byte) (n int, err error) {
 	n += 4
 	return
 }
+
 
 // ofp_action_vlan_vid 1.0
 type ActionVLANVID struct {
