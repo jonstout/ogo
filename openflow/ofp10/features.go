@@ -1,11 +1,11 @@
 package ofp10
 
 import (
+	"bytes"
+	"encoding/binary"
+	"errors"
 	"io"
 	"net"
-	"bytes"
-	"errors"
-	"encoding/binary"
 )
 
 type SwitchFeatures struct {
@@ -14,14 +14,15 @@ type SwitchFeatures struct {
 	DPID net.HardwareAddr
 	//DPID [8]uint8
 	Buffers uint32
-	Tables uint8
-	Pad [3]uint8
+	Tables  uint8
+	Pad     [3]uint8
 
 	Capabilities uint32
-	Actions uint32
+	Actions      uint32
 
 	Ports []PhyPort
 }
+
 // OFP_ASSERT(len(SwitchFeatures) == 32)
 
 // FeaturesRequest constructor
@@ -78,8 +79,8 @@ func (f *SwitchFeatures) ReadFrom(r io.Reader) (n int64, err error) {
 		return
 	}
 	n += 4
-	f.Ports = make([]PhyPort, (int(f.Header.Length) - 32) / 48)
-	for i := 0; i < (int(f.Header.Length) - 32) / 48; i++ {
+	f.Ports = make([]PhyPort, (int(f.Header.Length)-32)/48)
+	for i := 0; i < (int(f.Header.Length)-32)/48; i++ {
 		var p PhyPort
 		if m, err2 := p.ReadFrom(r); m == 0 {
 			return m, err2
@@ -122,9 +123,9 @@ func (f *SwitchFeatures) Write(b []byte) (n int, err error) {
 		return
 	}
 	n += 4
-	
+
 	// Verify port data structures are the correct size.
-	if buf.Len() % 48 != 0 {
+	if buf.Len()%48 != 0 {
 		return n, errors.New("Ports recieved are malformed.")
 	}
 	portCount := buf.Len() / 48
@@ -143,12 +144,12 @@ func (f *SwitchFeatures) Write(b []byte) (n int, err error) {
 
 // ofp_capabilities 1.0
 const (
-	C_FLOW_STATS = 1 << 0
-	C_TABLE_STATS = 1 << 1
-	C_PORT_STATS = 1 << 2
-	C_STP = 1 << 3
-	C_RESERVED = 1 << 4
-	C_IP_REASM = 1 << 5
-	C_QUEUE_STATS = 1 << 6
+	C_FLOW_STATS   = 1 << 0
+	C_TABLE_STATS  = 1 << 1
+	C_PORT_STATS   = 1 << 2
+	C_STP          = 1 << 3
+	C_RESERVED     = 1 << 4
+	C_IP_REASM     = 1 << 5
+	C_QUEUE_STATS  = 1 << 6
 	C_ARP_MATCH_IP = 1 << 7
 )

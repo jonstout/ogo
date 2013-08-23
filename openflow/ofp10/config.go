@@ -15,15 +15,15 @@ func NewConfigRequest() *Header {
 // ofp_config_flags 1.0
 const (
 	C_FRAG_NORMAL = 0
-	C_FRAG_DROP = 1
-	C_FRAG_REASM = 2
-	C_FRAG_MASK = 3
+	C_FRAG_DROP   = 1
+	C_FRAG_REASM  = 2
+	C_FRAG_MASK   = 3
 )
 
 // ofp_switch_config 1.0
 type SwitchConfig struct {
-	Header Header
-	Flags uint16 // OFPC_* flags
+	Header      Header
+	Flags       uint16 // OFPC_* flags
 	MissSendLen uint16
 }
 

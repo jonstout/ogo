@@ -9,11 +9,11 @@ package ofp10
 
 import (
 	//"fmt"
-	"io"
-	"net"
 	"bytes"
 	"encoding/binary"
 	"github.com/jonstout/pacit"
+	"io"
+	"net"
 )
 
 type Packetish interface {
@@ -47,9 +47,9 @@ const (
 // framing is used to distinguish one frame from the next.
 type Header struct {
 	Version uint8
-	Type uint8
-	Length uint16
-	XID uint32
+	Type    uint8
+	Length  uint16
+	XID     uint32
 }
 
 var NewHeader func() *Header = newHeaderGenerator()
@@ -63,7 +63,7 @@ func newHeaderGenerator() func() *Header {
 		p.Length = 8
 		p.XID = xid
 		xid += 1
-		
+
 		return p
 	}
 }
@@ -86,7 +86,6 @@ func (h *Header) Read(b []byte) (n int, err error) {
 	return n, io.EOF
 }
 
-
 func (h *Header) ReadFrom(r io.Reader) (n int64, err error) {
 	if err = binary.Read(r, binary.BigEndian, &h.Version); err != nil {
 		return
@@ -106,7 +105,6 @@ func (h *Header) ReadFrom(r io.Reader) (n int64, err error) {
 	n += 4
 	return
 }
-
 
 func (h *Header) Write(b []byte) (n int, err error) {
 	r := bytes.NewBuffer(b)
@@ -210,12 +208,12 @@ const (
 // action, the in_port in the packet_out message is used in the
 // flow table lookup.
 type PacketOut struct {
-	Header Header
-	BufferID uint32
-	InPort uint16
+	Header     Header
+	BufferID   uint32
+	InPort     uint16
 	ActionsLen uint16
-	Actions []Action
-	Data Packetish
+	Actions    []Action
+	Data       Packetish
 }
 
 func NewPacketOut() *PacketOut {
@@ -225,7 +223,7 @@ func NewPacketOut() *PacketOut {
 	p.BufferID = 0xffffffff
 	p.InPort = P_NONE
 	p.ActionsLen = 0
-	p.Actions = make([]Action,0)
+	p.Actions = make([]Action, 0)
 	return p
 }
 
@@ -259,7 +257,7 @@ func (p *PacketOut) Read(b []byte) (n int, err error) {
 		_, err = buf.ReadFrom(e)
 	}
 	_, err = buf.ReadFrom(p.Data)
-	
+
 	n, err = buf.Read(b)
 	if n == 0 {
 		return
@@ -302,12 +300,12 @@ func (p *PacketOut) Write(b []byte) (n int, err error) {
 
 // ofp_packet_in 1.0
 type PacketIn struct {
-	Header Header
+	Header   Header
 	BufferID uint32
 	TotalLen uint16
-	InPort uint16
-	Reason uint8
-	Data pacit.Ethernet
+	InPort   uint16
+	Reason   uint8
+	Data     pacit.Ethernet
 }
 
 func (p *PacketIn) GetHeader() *Header {

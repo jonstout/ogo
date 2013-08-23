@@ -11,7 +11,7 @@ func TestActionOutput(t *testing.T) {
 	}
 	b := make([]byte, act.Len())
 	act.Read(b)
-	
+
 	act2 := new(ActionOutput)
 	act2.Write(b)
 	if *act != *act2 {
@@ -26,7 +26,7 @@ func TestActionEnqueue(t *testing.T) {
 	}
 	b := make([]byte, act.Len())
 	act.Read(b)
-	
+
 	act2 := new(ActionEnqueue)
 	act2.Write(b)
 	if *act != *act2 {
@@ -41,7 +41,7 @@ func TestActionVLANVID(t *testing.T) {
 	}
 	b := make([]byte, act.Len())
 	act.Read(b)
-	
+
 	act2 := new(ActionVLANVID)
 	act2.Write(b)
 	if *act != *act2 {
@@ -56,7 +56,7 @@ func TestActionVLANVPCP(t *testing.T) {
 	}
 	b := make([]byte, act.Len())
 	act.Read(b)
-	
+
 	act2 := new(ActionVLANPCP)
 	act2.Write(b)
 	if *act != *act2 {
@@ -71,7 +71,7 @@ func TestActionDLAddr(t *testing.T) {
 	}
 	b := make([]byte, act.Len())
 	act.Read(b)
-	
+
 	act2 := new(ActionDLAddr)
 	act2.Write(b)
 	if act.Type != act2.Type {
@@ -95,7 +95,7 @@ func TestActionNWAddr(t *testing.T) {
 	}
 	b := make([]byte, act.Len())
 	act.Read(b)
-	
+
 	act2 := new(ActionNWAddr)
 	act2.Write(b)
 	if act.Type != act2.Type {
@@ -116,7 +116,7 @@ func TestActionNWTOS(t *testing.T) {
 	}
 	b := make([]byte, act.Len())
 	act.Read(b)
-	
+
 	act2 := new(ActionNWTOS)
 	act2.Write(b)
 	if *act != *act2 {
@@ -131,7 +131,7 @@ func TestActionTPPort(t *testing.T) {
 	}
 	b := make([]byte, act.Len())
 	act.Read(b)
-	
+
 	act2 := new(ActionTPPort)
 	act2.Write(b)
 	if *act != *act2 {
@@ -146,7 +146,7 @@ func TestActionVendorPort(t *testing.T) {
 	}
 	b := make([]byte, act.Len())
 	act.Read(b)
-	
+
 	act2 := new(ActionVendorPort)
 	act2.Write(b)
 	if *act != *act2 {

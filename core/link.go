@@ -7,8 +7,8 @@ import "net"
 // describe the state of the link. Each switch maintains its own
 // set of links.
 type Link struct {
-	DPID net.HardwareAddr
-	Port uint16
-	Latency time.Duration
+	DPID      net.HardwareAddr
+	Port      uint16
+	Latency   time.Duration
 	Bandwidth int
 }

@@ -1,16 +1,16 @@
 package main
 
 import (
-	"net"
 	"fmt"
 	"github.com/jonstout/ogo/core"
 	"github.com/jonstout/ogo/openflow/ofp10"
+	"net"
 )
 
 // This is a basic learning switch implementation
 type DemoApplication struct {
 	packetIn chan ofp10.Msg
-	hostMap map[string]uint16
+	hostMap  map[string]uint16
 }
 
 func (b *DemoApplication) InitApplication(args map[string]string) {
@@ -47,13 +47,13 @@ func (b *DemoApplication) parsePacketIn(dpid net.HardwareAddr, pkt *ofp10.Packet
 	}
 	if _, ok := b.hostMap[hwDst]; ok {
 		f1 := ofp10.NewFlowMod()
-		f1.AddAction( ofp10.NewActionOutput(b.hostMap[hwDst]) )
+		f1.AddAction(ofp10.NewActionOutput(b.hostMap[hwDst]))
 		f1.Match.DLSrc = eth.HWSrc
 		f1.Match.DLDst = eth.HWDst
 		f1.IdleTimeout = 3
-		
+
 		f2 := ofp10.NewFlowMod()
-		f2.AddAction( ofp10.NewActionOutput(b.hostMap[hwSrc]) )
+		f2.AddAction(ofp10.NewActionOutput(b.hostMap[hwSrc]))
 		f2.Match.DLSrc = eth.HWDst
 		f2.Match.DLDst = eth.HWSrc
 		f2.IdleTimeout = 3

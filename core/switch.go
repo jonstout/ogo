@@ -1,29 +1,26 @@
 package core
 
 import (
+	"errors"
+	"github.com/jonstout/ogo/openflow/ofp10"
 	"log"
 	"net"
 	"time"
-	"errors"
-	"github.com/jonstout/ogo/openflow/ofp10"
 )
-
 
 // A map from DPIDs to all Switches that have connected since
 // Ogo started.
 var switches map[string]*OFPSwitch
 
-
 type OFPSwitch struct {
-	conn *net.TCPConn
+	conn          *net.TCPConn
 	messageStream *MessageStream
-	outbound chan ofp10.Packet
-	dpid net.HardwareAddr
-	ports map[int]*ofp10.PhyPort
-	links map[string]*Link
-	requests map[uint32]chan ofp10.Msg
+	outbound      chan ofp10.Packet
+	dpid          net.HardwareAddr
+	ports         map[int]*ofp10.PhyPort
+	links         map[string]*Link
+	requests      map[uint32]chan ofp10.Msg
 }
-
 
 // Builds and populates a Switch struct then starts listening
 // for OpenFlow messages on conn.
@@ -58,7 +55,7 @@ func NewOFPSwitch(conn *net.TCPConn) {
 		go sw.sendSync()
 		go sw.receive()
 	} else {
-		log.Printf("Openflow 1.%d Connection: %s", res.Header.Version - 1, res.DPID.String())
+		log.Printf("Openflow 1.%d Connection: %s", res.Header.Version-1, res.DPID.String())
 		s := new(OFPSwitch)
 		s.conn = conn
 		s.outbound = make(chan ofp10.Packet)
@@ -76,7 +73,6 @@ func NewOFPSwitch(conn *net.TCPConn) {
 	}
 }
 
-
 // Returns a pointer to the Switch mapped to dpid.
 func Switch(dpid net.HardwareAddr) (*OFPSwitch, bool) {
 	if sw, ok := switches[dpid.String()]; ok {
@@ -85,7 +81,6 @@ func Switch(dpid net.HardwareAddr) (*OFPSwitch, bool) {
 		return nil, false
 	}
 }
-
 
 // Returns a slice of *OFPSwitches for operations across all
 // switches.
@@ -99,14 +94,12 @@ func Switches() []*OFPSwitch {
 	return a
 }
 
-
 // Disconnects Switch dpid.
 func Disconnect(dpid net.HardwareAddr) {
 	log.Printf("Closing connection with: %s", dpid)
 	switches[dpid.String()].conn.Close()
 	delete(switches, dpid.String())
 }
-
 
 // Returns a slice of all links connected to Switch s.
 func (s *OFPSwitch) Links() []*Link {
@@ -119,24 +112,20 @@ func (s *OFPSwitch) Links() []*Link {
 	return a
 }
 
-
 // Returns the link between Switch s and the Switch dpid.
 func (s *OFPSwitch) Link(dpid net.HardwareAddr) *Link {
 	return s.links[dpid.String()]
 }
-
 
 // Updates the link between s.DPID and l.DPID.
 func (s *OFPSwitch) setLink(dpid net.HardwareAddr, l *Link) {
 	s.links[l.DPID.String()] = l
 }
 
-
 // Returns the dpid of Switch s.
 func (s *OFPSwitch) DPID() net.HardwareAddr {
 	return s.dpid
 }
-
 
 // Returns a slice of all the ports from Switch s.
 func (s *OFPSwitch) Ports() []*ofp10.PhyPort {
@@ -149,7 +138,6 @@ func (s *OFPSwitch) Ports() []*ofp10.PhyPort {
 	return a
 }
 
-
 // Returns a pointer to the OfpPhyPort at port number from Switch s.
 func (s *OFPSwitch) Port(number int) (*ofp10.PhyPort, error) {
 	if port, ok := s.ports[number]; ok {
@@ -159,13 +147,11 @@ func (s *OFPSwitch) Port(number int) (*ofp10.PhyPort, error) {
 	}
 }
 
-
 // Sends an OpenFlow message to this Switch.
 func (s *OFPSwitch) Send(req ofp10.Packet) (err error) {
 	s.outbound <- req
 	return nil
 }
-
 
 func (s *OFPSwitch) sendSync() {
 	for {
@@ -178,35 +164,32 @@ func (s *OFPSwitch) sendSync() {
 	}
 }
 
-
 // Receive loop for each Switch.
 func (s *OFPSwitch) receive() {
 	for p := range s.messageStream.Updates() {
-		s.distributeReceived( ofp10.Msg{p, s.dpid} )
+		s.distributeReceived(ofp10.Msg{p, s.dpid})
 	}
 }
-
 
 func (s *OFPSwitch) distributeReceived(p ofp10.Msg) {
 	h := p.Data.GetHeader()
 	if pktChan, ok := s.requests[h.XID]; ok {
 		select {
 		case pktChan <- p:
-		case <- time.After(time.Millisecond * 100):
+		case <-time.After(time.Millisecond * 100):
 		}
 		delete(s.requests, h.XID)
 	} else {
 		for _, ch := range messageChans[h.Type] {
 			select {
 			case ch <- p:
-			case <- time.After(time.Millisecond * 100):
+			case <-time.After(time.Millisecond * 100):
 			}
 		}
 	}
 }
 
-
-// Sends an OpenFlow message to s, and returns a channel to receive 
+// Sends an OpenFlow message to s, and returns a channel to receive
 // a response on. Any error encountered during the send except io.EOF
 // is returned.
 func (s *OFPSwitch) SendAndReceive(req ofp10.Packet) (p chan ofp10.Msg, err error) {
