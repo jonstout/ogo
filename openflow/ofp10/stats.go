@@ -311,7 +311,7 @@ type FlowStats struct {
 	Cookie       uint64
 	PacketCount  uint64
 	ByteCount    uint64
-	Actions      []ActionHeader
+	Actions      []Action
 }
 
 func (s *FlowStats) Read(b []byte) (n int, err error) {
@@ -392,9 +392,16 @@ func (s *FlowStats) Write(b []byte) (n int, err error) {
 		return
 	}
 	n += 8
-	for actionCount := buf.Len() / 8; actionCount > 0; actionCount-- {
-		a := new(ActionHeader)
-		a.Write(buf.Next(8))
+	actionCount := buf.Len() / 8
+	s.Actions = make([]Action, actionCount)
+	for i := 0; i < actionCount; i++ {
+		a := new(ActionOutput)
+		m, err = a.Write(buf.Next(8))
+		if m == 0 {
+			return
+		}
+		n += m
+		s.Actions[i] = a
 	}
 	return
 }

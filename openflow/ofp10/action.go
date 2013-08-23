@@ -180,11 +180,11 @@ func (a *ActionEnqueue) Write(b []byte) (n int, err error) {
 		return
 	}
 	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.Pad); err != nil {
+	if err = binary.Read(buf, binary.BigEndian, &a.pad); err != nil {
 		return
 	}
 	n += 6
-	if err = binary.Read(buf, binary.BigEndian, &a.QueueId); err != nil {
+	if err = binary.Read(buf, binary.BigEndian, &a.QueueID); err != nil {
 		return
 	}
 	n += 4
