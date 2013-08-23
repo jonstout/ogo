@@ -16,7 +16,6 @@ type DemoApplication struct {
 func (b *DemoApplication) InitApplication(args map[string]string) {
 	// SubscribeTo returns a chan to receive a specific message type.
 	b.packetIn = core.SubscribeTo(ofp10.T_PACKET_IN)
-	// A place to store the source ports of MAC Addresses
 	b.hostMap = make(map[string]uint16)
 }
 
@@ -48,22 +47,17 @@ func (b *DemoApplication) parsePacketIn(dpid net.HardwareAddr, pkt *ofp10.Packet
 	}
 	if _, ok := b.hostMap[hwDst]; ok {
 		f1 := ofp10.NewFlowMod()
-		act1 := ofp10.NewActionOutput(b.hostMap[hwDst])
-		f1.Actions = append(f1.Actions, act1)
-		m1 := ofp10.NewMatch()
-		m1.DLSrc = eth.HWSrc
-		m1.DLDst = eth.HWDst
-		f1.Match = *m1
+		f1.AddAction( ofp10.NewActionOutput(b.hostMap[hwDst]) )
+		f1.Match.DLSrc = eth.HWSrc
+		f1.Match.DLDst = eth.HWDst
 		f1.IdleTimeout = 3
 		
 		f2 := ofp10.NewFlowMod()
-		act2 := ofp10.NewActionOutput(b.hostMap[hwSrc])
-		f2.Actions = append(f1.Actions, act2)
-		m2 := ofp10.NewMatch()
-		m2.DLSrc = eth.HWDst
-		m2.DLDst = eth.HWSrc
-		f2.Match = *m2
+		f2.AddAction( ofp10.NewActionOutput(b.hostMap[hwSrc]) )
+		f2.Match.DLSrc = eth.HWDst
+		f2.Match.DLDst = eth.HWSrc
 		f2.IdleTimeout = 3
+
 		if s, ok := core.Switch(dpid); ok {
 			s.Send(f1)
 			s.Send(f2)
