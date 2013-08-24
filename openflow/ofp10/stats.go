@@ -392,6 +392,48 @@ func (s *FlowStats) Write(b []byte) (n int, err error) {
 		return
 	}
 	n += 8
+
+	for buf.Len() > 2 {
+		t := binary.BigEndian.Uint16(buf.Next(2))
+		l := binary.BigEndian.Uint16(buf.Next(2))
+		a := new(Action)
+		m := 0
+
+		switch t {
+		case AT_OUTPUT:
+			a = NewActionOutput(0)
+		case AT_SET_VLAN_VID:
+			a = NewActionVLANVID()
+		case AT_SET_VLAN_PCP:
+			a = NewActionVLANPCP()
+		case AT_STRIP_VLAN:
+		case AT_SET_DL_SRC:
+			a = NewActionDLSrc()
+		case AT_SET_DL_DST:
+			a = NewActionDLDst()
+		case AT_SET_NW_SRC:
+			a = NewActionNWSrc()
+		case AT_SET_NW_DST:
+			a = NewActionNWDst()
+		case AT_SET_NW_TOS:
+			a = NewActionNWTOS()
+		case AT_SET_TP_SRC:
+			a = NewActionTPSrc()
+		case AT_SET_TP_DST:
+			a = NewActionTPDst()
+		case AT_ENQUEUE:
+			a = NewActionEnqueue(0, 0)
+		case AT_VENDOR:
+			a = NewActionVendorPort()
+		}
+
+		if m, err = a.Write(buf.Next(l - 4)); m == 0 {
+			return
+		} else {
+			n += m
+		}
+
+	}
 	actionCount := buf.Len() / 8
 	s.Actions = make([]Action, actionCount)
 	for i := 0; i < actionCount; i++ {
