@@ -311,7 +311,7 @@ type FlowStats struct {
 	Cookie       uint64
 	PacketCount  uint64
 	ByteCount    uint64
-	Actions      []ActionHeader
+	Actions      []Action
 }
 
 func (s *FlowStats) Read(b []byte) (n int, err error) {
@@ -392,9 +392,48 @@ func (s *FlowStats) Write(b []byte) (n int, err error) {
 		return
 	}
 	n += 8
-	for actionCount := buf.Len() / 8; actionCount > 0; actionCount-- {
-		a := new(ActionHeader)
-		a.Write(buf.Next(8))
+
+	for buf.Len() > 2 {
+		t := binary.BigEndian.Uint16(buf.Bytes()[:2])
+		l := binary.BigEndian.Uint16(buf.Bytes()[2:4])
+		var a Action
+		m := 0
+
+		switch t {
+		case AT_OUTPUT:
+			a = NewActionOutput(0)
+		case AT_SET_VLAN_VID:
+			a = NewActionVLANVID(0xffff)
+		case AT_SET_VLAN_PCP:
+			a = NewActionVLANPCP(0)
+		case AT_STRIP_VLAN:
+			a = NewActionStripVLAN()
+		case AT_SET_DL_SRC:
+			a = NewActionDLSrc(make([]byte, 6))
+		case AT_SET_DL_DST:
+			a = NewActionDLDst(make([]byte, 6))
+		case AT_SET_NW_SRC:
+			a = NewActionNWSrc(make([]byte, 4))
+		case AT_SET_NW_DST:
+			a = NewActionNWDst(make([]byte, 4))
+		case AT_SET_NW_TOS:
+			a = NewActionNWTOS(0)
+		case AT_SET_TP_SRC:
+			a = NewActionTPSrc(0)
+		case AT_SET_TP_DST:
+			a = NewActionTPDst(0)
+		case AT_ENQUEUE:
+			a = NewActionEnqueue(0, 0)
+		case AT_VENDOR:
+			a = NewActionVendor(0)
+		}
+
+		if m, err = a.Write(buf.Next(int(l))); m == 0 {
+			return
+		} else {
+			n += m
+		}
+		s.Actions = append(s.Actions, a)
 	}
 	return
 }
