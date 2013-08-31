@@ -404,8 +404,8 @@ func (s *FlowStats) Write(b []byte) (n int, err error) {
 			a = NewActionOutput(0)
 		case AT_SET_VLAN_VID:
 			a = NewActionVLANVID(0xffff)
-		/*case AT_SET_VLAN_PCP:
-			a = NewActionVLANPCP()
+		case AT_SET_VLAN_PCP:
+			a = NewActionVLANPCP(0)/*
 		case AT_STRIP_VLAN:
 		case AT_SET_DL_SRC:
 			a = NewActionDLSrc()
