@@ -423,12 +423,12 @@ func (s *FlowStats) Write(b []byte) (n int, err error) {
 		case AT_SET_TP_DST:
 			a = NewActionTPDst(0)
 		case AT_ENQUEUE:
-			a = NewActionEnqueue(0, 0)/*
+			a = NewActionEnqueue(0, 0)
 		case AT_VENDOR:
-			a = NewActionVendorPort()*/
+			a = NewActionVendor(0)
 		}
 
-		if m, err = a.Write(buf.Next(int(l) - 4)); m == 0 {
+		if m, err = a.Write(buf.Next(int(l))); m == 0 {
 			return
 		} else {
 			n += m
