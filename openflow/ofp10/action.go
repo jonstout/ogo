@@ -191,20 +191,28 @@ func (a *ActionEnqueue) Write(b []byte) (n int, err error) {
 	return
 }
 
-// ofp_action_vlan_vid 1.0
+// The vlan_vid field is 16 bits long, when an actual VLAN id is only 12 bits.
+// The value 0xffff is used to indicate that no VLAN id was set.
 type ActionVLANVID struct {
 	Type    uint16
 	Length  uint16
 	VLANVID uint16
-	Pad     [2]uint8
+	pad     []uint8
 }
 
-func NewActionVLANVID() *ActionVLANVID {
+// Sets a VLAN ID on tagged packets. VLAN ID may be added to
+// untagged packets on some switches.
+func NewActionVLANVID(vid uint16) *ActionVLANVID {
 	a := new(ActionVLANVID)
 	a.Type = AT_SET_VLAN_VID
 	a.Length = 8
-	a.VLANVID = 0xffff
+	a.VLANVID = vid
+	a.pad = make([]byte, 2)
 	return a
+}
+
+func (a *ActionVLANVID) ActionType() uint16 {
+	return a.Type
 }
 
 func (a *ActionVLANVID) Len() (n uint16) {
@@ -212,11 +220,27 @@ func (a *ActionVLANVID) Len() (n uint16) {
 }
 
 func (a *ActionVLANVID) Read(b []byte) (n int, err error) {
-	a.Length = a.Len()
 	buf := new(bytes.Buffer)
-	err = binary.Write(buf, binary.BigEndian, a)
-	n, err = buf.Read(b)
-	return
+	if err = binary.Write(buf, binary.BigEndian, a.Type); err != nil {
+		return
+	}
+	n += 2
+	if err = binary.Write(buf, binary.BigEndian, a.Length); err != nil {
+		return
+	}
+	n += 2
+	if err = binary.Write(buf, binary.BigEndian, a.VLANVID); err != nil {
+		return
+	}
+	n += 2
+	if err = binary.Write(buf, binary.BigEndian, a.pad); err != nil {
+		return
+	}
+	n += 2
+	if n, err = buf.Read(b); n == 0 {
+		return
+	}
+	return n, io.EOF
 }
 
 func (a *ActionVLANVID) Write(b []byte) (n int, err error) {
@@ -233,7 +257,7 @@ func (a *ActionVLANVID) Write(b []byte) (n int, err error) {
 		return
 	}
 	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.Pad); err != nil {
+	if err = binary.Read(buf, binary.BigEndian, &a.pad); err != nil {
 		return
 	}
 	n += 2
