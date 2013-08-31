@@ -335,6 +335,67 @@ func (a *ActionVLANPCP) Write(b []byte) (n int, err error) {
 	return
 }
 
+// The vlan_pcp field is 8 bits long, but only the lower 3 bits have meaning.
+type ActionStripVLAN struct {
+	Type    uint16
+	Length  uint16
+	pad     []uint8
+}
+
+// Modifies PCP on VLAN tagged packets.
+func NewActionStripVLAN() *ActionStripVLAN {
+	a := new(ActionStripVLAN)
+	a.Type = AT_STRIP_VLAN
+	a.Length = 8
+	a.pad = make([]byte, 4)
+	return a
+}
+
+func (a *ActionStripVLAN) ActionType() uint16 {
+	return a.Type
+}
+
+func (a *ActionStripVLAN) Len() (n uint16) {
+	return 8
+}
+
+func (a *ActionStripVLAN) Read(b []byte) (n int, err error) {
+	buf := new(bytes.Buffer)
+	if err = binary.Write(buf, binary.BigEndian, a.Type); err != nil {
+		return
+	}
+	n += 2
+	if err = binary.Write(buf, binary.BigEndian, a.Length); err != nil {
+		return
+	}
+	n += 2
+	if err = binary.Write(buf, binary.BigEndian, a.pad); err != nil {
+		return
+	}
+	n += 4
+	if n, err = buf.Read(b); n == 0 {
+		return
+	}
+	return n, io.EOF
+}
+
+func (a *ActionStripVLAN) Write(b []byte) (n int, err error) {
+	buf := bytes.NewBuffer(b)
+	if err = binary.Read(buf, binary.BigEndian, &a.Type); err != nil {
+		return
+	}
+	n += 2
+	if err = binary.Read(buf, binary.BigEndian, &a.Length); err != nil {
+		return
+	}
+	n += 2
+	if err = binary.Read(buf, binary.BigEndian, &a.pad); err != nil {
+		return
+	}
+	n += 4
+	return
+}
+
 // ofp_action_dl_addr 1.0
 type ActionDLAddr struct {
 	Type   uint16
