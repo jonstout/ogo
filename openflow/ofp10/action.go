@@ -471,7 +471,6 @@ func (a *ActionDLAddr) Write(b []byte) (n int, err error) {
 		return
 	}
 	n += len(a.DLAddr)
-	a.pad = make([]byte, 6)
 	if err = binary.Read(buf, binary.BigEndian, &a.pad); err != nil {
 		return
 	}
@@ -513,13 +512,23 @@ func (a *ActionNWAddr) Len() (n uint16) {
 }
 
 func (a *ActionNWAddr) Read(b []byte) (n int, err error) {
-	a.Length = a.Len()
 	buf := new(bytes.Buffer)
-	err = binary.Write(buf, binary.BigEndian, a.Type)
-	err = binary.Write(buf, binary.BigEndian, a.Length)
-	err = binary.Write(buf, binary.BigEndian, a.NWAddr)
-	n, err = buf.Read(b)
-	return
+	if err = binary.Write(buf, binary.BigEndian, a.Type); err != nil {
+		return
+	}
+	n += 2
+	if err = binary.Write(buf, binary.BigEndian, a.Length); err != nil {
+		return
+	}
+	n += 2
+	if err = binary.Write(buf, binary.BigEndian, a.NWAddr); err != nil {
+		return
+	}
+	n += len(a.NWAddr)
+	if n, err = buf.Read(b); n == 0 {
+		return
+	}
+	return n, io.EOF
 }
 
 func (a *ActionNWAddr) Write(b []byte) (n int, err error) {
@@ -532,27 +541,34 @@ func (a *ActionNWAddr) Write(b []byte) (n int, err error) {
 		return
 	}
 	n += 2
-	a.NWAddr = make([]byte, 4)
 	if err = binary.Read(buf, binary.BigEndian, &a.NWAddr); err != nil {
 		return
 	}
-	n += 4
+	n += len(a.NWAddr)
 	return
 }
 
-// ofp_action_nw_tos 1.0
+// The nw_tos field is the 6 upper bits of the ToS field to set, in the original bit
+// positions (shifted to the left by 2).
 type ActionNWTOS struct {
 	Type   uint16
 	Length uint16
 	NWTOS  uint8
-	Pad    [3]uint8
+	pad    []uint8
 }
 
-func NewActionNWTOS() *ActionNWTOS {
+// Set ToS field in IP packets.
+func NewActionNWTOS(tos uint8) *ActionNWTOS {
 	a := new(ActionNWTOS)
 	a.Type = AT_SET_NW_TOS
 	a.Length = 8
+	a.NWTOS = tos
+	a.pad = make([]byte, 3)
 	return a
+}
+
+func (a *ActionNWTOS) ActionType() uint16 {
+	return a.Type
 }
 
 func (a *ActionNWTOS) Len() (n uint16) {
@@ -560,11 +576,27 @@ func (a *ActionNWTOS) Len() (n uint16) {
 }
 
 func (a *ActionNWTOS) Read(b []byte) (n int, err error) {
-	a.Length = a.Len()
 	buf := new(bytes.Buffer)
-	err = binary.Write(buf, binary.BigEndian, a)
-	n, err = buf.Read(b)
-	return
+	if err = binary.Write(buf, binary.BigEndian, a.Type); err != nil {
+		return
+	}
+	n += 2
+	if err = binary.Write(buf, binary.BigEndian, a.Length); err != nil {
+		return
+	}
+	n += 2
+	if err = binary.Write(buf, binary.BigEndian, a.NWTOS); err != nil {
+		return
+	}
+	n += 1
+	if err = binary.Write(buf, binary.BigEndian, a.pad); err != nil {
+		return
+	}
+	n += len(a.pad)
+	if n, err = buf.Read(b); n == 0 {
+		return
+	}
+	return n, io.EOF
 }
 
 func (a *ActionNWTOS) Write(b []byte) (n int, err error) {
@@ -581,33 +613,44 @@ func (a *ActionNWTOS) Write(b []byte) (n int, err error) {
 		return
 	}
 	n += 1
-	if err = binary.Read(buf, binary.BigEndian, &a.Pad); err != nil {
+	if err = binary.Read(buf, binary.BigEndian, &a.pad); err != nil {
 		return
 	}
-	n += 3
+	n += len(a.pad)
 	return
 }
 
-// ofp_action_tp_port 1.0
+// The tp_port field is the TCP/UDP/other port to set.
 type ActionTPPort struct {
 	Type   uint16
 	Length uint16
 	TPPort uint16
-	Pad    [2]uint8
+	pad    []uint8
 }
 
-func NewActionTPSrc() *ActionTPPort {
+// Returns an action that sets the transport layer source port.
+func NewActionTPSrc(port uint16) *ActionTPPort {
 	a := new(ActionTPPort)
 	a.Type = AT_SET_TP_SRC
 	a.Length = 8
+	a.TPPort = port
+	a.pad = make([]byte, 2)
 	return a
 }
 
-func NewActionTPDst() *ActionTPPort {
+// Returns an action that sets the transport layer destination
+// port.
+func NewActionTPDst(port uint16) *ActionTPPort {
 	a := new(ActionTPPort)
 	a.Type = AT_SET_TP_DST
 	a.Length = 8
+	a.TPPort = port
+	a.pad = make([]byte, 2)
 	return a
+}
+
+func (a *ActionTPPort) ActionType() uint16 {
+	return a.Type
 }
 
 func (a *ActionTPPort) Len() (n uint16) {
@@ -615,11 +658,27 @@ func (a *ActionTPPort) Len() (n uint16) {
 }
 
 func (a *ActionTPPort) Read(b []byte) (n int, err error) {
-	a.Length = a.Len()
 	buf := new(bytes.Buffer)
-	err = binary.Write(buf, binary.BigEndian, a)
-	n, err = buf.Read(b)
-	return
+	if err = binary.Write(buf, binary.BigEndian, a.Type); err != nil {
+		return
+	}
+	n += 2
+	if err = binary.Write(buf, binary.BigEndian, a.Length); err != nil {
+		return
+	}
+	n += 2
+	if err = binary.Write(buf, binary.BigEndian, a.TPPort); err != nil {
+		return
+	}
+	n += 2
+	if err = binary.Write(buf, binary.BigEndian, a.pad); err != nil {
+		return
+	}
+	n += len(a.pad)
+	if n, err = buf.Read(b); n == 0 {
+		return
+	}
+	return n, io.EOF
 }
 
 func (a *ActionTPPort) Write(b []byte) (n int, err error) {
@@ -636,40 +695,58 @@ func (a *ActionTPPort) Write(b []byte) (n int, err error) {
 		return
 	}
 	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.Pad); err != nil {
+	if err = binary.Read(buf, binary.BigEndian, &a.pad); err != nil {
 		return
 	}
-	n += 8
+	n += len(a.pad)
 	return
 }
 
-// ofp_action_vendor_header 1.0
-type ActionVendorPort struct {
+// The Vendor field is the Vendor ID, which takes the same form as in struct
+// ofp_vendor.
+type ActionVendor struct {
 	Type   uint16
 	Length uint16
 	Vendor uint32
 }
 
-func NewActionVendorPort() *ActionVendorPort {
-	a := new(ActionVendorPort)
+func NewActionVendor(vendor uint32) *ActionVendor {
+	a := new(ActionVendor)
 	a.Type = AT_VENDOR
 	a.Length = 8
+	a.Vendor = vendor
 	return a
 }
 
-func (a *ActionVendorPort) Len() (n uint16) {
+func (a *ActionVendor) ActionType() uint16 {
+	return a.Type
+}
+
+func (a *ActionVendor) Len() (n uint16) {
 	return a.Length
 }
 
-func (a *ActionVendorPort) Read(b []byte) (n int, err error) {
-	a.Length = a.Len()
+func (a *ActionVendor) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
-	err = binary.Write(buf, binary.BigEndian, a)
-	n, err = buf.Read(b)
-	return
+	if err = binary.Write(buf, binary.BigEndian, a.Type); err != nil {
+		return
+	}
+	n += 2
+	if err = binary.Write(buf, binary.BigEndian, a.Length); err != nil {
+		return
+	}
+	n += 2
+	if err = binary.Write(buf, binary.BigEndian, a.Vendor); err != nil {
+		return
+	}
+	n += 4
+	if n, err = buf.Read(b); n == 0 {
+		return
+	}
+	return n, io.EOF
 }
 
-func (a *ActionVendorPort) Write(b []byte) (n int, err error) {
+func (a *ActionVendor) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
 	if err = binary.Read(buf, binary.BigEndian, &a.Type); err != nil {
 		return

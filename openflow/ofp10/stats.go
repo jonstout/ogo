@@ -415,15 +415,15 @@ func (s *FlowStats) Write(b []byte) (n int, err error) {
 		case AT_SET_NW_SRC:
 			a = NewActionNWSrc(make([]byte, 4))
 		case AT_SET_NW_DST:
-			a = NewActionNWDst(make([]byte, 4))/*
+			a = NewActionNWDst(make([]byte, 4))
 		case AT_SET_NW_TOS:
-			a = NewActionNWTOS()
+			a = NewActionNWTOS(0)
 		case AT_SET_TP_SRC:
-			a = NewActionTPSrc()
+			a = NewActionTPSrc(0)
 		case AT_SET_TP_DST:
-			a = NewActionTPDst()
+			a = NewActionTPDst(0)
 		case AT_ENQUEUE:
-			a = NewActionEnqueue(0, 0)
+			a = NewActionEnqueue(0, 0)/*
 		case AT_VENDOR:
 			a = NewActionVendorPort()*/
 		}
