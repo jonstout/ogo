@@ -335,14 +335,15 @@ func (a *ActionVLANPCP) Write(b []byte) (n int, err error) {
 	return
 }
 
-// The vlan_pcp field is 8 bits long, but only the lower 3 bits have meaning.
+// An action_strip_vlan takes no arguments and consists only of a generic
+// ofp_action_header. This action strips the VLAN tag if one is present.
 type ActionStripVLAN struct {
 	Type    uint16
 	Length  uint16
 	pad     []uint8
 }
 
-// Modifies PCP on VLAN tagged packets.
+// Action to strip VLAN IDs from tagged packets.
 func NewActionStripVLAN() *ActionStripVLAN {
 	a := new(ActionStripVLAN)
 	a.Type = AT_STRIP_VLAN
@@ -396,28 +397,36 @@ func (a *ActionStripVLAN) Write(b []byte) (n int, err error) {
 	return
 }
 
-// ofp_action_dl_addr 1.0
+// The dl_addr field is the MAC address to set.
 type ActionDLAddr struct {
 	Type   uint16
 	Length uint16
 	DLAddr net.HardwareAddr
-	Pad    [6]uint8
+	pad    []uint8
 }
 
-func NewActionDLSrc() *ActionDLAddr {
+// Sets the source MAC adddress to dlAddr
+func NewActionDLSrc(dlAddr net.HardwareAddr) *ActionDLAddr {
 	a := new(ActionDLAddr)
 	a.Type = AT_SET_DL_SRC
 	a.Length = 16
-	a.DLAddr = make([]byte, ETH_ALEN)
+	a.DLAddr = dlAddr
+	a.pad = make([]byte, 6)
 	return a
 }
 
-func NewActionDLDst() *ActionDLAddr {
+// Sets the destination MAC adddress to dlAddr
+func NewActionDLDst(dlAddr net.HardwareAddr) *ActionDLAddr {
 	a := new(ActionDLAddr)
 	a.Type = AT_SET_DL_DST
 	a.Length = 16
-	a.DLAddr = make([]byte, ETH_ALEN)
+	a.DLAddr = dlAddr
+	a.pad = make([]byte, 6)
 	return a
+}
+
+func (a *ActionDLAddr) ActionType() uint16 {
+	return a.Type
 }
 
 func (a *ActionDLAddr) Len() (n uint16) {
@@ -425,14 +434,27 @@ func (a *ActionDLAddr) Len() (n uint16) {
 }
 
 func (a *ActionDLAddr) Read(b []byte) (n int, err error) {
-	a.Length = a.Len()
 	buf := new(bytes.Buffer)
-	err = binary.Write(buf, binary.BigEndian, a.Type)
-	err = binary.Write(buf, binary.BigEndian, a.Length)
-	err = binary.Write(buf, binary.BigEndian, a.DLAddr)
-	err = binary.Write(buf, binary.BigEndian, a.Pad)
-	n, err = buf.Read(b)
-	return
+	if err = binary.Write(buf, binary.BigEndian, a.Type); err != nil {
+		return
+	}
+	n += 2
+	if err = binary.Write(buf, binary.BigEndian, a.Length); err != nil {
+		return
+	}
+	n += 2
+	if err = binary.Write(buf, binary.BigEndian, a.DLAddr); err != nil {
+		return
+	}
+	n += len(a.DLAddr)
+	if err = binary.Write(buf, binary.BigEndian, a.pad); err != nil {
+		return
+	}
+	n += len(a.pad)
+	if n, err = buf.Read(b); n == 0 {
+		return
+	}
+	return n, io.EOF
 }
 
 func (a *ActionDLAddr) Write(b []byte) (n int, err error) {
@@ -445,43 +467,49 @@ func (a *ActionDLAddr) Write(b []byte) (n int, err error) {
 		return
 	}
 	n += 2
-	a.DLAddr = make([]byte, ETH_ALEN)
 	if err = binary.Read(buf, binary.BigEndian, &a.DLAddr); err != nil {
 		return
 	}
-	n += ETH_ALEN
-	if err = binary.Read(buf, binary.BigEndian, &a.Pad); err != nil {
+	n += len(a.DLAddr)
+	a.pad = make([]byte, 6)
+	if err = binary.Read(buf, binary.BigEndian, &a.pad); err != nil {
 		return
 	}
-	n += 6
+	n += len(a.pad)
 	return
 }
 
-// ofp_action_nw_addr 1.0
+// The nw_addr field is the IP address to set.
 type ActionNWAddr struct {
 	Type   uint16
 	Length uint16
 	NWAddr net.IP
 }
 
-func NewActionNWSrc() *ActionNWAddr {
+// Sets the source IP adddress to nwAddr
+func NewActionNWSrc(nwAddr net.IP) *ActionNWAddr {
 	a := new(ActionNWAddr)
 	a.Type = AT_SET_NW_SRC
 	a.Length = 8
-	a.NWAddr = make([]byte, 4)
+	a.NWAddr = nwAddr
 	return a
 }
 
-func NewActionNWDst() *ActionNWAddr {
+// Sets the destination IP adddress to nwAddr
+func NewActionNWDst(nwAddr net.IP) *ActionNWAddr {
 	a := new(ActionNWAddr)
 	a.Type = AT_SET_NW_DST
 	a.Length = 8
-	a.NWAddr = make([]byte, 4)
+	a.NWAddr = nwAddr
 	return a
 }
 
+func (a *ActionNWAddr) ActionType() uint16 {
+	return a.Type
+}
+
 func (a *ActionNWAddr) Len() (n uint16) {
-	return 8
+	return a.Length
 }
 
 func (a *ActionNWAddr) Read(b []byte) (n int, err error) {

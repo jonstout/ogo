@@ -407,15 +407,15 @@ func (s *FlowStats) Write(b []byte) (n int, err error) {
 		case AT_SET_VLAN_PCP:
 			a = NewActionVLANPCP(0)
 		case AT_STRIP_VLAN:
-			a = NewActionStripVLAN()/*
+			a = NewActionStripVLAN()
 		case AT_SET_DL_SRC:
-			a = NewActionDLSrc()
+			a = NewActionDLSrc(make([]byte, 6))
 		case AT_SET_DL_DST:
-			a = NewActionDLDst()
+			a = NewActionDLDst(make([]byte, 6))
 		case AT_SET_NW_SRC:
-			a = NewActionNWSrc()
+			a = NewActionNWSrc(make([]byte, 4))
 		case AT_SET_NW_DST:
-			a = NewActionNWDst()
+			a = NewActionNWDst(make([]byte, 4))/*
 		case AT_SET_NW_TOS:
 			a = NewActionNWTOS()
 		case AT_SET_TP_SRC:
