@@ -1,11 +1,12 @@
 package core
 
 import (
-	"errors"
+	//"errors"
 	"github.com/jonstout/ogo/openflow/ofp10"
 	"log"
 	"net"
 	"time"
+	"sync"
 )
 
 // A map from DPIDs to all Switches that have connected since
@@ -18,7 +19,9 @@ type OFPSwitch struct {
 	outbound      chan ofp10.Packet
 	dpid          net.HardwareAddr
 	ports         map[int]*ofp10.PhyPort
+	portsMu sync.RWMutex
 	links         map[string]*Link
+	linksMu sync.RWMutex
 	requests      map[uint32]chan ofp10.Msg
 }
 
@@ -95,31 +98,41 @@ func Switches() []*OFPSwitch {
 }
 
 // Disconnects Switch dpid.
-func Disconnect(dpid net.HardwareAddr) {
+func disconnect(dpid net.HardwareAddr) {
 	log.Printf("Closing connection with: %s", dpid)
 	switches[dpid.String()].conn.Close()
 	delete(switches, dpid.String())
 }
 
 // Returns a slice of all links connected to Switch s.
-func (s *OFPSwitch) Links() []*Link {
-	a := make([]*Link, len(s.links))
+func (s *OFPSwitch) Links() []Link {
+	s.linksMu.RLock()
+	a := make([]Link, len(s.links))
 	i := 0
 	for _, v := range s.links {
-		a[i] = v
+		a[i] = *v
 		i++
 	}
+	s.linksMu.RUnlock()
 	return a
 }
 
 // Returns the link between Switch s and the Switch dpid.
-func (s *OFPSwitch) Link(dpid net.HardwareAddr) *Link {
-	return s.links[dpid.String()]
+func (s *OFPSwitch) Link(dpid net.HardwareAddr) (l Link, ok bool) {
+	s.linksMu.RLock()
+	if n, k := s.links[dpid.String()]; k {
+		l = *n
+		ok = true
+	}
+	s.linksMu.RUnlock()
+	return
 }
 
 // Updates the link between s.DPID and l.DPID.
 func (s *OFPSwitch) setLink(dpid net.HardwareAddr, l *Link) {
+	s.linksMu.Lock()
 	s.links[l.DPID.String()] = l
+	s.linksMu.Unlock()
 }
 
 // Returns the dpid of Switch s.
@@ -128,23 +141,27 @@ func (s *OFPSwitch) DPID() net.HardwareAddr {
 }
 
 // Returns a slice of all the ports from Switch s.
-func (s *OFPSwitch) Ports() []*ofp10.PhyPort {
-	a := make([]*ofp10.PhyPort, len(s.ports))
+func (s *OFPSwitch) Ports() []ofp10.PhyPort {
+	s.portsMu.RLock()
+	a := make([]ofp10.PhyPort, len(s.ports))
 	i := 0
 	for _, v := range s.ports {
-		a[i] = v
+		a[i] = *v
 		i++
 	}
+	s.portsMu.RUnlock()
 	return a
 }
 
 // Returns a pointer to the OfpPhyPort at port number from Switch s.
-func (s *OFPSwitch) Port(number int) (*ofp10.PhyPort, error) {
-	if port, ok := s.ports[number]; ok {
-		return port, nil
-	} else {
-		return nil, errors.New("ERROR::Undefined port number")
+func (s *OFPSwitch) Port(number int) (q ofp10.PhyPort, ok bool) {
+	s.portsMu.RLock()
+	if p, k := s.ports[number]; k {
+		q = *p
+		ok = true
 	}
+	s.portsMu.RUnlock()
+	return
 }
 
 // Sends an OpenFlow message to this Switch.
