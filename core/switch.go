@@ -23,7 +23,6 @@ func NewNetwork() *Network {
 }
 
 var network *Network
-//var switches map[string]*OFPSwitch
 
 type OFPSwitch struct {
 	conn          *net.TCPConn

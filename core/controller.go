@@ -12,7 +12,6 @@ func NewController() *Controller {
 	o := new(Controller)
 	Applications = make(map[string]Application)
 	messageChans = make(map[uint8][]chan ofp10.Msg)
-	//switches = make(map[string]*OFPSwitch)
 	network = NewNetwork()
 
 	// Register ogo core
@@ -21,8 +20,8 @@ func NewController() *Controller {
 	return o
 }
 
+// Start listening for Switch connections.
 func (o *Controller) Start(port string) {
-	// Listen for Switch Connections
 	addr, _ := net.ResolveTCPAddr("tcp", port)
 	l, err := net.ListenTCP("tcp", addr)
 	if err != nil {
@@ -37,8 +36,8 @@ func (o *Controller) Start(port string) {
 	}
 }
 
+// Setup OpenFlow Message chans for each message type.
 func (o *Controller) RegisterApplication(app Application) {
-	// Setup Openflow Message Channels
 	app.InitApplication(make(map[string]string))
 	go app.Receive()
 	Applications[app.Name()] = app
