@@ -12,7 +12,9 @@ func NewController() *Controller {
 	o := new(Controller)
 	Applications = make(map[string]Application)
 	messageChans = make(map[uint8][]chan ofp10.Msg)
-	switches = make(map[string]*OFPSwitch)
+	//switches = make(map[string]*OFPSwitch)
+	network = NewNetwork()
+
 	// Register ogo core
 	b := new(Core)
 	o.RegisterApplication(b)

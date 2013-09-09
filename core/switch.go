@@ -11,7 +11,19 @@ import (
 
 // A map from DPIDs to all Switches that have connected since
 // Ogo started.
-var switches map[string]*OFPSwitch
+type Network struct {
+	sync.RWMutex
+	Switches map[string]*OFPSwitch
+}
+
+func NewNetwork() *Network {
+	n := new(Network)
+	n.Switches = make(map[string]*OFPSwitch)
+	return n
+}
+
+var network *Network
+//var switches map[string]*OFPSwitch
 
 type OFPSwitch struct {
 	conn          *net.TCPConn
@@ -51,7 +63,8 @@ func NewOFPSwitch(conn *net.TCPConn) {
 		return
 	}
 
-	if sw, ok := switches[res.DPID.String()]; ok {
+	network.Lock()
+	if sw, ok := network.Switches[res.DPID.String()]; ok {
 		log.Println("Recovered connection from:", sw.DPID())
 		sw.conn = conn
 		sw.messageStream = NewMessageStream(conn)
@@ -70,15 +83,18 @@ func NewOFPSwitch(conn *net.TCPConn) {
 			s.ports[int(p.PortNo)] = &p
 		}
 		s.messageStream = NewMessageStream(conn)
-		switches[s.dpid.String()] = s
+		network.Switches[s.dpid.String()] = s
 		go s.sendSync()
 		go s.receive()
 	}
+	network.Unlock()
 }
 
 // Returns a pointer to the Switch mapped to dpid.
 func Switch(dpid net.HardwareAddr) (*OFPSwitch, bool) {
-	if sw, ok := switches[dpid.String()]; ok {
+	network.RLock()
+	defer network.RUnlock()
+	if sw, ok := network.Switches[dpid.String()]; ok {
 		return sw, ok
 	} else {
 		return nil, false
@@ -88,9 +104,11 @@ func Switch(dpid net.HardwareAddr) (*OFPSwitch, bool) {
 // Returns a slice of *OFPSwitches for operations across all
 // switches.
 func Switches() []*OFPSwitch {
-	a := make([]*OFPSwitch, len(switches))
+	network.RLock()
+	defer network.RUnlock()
+	a := make([]*OFPSwitch, len(network.Switches))
 	i := 0
-	for _, v := range switches {
+	for _, v := range network.Switches {
 		a[i] = v
 		i++
 	}
@@ -99,9 +117,11 @@ func Switches() []*OFPSwitch {
 
 // Disconnects Switch dpid.
 func disconnect(dpid net.HardwareAddr) {
+	network.RLock()
+	defer network.RUnlock()
 	log.Printf("Closing connection with: %s", dpid)
-	switches[dpid.String()].conn.Close()
-	delete(switches, dpid.String())
+	network.Switches[dpid.String()].conn.Close()
+	delete(network.Switches, dpid.String())
 }
 
 // Returns a slice of all links connected to Switch s.
