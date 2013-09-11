@@ -29,6 +29,7 @@ type SwitchConfig struct {
 
 func NewSetConfig() *SwitchConfig {
 	h := NewHeader()
+	h.Length = 12
 	h.Type = T_SET_CONFIG
 
 	c := new(SwitchConfig)
@@ -39,7 +40,7 @@ func NewSetConfig() *SwitchConfig {
 }
 
 func (c *SwitchConfig) Len() (n uint16) {
-	return 12
+	return c.Header.Length
 }
 
 func (c *SwitchConfig) GetHeader() *Header {
