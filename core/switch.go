@@ -116,8 +116,8 @@ func Switches() []*OFPSwitch {
 
 // Disconnects Switch dpid.
 func disconnect(dpid net.HardwareAddr) {
-	network.RLock()
-	defer network.RUnlock()
+	network.Lock()
+	defer network.Unlock()
 	log.Printf("Closing connection with: %s", dpid)
 	network.Switches[dpid.String()].conn.Close()
 	delete(network.Switches, dpid.String())
