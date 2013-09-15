@@ -3,7 +3,8 @@ An OpenFlow Network Controller in Go.
 
 You can find an example application which allows hosts to communicate on a single OpenFlow switch in `ogo.go`. Find full package docs below.
 
-### [Documentation](http://godoc.org/github.com/jonstout/ogo)
+#### [Documentation](http://godoc.org/github.com/jonstout/ogo)
+#### [Discourse](http://discourse.ogo.bitnamiapp.com/)
 
 ## The Basic Application
 All applications must implement the ogo.Application interface.
