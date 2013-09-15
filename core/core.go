@@ -2,7 +2,7 @@ package core
 
 import (
 	"github.com/jonstout/ogo/openflow/ofp10"
-	"github.com/jonstout/pacit"
+	"github.com/jonstout/ogo/pacit"
 	"log"
 	"net"
 	"time"
