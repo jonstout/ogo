@@ -11,7 +11,7 @@ import (
 	//"fmt"
 	"bytes"
 	"encoding/binary"
-	"github.com/jonstout/pacit"
+	"github.com/jonstout/ogo/pacit"
 	"io"
 	"net"
 )
