@@ -42,21 +42,31 @@ func (i *IPv4) Len() (n uint16) {
 }
 
 func (i *IPv4) Read(b []byte) (n int, err error) {
+	hdr := new(bytes.Buffer)
 	buf := new(bytes.Buffer)
 	var verIhl uint8 = (i.Version << 4) + i.IHL
-	binary.Write(buf, binary.BigEndian, verIhl)
+	binary.Write(hdr, binary.BigEndian, verIhl)
 	var dscpEcn uint8 = (i.DSCP << 2) + i.ECN
-	binary.Write(buf, binary.BigEndian, dscpEcn)
-	binary.Write(buf, binary.BigEndian, i.Length)
-	binary.Write(buf, binary.BigEndian, i.ID)
+	binary.Write(hdr, binary.BigEndian, dscpEcn)
+	binary.Write(hdr, binary.BigEndian, i.Length)
+	binary.Write(hdr, binary.BigEndian, i.ID)
 	var flagsFrag uint16 = (i.Flags << 13) + i.FragmentOffset
-	binary.Write(buf, binary.BigEndian, flagsFrag)
-	binary.Write(buf, binary.BigEndian, i.TTL)
-	binary.Write(buf, binary.BigEndian, i.Protocol)
+	binary.Write(hdr, binary.BigEndian, flagsFrag)
+	binary.Write(hdr, binary.BigEndian, i.TTL)
+	binary.Write(hdr, binary.BigEndian, i.Protocol)
+	binary.Write(hdr, binary.BigEndian, i.Checksum)
+	binary.Write(hdr, binary.BigEndian, i.NWSrc)
+	binary.Write(hdr, binary.BigEndian, i.NWDst)
+	binary.Write(hdr, binary.BigEndian, i.Options)
+	if i.Checksum == 0 {
+		i.Checksum = checksum(hdr.Bytes())
+	}
+	io.CopyN(buf, hdr, 10)
 	binary.Write(buf, binary.BigEndian, i.Checksum)
 	binary.Write(buf, binary.BigEndian, i.NWSrc)
 	binary.Write(buf, binary.BigEndian, i.NWDst)
 	binary.Write(buf, binary.BigEndian, i.Options)
+
 	if i.Data != nil {
 		if n, err := buf.ReadFrom(i.Data); n == 0 {
 			return int(n), err
