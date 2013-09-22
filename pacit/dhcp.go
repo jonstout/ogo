@@ -88,6 +88,10 @@ func NewDHCP(xid uint32, op DHCPOperation, hwtype byte) (*DHCP, error) {
 		Operation:    op,
 		HardwareType: hwtype,
 		Xid:          xid,
+		ClientIP:     make([]byte, 4),
+		YourIP:       make([]byte, 4),
+		ServerIP:     make([]byte, 4),
+		GatewayIP:    make([]byte, 4),
 	}
 	return d, nil
 }
@@ -147,7 +151,7 @@ func (d *DHCP) Read(b []byte) (n int, err error) {
 		}
 	}
 	if !optend {
-		m, err := DHCPWriteOption(buf, DHCPNewOption(DHCP_OPT_END, []byte{}))
+		m, err := DHCPWriteOption(buf, DHCPNewOption(DHCP_OPT_END, nil))
 		n += m
 		if err != nil {
 			return n, err
@@ -419,7 +423,7 @@ func DHCPMarshalOption(o DHCPOption) (out []byte, err error) {
 	return
 }
 
-func (self dhcpoption) Len() uint16      { return uint16(len(self.data) + 1) }
+func (self dhcpoption) Len() uint16      { return uint16(len(self.data) + 2) }
 func (self dhcpoption) Bytes() []byte    { return self.data }
 func (self dhcpoption) OptionType() byte { return self.tag }
 
