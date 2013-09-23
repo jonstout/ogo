@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
+	"io/ioutil"
 )
 
 type UDP struct {
@@ -35,6 +36,7 @@ func (u *UDP) Read(b []byte) (n int, err error) {
 }
 
 func (u *UDP) ReadFrom(r io.Reader) (n int64, err error) {
+	var m int
 	if err = binary.Read(r, binary.BigEndian, &u.PortSrc); err != nil {
 		return
 	}
@@ -53,12 +55,19 @@ func (u *UDP) ReadFrom(r io.Reader) (n int64, err error) {
 	n += 2
 	if u.Length > uint16(8) {
 		u.Data = make([]byte, int(u.Length-uint16(8)))
+		m, err = io.ReadFull(r, u.Data)
+		n += int64(m)
+		if err != nil {
+			return
+		}
 	}
-	//	if u.Length == 0 {
-	//		u.Data = make([]byte, buf.Len())
-	//	}
-	m, err := io.ReadFull(r, u.Data)
-	n += int64(m)
+	if u.Length == 0 {
+		u.Data, err = ioutil.ReadAll(r)
+		n += int64(len(u.Data))
+		if err != nil {
+			return
+		}
+	}
 	return
 }
 
@@ -80,9 +89,13 @@ func (u *UDP) Write(b []byte) (n int, err error) {
 		return
 	}
 	n += 2
-	if u.Length > 8 {
-		u.Data = make([]byte, u.Length-8)
+	if u.Length > uint16(8) {
+		u.Data = make([]byte, u.Length-uint16(8))
 	}
-	n += len(u.Data)
+	if u.Length == 0 {
+		u.Data = make([]byte, buf.Len())
+	}
+	m, err := io.ReadFull(buf, u.Data)
+	n += m
 	return
 }

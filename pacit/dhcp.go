@@ -218,7 +218,7 @@ func (d *DHCP) Write(b []byte) (n int, err error) {
 		return
 	}
 	d.ClientHWAddr = net.HardwareAddr(clientHWAddr[:d.HardwareLen])
-	n += int(d.HardwareLen)
+	n += 16
 
 	if err = binary.Read(buf, binary.BigEndian, &d.ServerName); err != nil {
 		return

@@ -129,7 +129,7 @@ func (i *IPv4) ReadFrom(r io.Reader) (n int64, err error) {
 	}
 	switch i.Protocol {
 	case IP_ICMP:
-		trash := make([]byte, int(i.Length-20))
+		trash := make([]byte, int64(i.Length)-n)
 		binary.Read(r, binary.BigEndian, &trash)
 		i.Data = new(ICMP)
 		if n, err := i.Data.Read(trash); err != nil {
@@ -137,13 +137,13 @@ func (i *IPv4) ReadFrom(r io.Reader) (n int64, err error) {
 		}
 	case IP_UDP:
 		i.Data = new(UDP)
-		data := make([]byte, int(i.Length-20))
+		data := make([]byte, int64(i.Length)-n)
 		binary.Read(r, binary.BigEndian, &data)
 		if n, err := i.Data.Read(data); err != nil {
 			return int64(n), err
 		}
 	default:
-		trash := make([]byte, int(i.Length-20))
+		trash := make([]byte, int64(i.Length)-n)
 		binary.Read(r, binary.BigEndian, &trash)
 	}
 	n = int64(i.Length)
