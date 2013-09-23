@@ -92,14 +92,22 @@ func NewDHCP(xid uint32, op DHCPOperation, hwtype byte) (*DHCP, error) {
 		YourIP:       make([]byte, 4),
 		ServerIP:     make([]byte, 4),
 		GatewayIP:    make([]byte, 4),
+		ClientHWAddr: make([]byte, 16),
 	}
 	return d, nil
 }
 
 func (d *DHCP) Len() (n uint16) {
 	n += uint16(240)
+	optend := false
 	for _, opt := range d.Options {
 		n += opt.Len()
+		if opt.OptionType() == DHCP_OPT_END {
+			optend = true
+		}
+	}
+	if !optend {
+		n += 1
 	}
 	return
 }
