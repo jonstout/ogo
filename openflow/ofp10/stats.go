@@ -850,7 +850,13 @@ func (s *PortStatus) Read(b []byte) (n int, err error) {
 }
 
 func (s *PortStatus) Write(b []byte) (n int, err error) {
+	var m int64
 	buf := bytes.NewBuffer(b)
+
+	if m, err = s.Header.ReadFrom(buf); err != nil {
+		return
+	}
+	n += int(m)
 	err = binary.Read(buf, binary.BigEndian, &s.Reason)
 	if err != nil {
 		return
@@ -861,12 +867,11 @@ func (s *PortStatus) Write(b []byte) (n int, err error) {
 		return
 	}
 	n += 7
-	m := 0
-	m, err = s.Desc.Write(buf.Bytes())
+	m, err = s.Desc.ReadFrom(buf)
 	if err != nil {
 		return
 	}
-	n += m
+	n += int(m)
 	return
 }
 
