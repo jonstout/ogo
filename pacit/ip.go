@@ -3,7 +3,6 @@ package pacit
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"io"
 	"net"
 )
