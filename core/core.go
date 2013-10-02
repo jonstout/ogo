@@ -48,7 +48,7 @@ func (b *Core) discoverLinks() {
 		act := ofp10.NewActionOutput(ofp10.P_FLOOD)
 		pkt.AddAction(act)
 
-		if data, err := NewListDiscovery(sw.DPID()); err != nil {
+		if data, err := NewLinkDiscovery(sw.DPID()); err != nil {
 			log.Println(err)
 		} else {
 			eth := pacit.NewEthernet()
