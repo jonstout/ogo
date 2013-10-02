@@ -173,7 +173,7 @@ func (d *DHCP) Read(b []byte) (n int, err error) {
 
 func (d *DHCP) Write(b []byte) (n int, err error) {
 	if len(b) < 240 {
-		return 0, errors.New("dhcp packet too short < 240 bytes")
+		return 0, ErrTruncated
 	}
 	buf := bytes.NewBuffer(b)
 

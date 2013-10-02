@@ -1,8 +1,10 @@
 package pacit
 
 import (
-//"fmt"
+	"errors"
 )
+
+var ErrTruncated = errors.New("incomplete packet")
 
 type Packet struct {
 	Preamble   [7]uint8
