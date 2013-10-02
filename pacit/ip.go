@@ -3,7 +3,7 @@ package pacit
 import (
 	"bytes"
 	"encoding/binary"
-	//	"fmt"
+	"fmt"
 	"io"
 	"net"
 )
@@ -198,11 +198,23 @@ func (i *IPv4) Write(b []byte) (n int, err error) {
 	switch i.Protocol {
 	case IP_ICMP:
 		i.Data = new(ICMP)
+		m, err := i.Data.Write(b[n:])
+		if err != nil {
+			return m, err
+		}
+		n += m
 	case IP_UDP:
 		i.Data = new(UDP)
+		m, err := i.Data.Write(b[n:])
+		if err != nil {
+			return m, err
+		}
+		n += m
 	default:
-		i.Data = new(PacitBuffer)
+		//panic(fmt.Sprintf("%0x\n", i.Protocol))
+		//		trash := make([]byte, int(i.Length-20))
+		//		binary.Read(buf, binary.BigEndian, &trash)
+		n = int(i.Length)
 	}
-	n = int(i.Length)
 	return
 }
