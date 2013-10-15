@@ -51,10 +51,13 @@ func (f *FlowMod) GetHeader() *Header {
 }
 
 func (f *FlowMod) Len() (n uint16) {
+	n = 72
+	if f.Command == FC_DELETE || f.Command == FC_DELETE_STRICT {
+		return
+	}
 	for _, v := range f.Actions {
 		n += v.Len()
 	}
-	n += 72
 	return
 }
 
@@ -71,8 +74,10 @@ func (f *FlowMod) Read(b []byte) (n int, err error) {
 	binary.Write(buf, binary.BigEndian, f.BufferID)
 	binary.Write(buf, binary.BigEndian, f.OutPort)
 	binary.Write(buf, binary.BigEndian, f.Flags)
-	for _, a := range f.Actions {
-		buf.ReadFrom(a)
+	if f.Command != FC_DELETE && f.Command != FC_DELETE_STRICT {
+		for _, a := range f.Actions {
+			buf.ReadFrom(a)
+		}
 	}
 	n, err = buf.Read(b)
 	if err != nil {
