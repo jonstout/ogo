@@ -1,12 +1,17 @@
 package core
 
-type Controller struct {
-
-}
+type Controller struct { }
 
 func NewController() *Controller {
-	c := new(Controller)
+	c := &new(Controller)
+	Applications = make(map[string]*Application)
+	network = NewNetwork()
+
+	coreApplication := &new(Core)
+	c.RegisterApplication(coreApplication)
+	return c
 }
+
 
 func (c *Controller) Listen(port string) {
 	addr, _ := net.ResolveTCPAddr("tcp", port)
@@ -53,9 +58,9 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
 			// switch object and notify applications.
 			case *ofp10.FeaturesReply:
 				registerSwitch(stream, msg)
-				for a := range applications {
+				for a := range Applications {
 					if app, ok := a.(ofp10.ConnectionUpReactor); ok {
-						app.ConnectionUp(msg)
+						app.ConnectionUp(msg.DPID, *msg)
 					}
 				}
 				return
@@ -78,4 +83,12 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
 			return
 		}
 	}
+}
+
+
+// Setup OpenFlow Message chans for each message type.
+func (c *Controller) RegisterApplication(app *Application) {
+	app.InitApplication(make(map[string]string))
+	go app.Receive()
+	Applications[app.Name()] = app
 }

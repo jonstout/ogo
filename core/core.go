@@ -20,6 +20,10 @@ func (b *Core) InitApplication(args map[string]string) {
 	b.packetIn = SubscribeTo(ofp10.T_PACKET_IN)
 }
 
+func (c *Core) ConnectionUp(dpid net.HardwareAddr, features ofp10.FeaturesReply) {
+	log.Println("Switch Connected:", dpid)
+}
+
 func (b *Core) Name() string {
 	return "Core"
 }
