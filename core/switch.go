@@ -13,20 +13,19 @@ import (
 // Ogo started.
 type Network struct {
 	sync.RWMutex
-	Switches map[string]*OFPSwitch
+	Switches map[string]*Switch
 }
 
 func NewNetwork() *Network {
 	n := new(Network)
-	n.Switches = make(map[string]*OFPSwitch)
+	n.Switches = make(map[string]*Switch)
 	return n
 }
 
 var network *Network
 
-type OFPSwitch struct {
-	conn          *net.TCPConn
-	messageStream *MessageStream
+type Switch struct {
+	stream *MessageStream
 	outbound      chan ofp10.Packet
 	dpid          net.HardwareAddr
 	ports         map[int]*ofp10.PhyPort
@@ -38,51 +37,27 @@ type OFPSwitch struct {
 
 // Builds and populates a Switch struct then starts listening
 // for OpenFlow messages on conn.
-func NewOFPSwitch(conn *net.TCPConn) {
-	if _, err := conn.ReadFrom(ofp10.NewHello()); err != nil {
-		log.Println("Could not send initial Hello message", err)
-		conn.Close()
-		return
-	}
-	if _, err := ofp10.NewHello().ReadFrom(conn); err != nil {
-		log.Println("Did not receive Hello message from connection", err)
-		conn.Close()
-		return
-	}
-
-	if _, err := conn.ReadFrom(ofp10.NewFeaturesRequest()); err != nil {
-		log.Println("Could not send initial Features Request", err)
-		conn.Close()
-		return
-	}
-	res := ofp10.NewFeaturesReply()
-	if _, err := res.ReadFrom(conn); err != nil {
-		log.Println("Did not receive Features Reply", err)
-		conn.Close()
-		return
-	}
+func NewSwitch(stream *MessageStream, msg *ofp10.FeaturesReply) {
 
 	network.Lock()
-	if sw, ok := network.Switches[res.DPID.String()]; ok {
+	if sw, ok := network.Switches[msg.DPID.String()]; ok {
 		log.Println("Recovered connection from:", sw.DPID())
-		sw.conn = conn
-		sw.messageStream = NewMessageStream(conn)
+		sw.stream = stream
 		go sw.sendSync()
 		go sw.receive()
 	} else {
-		log.Printf("Openflow 1.%d Connection: %s", res.Header.Version-1, res.DPID.String())
-		s := new(OFPSwitch)
-		s.conn = conn
+		log.Println("Openflow Connection:", msg.DPID)
+		s := new(Switch)
+		s.stream = stream
 		s.outbound = make(chan ofp10.Packet)
-		s.dpid = res.DPID
+		s.dpid = msg.DPID
 		s.ports = make(map[int]*ofp10.PhyPort)
 		s.links = make(map[string]*Link)
 		s.requests = make(map[uint32]chan ofp10.Msg)
-		for _, p := range res.Ports {
+		for _, p := range msg.Ports {
 			s.ports[int(p.PortNo)] = &p
 		}
-		s.messageStream = NewMessageStream(conn)
-		network.Switches[s.dpid.String()] = s
+		network.Switches[msg.DPID.String()] = s
 		go s.sendSync()
 		go s.receive()
 	}
@@ -184,9 +159,8 @@ func (s *OFPSwitch) Port(number int) (q ofp10.PhyPort, ok bool) {
 }
 
 // Sends an OpenFlow message to this Switch.
-func (s *OFPSwitch) Send(req ofp10.Packet) (err error) {
-	s.outbound <- req
-	return nil
+func (s *OFPSwitch) Send(req ofp10.Packet) {
+	s.stream.Outbound <- req
 }
 
 func (s *OFPSwitch) sendSync() {
@@ -194,7 +168,7 @@ func (s *OFPSwitch) sendSync() {
 		if _, err := s.conn.ReadFrom(<-s.outbound); err != nil {
 			log.Println("Closing connection from", s.dpid)
 			s.conn.Close()
-			s.messageStream.Close()
+			s.stream.Close()
 			break
 		}
 	}
@@ -202,13 +176,18 @@ func (s *OFPSwitch) sendSync() {
 
 // Receive loop for each Switch.
 func (s *OFPSwitch) receive() {
-	for p := range s.messageStream.Updates() {
-		s.distributeReceived(ofp10.Msg{p, s.dpid})
+	for {
+		select {
+		case msg <- s.stream.Inbound:
+			s.distributeMessages(s.dpid, msg)
+		case err <- s.stream.Error:
+			return
+		}
 	}
 }
 
-func (s *OFPSwitch) distributeReceived(p ofp10.Msg) {
-	h := p.Data.GetHeader()
+func (s *OFPSwitch) distributeReceived(dpid net.HardwareAddr, msg ofp10.Msg) {
+	h := msg.Data.GetHeader()
 	if pktChan, ok := s.requests[h.XID]; ok {
 		select {
 		case pktChan <- p:
