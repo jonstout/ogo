@@ -26,7 +26,6 @@ var network *Network
 
 type Switch struct {
 	stream *MessageStream
-	outbound      chan ofp10.Packet
 	dpid          net.HardwareAddr
 	ports         map[int]*ofp10.PhyPort
 	portsMu sync.RWMutex
@@ -49,7 +48,6 @@ func NewSwitch(stream *MessageStream, msg *ofp10.FeaturesReply) {
 		log.Println("Openflow Connection:", msg.DPID)
 		s := new(Switch)
 		s.stream = stream
-		s.outbound = make(chan ofp10.Packet)
 		s.dpid = msg.DPID
 		s.ports = make(map[int]*ofp10.PhyPort)
 		s.links = make(map[string]*Link)
@@ -161,17 +159,6 @@ func (s *OFPSwitch) Port(number int) (q ofp10.PhyPort, ok bool) {
 // Sends an OpenFlow message to this Switch.
 func (s *OFPSwitch) Send(req ofp10.Packet) {
 	s.stream.Outbound <- req
-}
-
-func (s *OFPSwitch) sendSync() {
-	for {
-		if _, err := s.conn.ReadFrom(<-s.outbound); err != nil {
-			log.Println("Closing connection from", s.dpid)
-			s.conn.Close()
-			s.stream.Close()
-			break
-		}
-	}
 }
 
 // Receive loop for each Switch.
