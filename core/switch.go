@@ -210,13 +210,12 @@ func (s *OFPSwitch) distributeReceived(dpid net.HardwareAddr, msg ofp10.Msg) {
 // Sends an OpenFlow message to s, and returns a channel to receive
 // a response on. Any error encountered during the send except io.EOF
 // is returned.
-func (s *OFPSwitch) SendAndReceive(req ofp10.Packet) (p chan ofp10.Msg, err error) {
-	p = make(chan ofp10.Msg)
-	s.requests[req.GetHeader().XID] = p
-	err = s.Send(req)
-	if err != nil {
-		delete(s.requests, req.GetHeader().XID)
-		return nil, err
-	}
-	return
+func (s *OFPSwitch) SendAndReceive(msg ofp10.Packet) chan ofp10.Msg {
+	ch := make(chan ofp10.Msg)
+	reqsMu.Lock()
+	s.requests[msg.GetHeader().XID] = ch
+	reqsMu.Unlock()
+	
+	s.Send(msg)
+	return ch
 }
