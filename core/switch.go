@@ -31,13 +31,13 @@ type Switch struct {
 	portsMu sync.RWMutex
 	links         map[string]*Link
 	linksMu sync.RWMutex
-	requests      map[uint32]chan ofp10.Msg
+	reqs          map[uint32]chan ofp10.Msg
+	reqsMu sync.RWMutex
 }
 
 // Builds and populates a Switch struct then starts listening
 // for OpenFlow messages on conn.
 func NewSwitch(stream *MessageStream, msg *ofp10.FeaturesReply) {
-
 	network.Lock()
 	if sw, ok := network.Switches[msg.DPID.String()]; ok {
 		log.Println("Recovered connection from:", sw.DPID())
@@ -166,29 +166,45 @@ func (s *OFPSwitch) receive() {
 	for {
 		select {
 		case msg <- s.stream.Inbound:
+			// New message has been received from message
+			// stream.
 			s.distributeMessages(s.dpid, msg)
 		case err <- s.stream.Error:
+			// Message stream has been disconnected.
+			for _, app := range applications {
+				if actor, ok := app.(ofp10.ConnectionDownReactor); ok {
+					actor.ConnectionDown(s.DPID())
+				}
+			}
 			return
 		}
 	}
 }
 
 func (s *OFPSwitch) distributeReceived(dpid net.HardwareAddr, msg ofp10.Msg) {
-	h := msg.Data.GetHeader()
-	if pktChan, ok := s.requests[h.XID]; ok {
-		select {
-		case pktChan <- p:
-		case <-time.After(time.Millisecond * 100):
-		}
-		delete(s.requests, h.XID)
+	header := msg.Data.GetHeader()
+
+	reqsMu.RLock()
+	if ch, ok := s.requests[header.XID]; ok {
+		ch <- msg
+		delete(s.reqs, header.XID)
 	} else {
-		for _, ch := range messageChans[h.Type] {
-			select {
-			case ch <- p:
-			case <-time.After(time.Millisecond * 100):
+		switch t := msg.(type) {
+		case ofp10.FeaturesReply:
+			for _, app := range applications {
+				if actor, ok := app.(ofp10.FeaturesReplyReactor); ok {
+					actor.FeaturesReply(s.DPID(), t)
+				}
+			}
+		case ofp10.PacketIn:
+			for _, app := range applications {
+				if actor, ok := app.(ofp10.PacketInReactor); ok {
+					actor.PacketIn(s.DPID(), t)
+				}
 			}
 		}
 	}
+	reqsMu.RUnlock()
 }
 
 // Sends an OpenFlow message to s, and returns a channel to receive

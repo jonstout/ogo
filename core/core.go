@@ -12,7 +12,8 @@ type Core struct {
 	Shutdown chan bool
 }
 
-func (c *Core) Initialize(args map[string]string) {
+func (c *Core) Initialize(args map[string]string, shutdown chan bool) {
+	c.Shutdown = shutdown
 	go c.loop()
 }
 
@@ -26,6 +27,10 @@ func (c *Core) ConnectionUp(dpid net.HardwareAddr) {
 	if switch, ok := Switch(dpid); ok {
 		switch.Send(ofp10.NewFeaturesRequest())
 	}
+}
+
+func (c *Core) ConnectionDown(dpid net.HardwareAddr) {
+	log.Println("Switch Disconnected:", dpid)
 }
 
 func (c *Core) FeaturesReply(dpid net.HardwareAddr, features ofp10.FeaturesReply) {
@@ -71,7 +76,7 @@ func (c *Core) discoverLinks() {
 		pkt := ofp10.NewPacketOut()
 		pkt.AddAction(ofp10.NewActionOutput(ofp10.P_FLOOD))
 
-		if data, err := NewListDiscovery(sw.DPID()); err == nil {
+		if data := NewLinkDiscovery(sw.DPID()); err == nil {
 			eth := pacit.NewEthernet()
 			eth.Ethertype = 0xa0f1
 			eth.HWSrc = sw.DPID()[2:]

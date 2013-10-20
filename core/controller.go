@@ -67,11 +67,10 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
 					stream.Shutdown <- true
 				}
 			// An error message may indicate a version mismatch. We
-			// can attempt to continue with a vaild
-			// FeaturesRequest.
+			// disconnect if an error occurs this early.
 			case *ofp10.ErrorMsg:
 				stream.Version = msg.Version
-				stream.Outbound <- ofp10.NewFeaturesRequest()
+				stream.Shutdown <- true
 			}
 		case err <- stream.Error:
 			// The connection has been shutdown.

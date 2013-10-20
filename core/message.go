@@ -14,11 +14,11 @@ type LinkDiscovery struct {
 	Nsec    int64 /* Number of nanoseconds elapsed since Jan 1, 1970. */
 }
 
-func NewListDiscovery(srcDPID net.HardwareAddr) (d *LinkDiscovery, err error) {
-	d = new(LinkDiscovery)
+func NewLinkDiscovery(srcDPID net.HardwareAddr) *LinkDiscovery {
+	d = &new(LinkDiscovery)
 	d.SrcDPID = srcDPID
 	d.Nsec = time.Now().UnixNano()
-	return
+	return d
 }
 
 func (d *LinkDiscovery) Len() uint16 {
