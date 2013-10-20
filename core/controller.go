@@ -90,7 +90,7 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
 
 // Setup OpenFlow Message chans for each message type.
 func (c *Controller) RegisterApplication(app *Application) {
-	app.InitApplication(make(map[string]string))
+	app.Initialize(make(map[string]string))
 	go app.Receive()
 	Applications[app.Name()] = app
 }
