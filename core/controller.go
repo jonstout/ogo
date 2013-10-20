@@ -49,27 +49,23 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
 			case *ofp10.Hello:
 				if msg.Version == ofp10.Version {
 					// Version negotiation is
-					// considered complete. Ask for
-					// switch features with received
-					// version.
+					// considered complete. Create
+					// new Switch and notifiy listening
+					// applications.
 					stream.Version = msg.Version
-					stream.Outbound <- ofp10.NewFeaturesRequest()
+					NewSwitch(stream, msg)
+
+					for a := range Applications {
+						if app, ok := a.(ofp10.ConnectionUpReactor); ok {
+							app.ConnectionUp(msg.DPID)
+						}
+					}
+					return
 				} else {
 					// Connection should be severed if controller
 					// doesn't support switch version.
 					stream.Shutdown <- true
 				}
-			// After a vaild FeaturesReply has been received we
-			// have all the information we need. Create a new
-			// switch object and notify applications.
-			case *ofp10.FeaturesReply:
-				NewSwitch(stream, msg)
-				for a := range Applications {
-					if app, ok := a.(ofp10.ConnectionUpReactor); ok {
-						app.ConnectionUp(msg.DPID, *msg)
-					}
-				}
-				return
 			// An error message may indicate a version mismatch. We
 			// can attempt to continue with a vaild
 			// FeaturesRequest.
