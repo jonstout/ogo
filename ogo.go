@@ -9,51 +9,54 @@ import (
 
 // This is a basic learning switch implementation
 type DemoApplication struct {
-	packetIn chan ofp10.Msg
-	hostMap  map[string]uint16
+	hosts  map[string]uint16
+	newHost chan Host
 }
 
-func (b *DemoApplication) InitApplication(args map[string]string) {
+type Host struct {
+	mac net.HardwareAddr
+	port uint16
+}
+
+func (b *DemoApplication) Initialize(args map[string]string, shutdown chan bool) {
 	// SubscribeTo returns a chan to receive a specific message type.
-	b.packetIn = core.SubscribeTo(ofp10.T_PACKET_IN)
 	b.hostMap = make(map[string]uint16)
+	go loop()
 }
 
 func (b *DemoApplication) Name() string {
-	// Every application needs a name
+	// Every application needs a name.
 	return "Demo"
 }
 
-func (b *DemoApplication) Receive() {
+func (b *DemoApplication) loop() {
 	for {
 		select {
-		case m := <-b.packetIn:
-			if pkt, ok := m.Data.(*ofp10.PacketIn); ok {
-				if pkt.Data.Ethertype == 0x806 {
-					b.parsePacketIn(m.DPID, pkt)
-				}
+		case h := <- b.newHost:
+			if _, ok := b.hosts[h.mac.String()]; !ok {
+				fmt.Println("Learning host", h.mac)
+				b.hosts[h.mac.String()] = h.port
 			}
 		}
 	}
 }
 
-func (b *DemoApplication) parsePacketIn(dpid net.HardwareAddr, pkt *ofp10.PacketIn) {
+func (b *DemoApplication) PacketIn(dpid net.HardwareAddr, pkt *ofp10.PacketIn) {
 	eth := pkt.Data
 	hwSrc := eth.HWSrc.String()
 	hwDst := eth.HWDst.String()
-	if _, ok := b.hostMap[hwSrc]; !ok {
-		fmt.Println("Learning host", hwSrc)
-		b.hostMap[hwSrc] = pkt.InPort
-	}
-	if _, ok := b.hostMap[hwDst]; ok {
+
+	b.newHost <- Host{eth.HWSrc, pkt.InPort}
+
+	if _, ok := b.hosts[hwDst]; ok {
 		f1 := ofp10.NewFlowMod()
-		f1.AddAction(ofp10.NewActionOutput(b.hostMap[hwDst]))
+		f1.AddAction(ofp10.NewActionOutput(b.hostMaps[hwDst]))
 		f1.Match.DLSrc = eth.HWSrc
 		f1.Match.DLDst = eth.HWDst
 		f1.IdleTimeout = 3
 
 		f2 := ofp10.NewFlowMod()
-		f2.AddAction(ofp10.NewActionOutput(b.hostMap[hwSrc]))
+		f2.AddAction(ofp10.NewActionOutput(b.hosts[hwSrc]))
 		f2.Match.DLSrc = eth.HWDst
 		f2.Match.DLDst = eth.HWSrc
 		f2.IdleTimeout = 3
