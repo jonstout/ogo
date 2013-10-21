@@ -54,19 +54,23 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
 					// new Switch and notifiy listening
 					// applications.
 					stream.Version = m.Version
-					NewSwitch(stream, stream.conn.RemoteAddr())
-
-					for a := range Applications {
-						if app, ok := a.(ofp10.ConnectionUpReactor); ok {
-							app.ConnectionUp(stream.GetAddr())
-						}
-					}
-					return
+					stream.Outbound <- ofp10.NewFeaturesRequest()
 				} else {
 					// Connection should be severed if controller
 					// doesn't support switch version.
 					stream.Shutdown <- true
 				}
+			// After a vaild FeaturesReply has been received we
+			// have all the information we need. Create a new
+			// switch object and notify applications.
+			case *ofp10.SwitchFeatures:
+				NewSwitch(stream, *m)
+				for _, app := range Applications {
+					if actor, ok := app.(ofp10.ConnectionUpReactor); ok {
+						actor.ConnectionUp(m.DPID)
+					}
+				}
+				return
 			// An error message may indicate a version mismatch. We
 			// disconnect if an error occurs this early.
 			case *ofp10.ErrorMsg:

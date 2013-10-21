@@ -169,7 +169,7 @@ func (s *OFSwitch) receive() {
 			// Message stream has been disconnected.
 			for _, app := range Applications {
 				if actor, ok := app.(ofp10.ConnectionDownReactor); ok {
-					actor.ConnectionDown(s.DPID())
+					actor.ConnectionDown(s.DPID(), err)
 				}
 			}
 			return
@@ -177,22 +177,23 @@ func (s *OFSwitch) receive() {
 	}
 }
 
-func (s *OFSwitch) distributeMessages(dpid net.HardwareAddr, msg ofp10.Msg) {
-	header := msg.Data.GetHeader()
+func (s *OFSwitch) distributeMessages(dpid net.HardwareAddr, msg ofp10.Packet) {
+	header := msg.GetHeader()
 
 	s.reqsMu.RLock()
 	if ch, ok := s.reqs[header.XID]; ok {
-		ch <- msg
+		m := ofp10.Msg{msg, dpid}
+		ch <- m
 		delete(s.reqs, header.XID)
 	} else {
 		switch t := msg.(type) {
-		case ofp10.FeaturesReply:
+		case *ofp10.SwitchFeatures:
 			for _, app := range Applications {
-				if actor, ok := app.(ofp10.FeaturesReplyReactor); ok {
+				if actor, ok := app.(ofp10.SwitchFeaturesReactor); ok {
 					actor.FeaturesReply(s.DPID(), t)
 				}
 			}
-		case ofp10.PacketIn:
+		case *ofp10.PacketIn:
 			for _, app := range Applications {
 				if actor, ok := app.(ofp10.PacketInReactor); ok {
 					actor.PacketIn(s.DPID(), t)
@@ -208,9 +209,9 @@ func (s *OFSwitch) distributeMessages(dpid net.HardwareAddr, msg ofp10.Msg) {
 // is returned.
 func (s *OFSwitch) SendAndReceive(msg ofp10.Packet) chan ofp10.Msg {
 	ch := make(chan ofp10.Msg)
-	reqsMu.Lock()
-	s.requests[msg.GetHeader().XID] = ch
-	reqsMu.Unlock()
+	s.reqsMu.Lock()
+	s.reqs[msg.GetHeader().XID] = ch
+	s.reqsMu.Unlock()
 	
 	s.Send(msg)
 	return ch
