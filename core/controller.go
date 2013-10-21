@@ -4,16 +4,17 @@ import (
 	"github.com/jonstout/ogo/openflow/ofp10"
 	"log"
 	"net"
+	"time"
 )
 
 type Controller struct { }
 
 func NewController() *Controller {
-	c := &new(Controller)
-	Applications = make(map[string]*Application)
+	c := new(Controller)
+	Applications = make(map[string]Application)
 	network = NewNetwork()
 
-	coreApplication := &new(Core)
+	coreApplication := new(Core)
 	c.RegisterApplication(coreApplication)
 	return c
 }
@@ -38,26 +39,26 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
 
 	for {
 		select {
-		case stream.Outbound <- ofp.NewHello():
+		case stream.Outbound <- ofp10.NewHello():
 			// Send hello message with latest protocol version.
-		case msg <- stream.Inbound:
+		case msg := <- stream.Inbound:
 			switch m := msg.(type) {
 			// A Hello message of the appropriate type
 			// completes version negotiation. If version
 			// types are incompatable, it is possible the
 			// connection may be servered without error.
-			case *ofp10.Hello:
-				if msg.Version == ofp10.Version {
+			case *ofp10.Header:
+				if m.Version == ofp10.VERSION {
 					// Version negotiation is
 					// considered complete. Create
 					// new Switch and notifiy listening
 					// applications.
-					stream.Version = msg.Version
-					NewSwitch(stream, msg)
+					stream.Version = m.Version
+					NewSwitch(stream, stream.conn.RemoteAddr())
 
 					for a := range Applications {
 						if app, ok := a.(ofp10.ConnectionUpReactor); ok {
-							app.ConnectionUp(msg.DPID)
+							app.ConnectionUp(stream.GetAddr())
 						}
 					}
 					return
@@ -69,10 +70,10 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
 			// An error message may indicate a version mismatch. We
 			// disconnect if an error occurs this early.
 			case *ofp10.ErrorMsg:
-				stream.Version = msg.Version
+				stream.Version = m.Header.Version
 				stream.Shutdown <- true
 			}
-		case err <- stream.Error:
+		case err := <- stream.Error:
 			// The connection has been shutdown.
 			log.Println(err)
 			return
@@ -88,8 +89,7 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
 
 
 // Setup OpenFlow Message chans for each message type.
-func (c *Controller) RegisterApplication(app *Application) {
-	app.Initialize(make(map[string]string))
-	go app.Receive()
+func (c *Controller) RegisterApplication(app Application) {
+	app.Initialize(make(map[string]string), make(chan bool))
 	Applications[app.Name()] = app
 }

@@ -2,15 +2,15 @@ package core
 
 import (
 	"encoding/binary"
-	"errors"
 	"github.com/jonstout/ogo/openflow/ofp10"
 	"log"
 	"net"
-	"time"
 )
 
 type MessageStream struct {
 	conn    *net.TCPConn
+	// OpenFlow Version
+	Version uint8
 	// Channel on which to publish connection errors
 	Error  chan error
 	// Channel on which to publish inbound messages
@@ -26,14 +26,19 @@ type MessageStream struct {
 func NewMessageStream(conn *net.TCPConn) *MessageStream {
 	m := &MessageStream{
 		conn,
+		0,
 		make(chan error, 1), // Error
 		make(chan ofp10.Packet, 1), // Inbound
 		make(chan ofp10.Packet, 1), // Outbound
-		make(chan bool, 1) // Shutdown
+		make(chan bool, 1), // Shutdown
 	}
 	go m.outbound()
 	go m.inbound()
 	return m
+}
+
+func (m *MessageStream) GetAddr() net.Addr {
+	return m.conn.RemoteAddr()
 }
 
 // Listen for a Shutdown signal or Outbound messages.
@@ -47,7 +52,7 @@ func (m *MessageStream) outbound() {
 			return
 		case msg := <- m.Outbound:
 			// Forward outbound messages to conn
-			if _, err := s.conn.ReadFrom(msg); err != nil {
+			if _, err := m.conn.ReadFrom(msg); err != nil {
 				m.Error <- err
 				m.Shutdown <- true
 			}
@@ -62,7 +67,7 @@ func (m *MessageStream) inbound() {
 	unreadByteLength := 0
 	for {
 		buf := make([]byte, 512)
-		if n, err := m.connection.Read(buf); err != nil {
+		if n, err := m.conn.Read(buf); err != nil {
 			// Likely a read timeout. Send error to any listening
 			// threads. Trigger shutdown to close outbound loop.
 			m.Error <- err

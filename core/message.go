@@ -15,7 +15,7 @@ type LinkDiscovery struct {
 }
 
 func NewLinkDiscovery(srcDPID net.HardwareAddr) *LinkDiscovery {
-	d = &new(LinkDiscovery)
+	d := new(LinkDiscovery)
 	d.SrcDPID = srcDPID
 	d.Nsec = time.Now().UnixNano()
 	return d

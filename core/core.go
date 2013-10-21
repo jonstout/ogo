@@ -24,8 +24,8 @@ func (c *Core) Name() string {
 func (c *Core) ConnectionUp(dpid net.HardwareAddr) {
 	log.Println("Switch Connected:", dpid)
 
-	if switch, ok := Switch(dpid); ok {
-		switch.Send(ofp10.NewFeaturesRequest())
+	if sw, ok := Switch(dpid); ok {
+		sw.Send(ofp10.NewFeaturesRequest())
 	}
 }
 
@@ -33,15 +33,15 @@ func (c *Core) ConnectionDown(dpid net.HardwareAddr) {
 	log.Println("Switch Disconnected:", dpid)
 }
 
-func (c *Core) FeaturesReply(dpid net.HardwareAddr, features ofp10.FeaturesReply) {
+func (c *Core) FeaturesReply(dpid net.HardwareAddr, features ofp10.SwitchFeatures) {
 
 }
 
-func (c *Core) EchoRequest(dpid net.HardwareAddr, req ofp10.EchoRequest) {
+func (c *Core) EchoRequest(dpid net.HardwareAddr, req ofp10.Header) {
 	<- time.After(time.Second * 3)
-	if switch, ok := Switch(dpid); ok {
+	if sw, ok := Switch(dpid); ok {
 		res := ofp10.NewEchoReply()
-		switch.Send(res)
+		sw.Send(res)
 	}
 }
 
@@ -76,13 +76,11 @@ func (c *Core) discoverLinks() {
 		pkt := ofp10.NewPacketOut()
 		pkt.AddAction(ofp10.NewActionOutput(ofp10.P_FLOOD))
 
-		if data := NewLinkDiscovery(sw.DPID()); err == nil {
-			eth := pacit.NewEthernet()
-			eth.Ethertype = 0xa0f1
-			eth.HWSrc = sw.DPID()[2:]
-			eth.Data = data
-			pkt.Data = eth
-			sw.Send(pkt)
-		}
+		eth := pacit.NewEthernet()
+		eth.Ethertype = 0xa0f1
+		eth.HWSrc = sw.DPID()[2:]
+		eth.Data = NewLinkDiscovery(sw.DPID())
+		pkt.Data = eth
+		sw.Send(pkt)
 	}
 }

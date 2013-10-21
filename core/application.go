@@ -8,9 +8,8 @@ var Applications map[string]Application
 var messageChans map[uint8][]chan ofp10.Msg
 
 type Application interface {
-	InitApplication(args map[string]string)
+	Initialize(args map[string]string, shutdown chan bool)
 	Name() string
-	Receive()
 }
 
 func SubscribeTo(msg uint8) chan ofp10.Msg {
