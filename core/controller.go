@@ -14,8 +14,8 @@ func NewController() *Controller {
 	Applications = make(map[string]Application)
 	network = NewNetwork()
 
-	coreApplication := new(Core)
-	c.RegisterApplication(coreApplication)
+	core := NewOgoCore()
+	c.RegisterApplication(core)
 	return c
 }
 

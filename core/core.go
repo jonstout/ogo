@@ -6,19 +6,20 @@ import (
 	"log"
 	"net"
 	"time"
+	"sync"
 )
 
-type Core struct {
-	Shutdown chan bool
+type Ogo struct {
+	switchesMutex sync.RWMutex
 }
 
-func (c *Core) Initialize(args map[string]string, shutdown chan bool) {
+func NewOgo() *Ogo {
 	c.Shutdown = shutdown
 	go c.loop()
 }
 
-func (c *Core) Name() string {
-	return "Core"
+func (c *OgoCore) NewInstance() interface{} {
+
 }
 
 func (c *Core) ConnectionUp(dpid net.HardwareAddr) {
