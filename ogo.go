@@ -20,8 +20,8 @@ type Host struct {
 
 func (b *DemoApplication) Initialize(args map[string]string, shutdown chan bool) {
 	// SubscribeTo returns a chan to receive a specific message type.
-	b.hostMap = make(map[string]uint16)
-	go loop()
+	b.hosts = make(map[string]uint16)
+	go b.loop()
 }
 
 func (b *DemoApplication) Name() string {
@@ -50,7 +50,7 @@ func (b *DemoApplication) PacketIn(dpid net.HardwareAddr, pkt *ofp10.PacketIn) {
 
 	if _, ok := b.hosts[hwDst]; ok {
 		f1 := ofp10.NewFlowMod()
-		f1.AddAction(ofp10.NewActionOutput(b.hostMaps[hwDst]))
+		f1.AddAction(ofp10.NewActionOutput(b.hosts[hwDst]))
 		f1.Match.DLSrc = eth.HWSrc
 		f1.Match.DLDst = eth.HWDst
 		f1.IdleTimeout = 3
@@ -80,5 +80,5 @@ func main() {
 	fmt.Println("Ogo 2013")
 	ctrl := core.NewController()
 	ctrl.RegisterApplication(new(DemoApplication))
-	ctrl.Start(":6633")
+	ctrl.Listen(":6633")
 }
