@@ -71,7 +71,7 @@ type DemoInstance struct {
 
 func (b *DemoInstance) PacketIn(dpid net.HardwareAddr, pkt *ofp10.PacketIn) {
 	eth := pkt.Data
-	b.PutHost(eth.HWSrc, pkt.InPort)
+	b.SetHost(eth.HWSrc, pkt.InPort)
 
 	if host, ok := b.Host(eth.HWDst); ok {
 		f1 := ofp10.NewFlowMod()
@@ -104,7 +104,6 @@ func (b *DemoInstance) PacketIn(dpid net.HardwareAddr, pkt *ofp10.PacketIn) {
 func main() {
 	fmt.Println("Ogo 2013")
 	ctrl := core.NewController()
-	// ctrl.SetInstance(NewDemo)
-	ctrl.RegisterApplication(new(DemoApplication))
+	ctrl.RegisterApplication(NewDemo())
 	ctrl.Listen(":6633")
 }
