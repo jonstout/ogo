@@ -14,7 +14,7 @@ func NewController() *Controller {
 	Applications = make(map[string]Application)
 	network = NewNetwork()
 
-	core := NewOgoCore()
+	core := NewOgo()
 	c.RegisterApplication(core)
 	return c
 }
@@ -93,7 +93,7 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
 
 
 // Setup OpenFlow Message chans for each message type.
-func (c *Controller) RegisterApplication(app Application) {
+func (c *Controller) RegisterApplication(fn func NewInstance() interface{}) {
 	app.Initialize(make(map[string]string), make(chan bool))
 	Applications[app.Name()] = app
 }

@@ -18,8 +18,12 @@ func NewOgo() *Ogo {
 	go c.loop()
 }
 
-func (c *OgoCore) NewInstance() interface{} {
+func (c *Ogo) NewInstance() interface{} {
+	return &OgoInstance{c}
+}
 
+type OgoInstance struct {
+	*Ogo
 }
 
 func (c *Core) ConnectionUp(dpid net.HardwareAddr) {
