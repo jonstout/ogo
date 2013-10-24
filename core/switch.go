@@ -24,8 +24,9 @@ var network *Network
 
 type OFSwitch struct {
 	stream *MessageStream
+	appInstance []interface{}
 	dpid          net.HardwareAddr
-	ports         map[int]*ofp10.PhyPort
+	ports         map[uint16]ofp10.PhyPort
 	portsMu sync.RWMutex
 	links         map[string]*Link
 	linksMu sync.RWMutex
@@ -46,11 +47,11 @@ func NewSwitch(stream *MessageStream, msg ofp10.SwitchFeatures) {
 		s := new(OFSwitch)
 		s.stream = stream
 		s.dpid = msg.DPID
-		s.ports = make(map[int]*ofp10.PhyPort)
+		s.ports = make(map[uint16]ofp10.PhyPort)
 		s.links = make(map[string]*Link)
 		s.reqs = make(map[uint32]chan ofp10.Msg)
 		for _, p := range msg.Ports {
-			s.ports[int(p.PortNo)] = &p
+			s.ports[p.PortNo] = p
 		}
 		network.Switches[msg.DPID.String()] = s
 		go s.receive()
@@ -58,19 +59,16 @@ func NewSwitch(stream *MessageStream, msg ofp10.SwitchFeatures) {
 	network.Unlock()
 }
 
-func (sw *OFSwitch) Port() (port ofp10.PhyPort, ok bool) {
-	sw.portsMu.RLock()
-	defer sw.portsMu.RUnlock()
+func (sw *OFSwitch) AddInstance(inst interface{}) {
 
-	p, k := sw.ports[portNo];
-		return *p, k
+	if actor, ok := inst.(ofp10.ConnectionUpReactor); ok {
+		actor.ConnectionUp(sw.DPID())
 	}
-	return
 }
 
-func (sw *OFSwitch) SetPort(portNo int, port *ofp10.PhyPort) {
-	portsMu.Lock()
-	defer portsMu.Unlock()
+func (sw *OFSwitch) SetPort(portNo uint16, port ofp10.PhyPort) {
+	sw.portsMu.Lock()
+	defer sw.portsMu.Unlock()
 	sw.ports[portNo] = port
 }
 
@@ -150,7 +148,7 @@ func (s *OFSwitch) Ports() []ofp10.PhyPort {
 	a := make([]ofp10.PhyPort, len(s.ports))
 	i := 0
 	for _, v := range s.ports {
-		a[i] = *v
+		a[i] = v
 		i++
 	}
 	s.portsMu.RUnlock()
@@ -158,13 +156,11 @@ func (s *OFSwitch) Ports() []ofp10.PhyPort {
 }
 
 // Returns a pointer to the OfpPhyPort at port number from Switch s.
-func (s *OFSwitch) Port(number int) (q ofp10.PhyPort, ok bool) {
-	s.portsMu.RLock()
-	if p, k := s.ports[number]; k {
-		q = *p
-		ok = true
-	}
-	s.portsMu.RUnlock()
+func (sw *OFSwitch) Port(portNo uint16) (port ofp10.PhyPort, ok bool) {
+	sw.portsMu.RLock()
+	defer sw.portsMu.RUnlock()
+
+	port, ok = sw.ports[portNo]
 	return
 }
 
@@ -183,7 +179,7 @@ func (s *OFSwitch) receive() {
 			s.distributeMessages(s.dpid, msg)
 		case err := <- s.stream.Error:
 			// Message stream has been disconnected.
-			for _, app := range Applications {
+			for _, app := range s.appInstance {
 				if actor, ok := app.(ofp10.ConnectionDownReactor); ok {
 					actor.ConnectionDown(s.DPID(), err)
 				}
@@ -204,13 +200,13 @@ func (s *OFSwitch) distributeMessages(dpid net.HardwareAddr, msg ofp10.Packet) {
 	} else {
 		switch t := msg.(type) {
 		case *ofp10.SwitchFeatures:
-			for _, app := range Applications {
+			for _, app := range s.appInstance {
 				if actor, ok := app.(ofp10.SwitchFeaturesReactor); ok {
 					actor.FeaturesReply(s.DPID(), t)
 				}
 			}
 		case *ofp10.PacketIn:
-			for _, app := range Applications {
+			for _, app := range s.appInstance {
 				if actor, ok := app.(ofp10.PacketInReactor); ok {
 					actor.PacketIn(s.DPID(), t)
 				}

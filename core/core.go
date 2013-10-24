@@ -6,24 +6,14 @@ import (
 	"log"
 	"net"
 	"time"
-	"sync"
 )
 
-type Ogo struct {
-	switchesMutex sync.RWMutex
-}
-
-func NewOgo() *Ogo {
-	ogo := new(Ogo)
-	return ogo
-}
-
-func (c *Ogo) NewInstance() interface{} {
-	return &OgoInstance{c}
+// OgoInstance generator.
+func NewInstance() interface{} {
+	return new(OgoInstance)
 }
 
 type OgoInstance struct {
-	*Ogo
 	shutdown chan bool
 }
 
@@ -33,15 +23,15 @@ func (o *OgoInstance) ConnectionUp(dpid net.HardwareAddr) {
 	if sw, ok := Switch(dpid); ok {
 		sw.Send(ofp10.NewFeaturesRequest())
 	}
-	go linkDiscoveryLoop(dpid)
+	go o.linkDiscoveryLoop(dpid)
 }
 
-func (c *OgoInstance) ConnectionDown(dpid net.HardwareAddr) {
+func (o *OgoInstance) ConnectionDown(dpid net.HardwareAddr) {
 	o.shutdown <- true
 	log.Println("Switch Disconnected:", dpid)
 }
 
-func (c *OgoInstance) EchoRequest(dpid net.HardwareAddr) {
+func (o *OgoInstance) EchoRequest(dpid net.HardwareAddr) {
 	// Wait three seconds then send an echo_reply message.
 	<- time.After(time.Second * 3)
 	if sw, ok := Switch(dpid); ok {
@@ -50,15 +40,15 @@ func (c *OgoInstance) EchoRequest(dpid net.HardwareAddr) {
 	}
 }
 
-func (c *OgoInstance) FeaturesReply(dpid net.HardwareAddr, features *ofp10.SwitchFeatures) {
+func (o *OgoInstance) FeaturesReply(dpid net.HardwareAddr, features *ofp10.SwitchFeatures) {
 	if sw, ok := Switch(dpid); ok {
-		for p := range features.Ports {
-			sw.SetPort(features.PortNo, features)
+		for _, p := range features.Ports {
+			sw.SetPort(p.PortNo, p)
 		}
 	}
 }
 
-func (c *OgoInstance) PacketIn(dpid net.HardwareAddr, msg *ofp10.PacketIn) {
+func (o *OgoInstance) PacketIn(dpid net.HardwareAddr, msg *ofp10.PacketIn) {
 	eth := msg.Data
 	if buf, ok := eth.Data.(*pacit.PacitBuffer); ok {
 		linkMsg := new(LinkDiscovery)
@@ -75,13 +65,14 @@ func (c *OgoInstance) PacketIn(dpid net.HardwareAddr, msg *ofp10.PacketIn) {
 
 func (o *OgoInstance) linkDiscoveryLoop(dpid net.HardwareAddr) {
 	for {
+		select {
 		case <- o.shutdown:
 			return
 		// Every two seconds send a link discovery packet.
 		case <-time.After(time.Second * 2):
 			eth := pacit.NewEthernet()
 			eth.Ethertype = 0xa0f1
-			eth.HWSrc = sw.DPID()[2:]
+			eth.HWSrc = dpid[2:]
 			eth.Data = NewLinkDiscovery(dpid)
 
 			pkt := ofp10.NewPacketOut()

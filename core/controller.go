@@ -9,13 +9,16 @@ import (
 
 type Controller struct { }
 
+type InstanceGen func() interface{}
+
 func NewController() *Controller {
 	c := new(Controller)
-	Applications = make(map[string]Application)
+	Applications = *new([]InstanceGen)
 	network = NewNetwork()
 
-	core := NewOgo()
-	c.RegisterApplication(core)
+	if f, ok := NewInstance().(InstanceGen); ok {
+		c.RegisterApplication(f)
+	}
 	return c
 }
 
@@ -65,9 +68,10 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
 			// switch object and notify applications.
 			case *ofp10.SwitchFeatures:
 				NewSwitch(stream, *m)
-				for _, app := range Applications {
-					if actor, ok := app.(ofp10.ConnectionUpReactor); ok {
-						actor.ConnectionUp(m.DPID)
+				for _, newInstance := range Applications {
+					if sw, ok := Switch(m.DPID); ok {
+						i := newInstance()
+						sw.AddInstance(i)
 					}
 				}
 				return
@@ -93,7 +97,6 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
 
 
 // Setup OpenFlow Message chans for each message type.
-func (c *Controller) RegisterApplication(fn func NewInstance() interface{}) {
-	app.Initialize(make(map[string]string), make(chan bool))
-	Applications[app.Name()] = app
+func (c *Controller) RegisterApplication(fn InstanceGen) {
+	Applications = append(Applications, fn)
 }

@@ -18,7 +18,7 @@ type Host struct {
 // actually need a thread safe data structure in this demo.
 type HostMap struct {
 	hosts  map[string]Host
-	hostsMutex sync.RWMutex
+	sync.RWMutex
 }
 
 func NewHostMap() *HostMap {
@@ -27,17 +27,17 @@ func NewHostMap() *HostMap {
 	return h
 
 }
-func (hosts *HostMap) Host(mac net.HardwareAddr) (h Host, ok bool) {
-	hosts.RLock()
-	defer hosts.RUnlock()
-	h, ok = dc.hosts[mac.String()]
+func (m *HostMap) Host(mac net.HardwareAddr) (h Host, ok bool) {
+	m.RLock()
+	defer m.RUnlock()
+	h, ok = m.hosts[mac.String()]
 	return
 }
 
-func (hosts *HostMap) SetHost(mac net.HardwareAddr, port uint16) {
-	hosts.Lock()
-	defer hosts.Unlock()
-	dc.hosts[mac.String()] = Host{mac, port}
+func (m *HostMap) SetHost(mac net.HardwareAddr, port uint16) {
+	m.Lock()
+	defer m.Unlock()
+	m.hosts[mac.String()] = Host{mac, port}
 }
 
 // Application to spawn per switch instances. May hold global
@@ -46,8 +46,8 @@ func (hosts *HostMap) SetHost(mac net.HardwareAddr, port uint16) {
 type Demo struct {
 }
 
-func NewDemo() *DemoApplication {
-	dc := new(DemoCore)
+func NewDemo() *Demo {
+	dc := new(Demo)
 	return dc
 }
 
@@ -104,6 +104,9 @@ func (b *DemoInstance) PacketIn(dpid net.HardwareAddr, pkt *ofp10.PacketIn) {
 func main() {
 	fmt.Println("Ogo 2013")
 	ctrl := core.NewController()
-	ctrl.RegisterApplication(NewDemo())
+	demo := NewDemo()
+	if f, ok := demo.NewInstance().(core.InstanceGen); ok {
+		ctrl.RegisterApplication(f)
+	}
 	ctrl.Listen(":6633")
 }
