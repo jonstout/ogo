@@ -58,6 +58,22 @@ func NewSwitch(stream *MessageStream, msg ofp10.SwitchFeatures) {
 	network.Unlock()
 }
 
+func (sw *OFSwitch) Port() (port ofp10.PhyPort, ok bool) {
+	sw.portsMu.RLock()
+	defer sw.portsMu.RUnlock()
+
+	p, k := sw.ports[portNo];
+		return *p, k
+	}
+	return
+}
+
+func (sw *OFSwitch) SetPort(portNo int, port *ofp10.PhyPort) {
+	portsMu.Lock()
+	defer portsMu.Unlock()
+	sw.ports[portNo] = port
+}
+
 // Returns a pointer to the Switch mapped to dpid.
 func Switch(dpid net.HardwareAddr) (*OFSwitch, bool) {
 	network.RLock()
