@@ -28,7 +28,8 @@ type Match struct {
 
 func NewMatch() *Match {
 	m := new(Match)
-	m.Wildcards = 0xffffffff
+	// By default wildcard all fields
+	m.Wildcards = FW_ALL
 	m.DLSrc = make([]byte, ETH_ALEN)
 	m.DLDst = make([]byte, ETH_ALEN)
 	m.NWSrc = make([]byte, 4)
@@ -67,10 +68,10 @@ func (m *Match) Read(b []byte) (n int, err error) {
 		m.Wildcards = m.Wildcards ^ FW_NW_PROTO
 	}
 	if m.NWSrc.String() != "0.0.0.0" {
-		m.Wildcards = m.Wildcards ^ FW_NW_SRC_ALL
+		m.Wildcards = m.Wildcards ^ FW_NW_SRC_MASK
 	}
 	if m.NWDst.String() != "0.0.0.0" {
-		m.Wildcards = m.Wildcards ^ FW_NW_DST_ALL
+		m.Wildcards = m.Wildcards ^ FW_NW_DST_MASK
 	}
 	if m.TPSrc != 0 {
 		m.Wildcards = m.Wildcards ^ FW_TP_SRC
