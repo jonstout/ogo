@@ -108,28 +108,12 @@ func (h *Header) ReadFrom(r io.Reader) (n int64, err error) {
 
 func (h *Header) Write(b []byte) (n int, err error) {
 	r := bytes.NewBuffer(b)
-	/*if err = binary.Read(r, binary.BigEndian, &h.Version); err != nil {
-		return
-	}*/
-	//h.Version = b[0]
 	binary.Read(r, binary.BigEndian, &h.Version)
 	n += 1
-	/*if err = binary.Read(r, binary.BigEndian, &h.Type); err != nil {
-		return
-	}*/
-	//h.Type = b[1]
 	binary.Read(r, binary.BigEndian, &h.Type)
 	n += 1
-	/*if err = binary.Read(r, binary.BigEndian, &h.Length); err != nil {
-		return
-	}*/
-	//h.Length = binary.BigEndian.Uint16(b[2:4])
 	binary.Read(r, binary.BigEndian, &h.Length)
 	n += 2
-	/*if err = binary.Read(r, binary.BigEndian, &h.XID); err != nil {
-		return
-	}*/
-	//h.XID = binary.BigEndian.Uint32(b[4:8])
 	binary.Read(r, binary.BigEndian, &h.XID)
 	n += 4
 	return n, err

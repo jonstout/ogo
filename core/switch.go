@@ -46,6 +46,7 @@ func NewSwitch(stream *MessageStream, msg ofp10.SwitchFeatures) {
 		log.Println("Openflow Connection:", msg.DPID)
 		s := new(OFSwitch)
 		s.stream = stream
+		s.appInstance = *new([]interface{})
 		s.dpid = msg.DPID
 		s.ports = make(map[uint16]ofp10.PhyPort)
 		s.links = make(map[string]*Link)
@@ -63,6 +64,7 @@ func (sw *OFSwitch) AddInstance(inst interface{}) {
 	if actor, ok := inst.(ofp10.ConnectionUpReactor); ok {
 		actor.ConnectionUp(sw.DPID())
 	}
+	sw.appInstance = append(sw.appInstance, inst)
 }
 
 func (sw *OFSwitch) SetPort(portNo uint16, port ofp10.PhyPort) {
@@ -131,6 +133,7 @@ func (s *OFSwitch) Link(dpid net.HardwareAddr) (l Link, ok bool) {
 
 // Updates the link between s.DPID and l.DPID.
 func (s *OFSwitch) setLink(dpid net.HardwareAddr, l *Link) {
+	log.Println("Link:", dpid, l.Port, l.DPID)
 	s.linksMu.Lock()
 	s.links[l.DPID.String()] = l
 	s.linksMu.Unlock()

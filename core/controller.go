@@ -104,6 +104,5 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
 
 // Setup OpenFlow Message chans for each message type.
 func (c *Controller) RegisterApplication(fn InstanceGen) {
-	log.Println("Registering Application")
 	Applications = append(Applications, fn)
 }
