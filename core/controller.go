@@ -16,33 +16,38 @@ func NewController() *Controller {
 	Applications = *new([]InstanceGen)
 	network = NewNetwork()
 
-	if f, ok := NewInstance().(InstanceGen); ok {
-		c.RegisterApplication(f)
-	}
+	c.RegisterApplication(NewInstance)
 	return c
 }
 
 
 func (c *Controller) Listen(port string) {
 	addr, _ := net.ResolveTCPAddr("tcp", port)
-	if sock, err := net.ListenTCP("tcp", addr); err != nil {
-		if conn, e := sock.AcceptTCP(); e != nil {
-			log.Println(e)
-		} else {
-			go c.handleConnection(conn)
-		}
-	} else {
+
+	sock, err := net.ListenTCP("tcp", addr)
+	if err != nil {
 		log.Fatal(err)
+	}
+	defer sock.Close()
+
+	log.Println("Listening for connections on", addr)
+	for {
+		conn, err := sock.AcceptTCP()
+		if err != nil {
+			log.Fatal(err)
+		}
+		go c.handleConnection(conn)
 	}
 }
 
 
 func (c *Controller) handleConnection(conn *net.TCPConn) {
 	stream := NewMessageStream(conn)
+	stream.Outbound <- ofp10.NewHello()
 
 	for {
 		select {
-		case stream.Outbound <- ofp10.NewHello():
+		//case stream.Outbound <- ofp10.NewHello():
 			// Send hello message with latest protocol version.
 		case msg := <- stream.Inbound:
 			switch m := msg.(type) {
@@ -78,6 +83,7 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
 			// An error message may indicate a version mismatch. We
 			// disconnect if an error occurs this early.
 			case *ofp10.ErrorMsg:
+				log.Println(m)
 				stream.Version = m.Header.Version
 				stream.Shutdown <- true
 			}
@@ -98,5 +104,6 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
 
 // Setup OpenFlow Message chans for each message type.
 func (c *Controller) RegisterApplication(fn InstanceGen) {
+	log.Println("Registering Application")
 	Applications = append(Applications, fn)
 }

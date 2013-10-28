@@ -12,6 +12,14 @@ type ConnectionDownReactor interface {
 	ConnectionDown(dpid net.HardwareAddr, err error)
 }
 
+type EchoReplyReactor interface {
+	EchoReply(dpid net.HardwareAddr)
+}
+
+type EchoRequestReactor interface {
+	EchoRequest(dpid net.HardwareAddr)
+}
+
 type SwitchFeaturesReactor interface {
 	FeaturesReply(dpid net.HardwareAddr, features *SwitchFeatures)
 }

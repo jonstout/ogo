@@ -18,8 +18,6 @@ type OgoInstance struct {
 }
 
 func (o *OgoInstance) ConnectionUp(dpid net.HardwareAddr) {
-	log.Println("Switch Connected:", dpid)
-
 	if sw, ok := Switch(dpid); ok {
 		sw.Send(ofp10.NewFeaturesRequest())
 	}
@@ -34,6 +32,7 @@ func (o *OgoInstance) ConnectionDown(dpid net.HardwareAddr) {
 func (o *OgoInstance) EchoRequest(dpid net.HardwareAddr) {
 	// Wait three seconds then send an echo_reply message.
 	<- time.After(time.Second * 3)
+	log.Println("Sending EchoRequest received")
 	if sw, ok := Switch(dpid); ok {
 		res := ofp10.NewEchoReply()
 		sw.Send(res)
@@ -41,6 +40,7 @@ func (o *OgoInstance) EchoRequest(dpid net.HardwareAddr) {
 }
 
 func (o *OgoInstance) FeaturesReply(dpid net.HardwareAddr, features *ofp10.SwitchFeatures) {
+	log.Println("Updating SwitchFeatures:", features.DPID)
 	if sw, ok := Switch(dpid); ok {
 		for _, p := range features.Ports {
 			sw.SetPort(p.PortNo, p)

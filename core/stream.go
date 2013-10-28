@@ -46,13 +46,12 @@ func (m *MessageStream) outbound() {
 	for {
 		select {
 		case <- m.Shutdown:
-			// Cleanup running process.
-			log.Println("Closing connection:", m.conn.LocalAddr())
 			m.conn.Close()
 			return
 		case msg := <- m.Outbound:
 			// Forward outbound messages to conn
 			if _, err := m.conn.ReadFrom(msg); err != nil {
+				log.Println(err)
 				m.Error <- err
 				m.Shutdown <- true
 			}
@@ -70,6 +69,7 @@ func (m *MessageStream) inbound() {
 		if n, err := m.conn.Read(buf); err != nil {
 			// Likely a read timeout. Send error to any listening
 			// threads. Trigger shutdown to close outbound loop.
+			log.Println(err)
 			m.Error <- err
 			m.Shutdown <- true
 			return
@@ -121,7 +121,7 @@ func (m *MessageStream) parse(buf []byte) {
 		d = new(ofp10.VendorHeader)
 		d.Write(buf)
 	case ofp10.T_FEATURES_REPLY:
-		d = new(ofp10.Header)
+		d = new(ofp10.SwitchFeatures)
 		d.Write(buf)
 	case ofp10.T_GET_CONFIG_REPLY:
 		d = new(ofp10.SwitchConfig)

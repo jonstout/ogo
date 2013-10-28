@@ -27,6 +27,7 @@ func NewHostMap() *HostMap {
 	return h
 
 }
+
 func (m *HostMap) Host(mac net.HardwareAddr) (h Host, ok bool) {
 	m.RLock()
 	defer m.RUnlock()
@@ -104,9 +105,9 @@ func (b *DemoInstance) PacketIn(dpid net.HardwareAddr, pkt *ofp10.PacketIn) {
 func main() {
 	fmt.Println("Ogo 2013")
 	ctrl := core.NewController()
+
 	demo := NewDemo()
-	if f, ok := demo.NewInstance().(core.InstanceGen); ok {
-		ctrl.RegisterApplication(f)
-	}
+	ctrl.RegisterApplication(demo.NewInstance)
+
 	ctrl.Listen(":6633")
 }

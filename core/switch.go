@@ -60,7 +60,6 @@ func NewSwitch(stream *MessageStream, msg ofp10.SwitchFeatures) {
 }
 
 func (sw *OFSwitch) AddInstance(inst interface{}) {
-
 	if actor, ok := inst.(ofp10.ConnectionUpReactor); ok {
 		actor.ConnectionUp(sw.DPID())
 	}
@@ -209,6 +208,21 @@ func (s *OFSwitch) distributeMessages(dpid net.HardwareAddr, msg ofp10.Packet) {
 			for _, app := range s.appInstance {
 				if actor, ok := app.(ofp10.PacketInReactor); ok {
 					actor.PacketIn(s.DPID(), t)
+				}
+			}
+		case *ofp10.Header:
+			switch t.GetHeader().Type {
+			case ofp10.T_ECHO_REPLY:
+				for _, app := range s.appInstance {
+					if actor, ok := app.(ofp10.EchoReplyReactor); ok {
+						actor.EchoReply(s.DPID())
+					}
+				}
+			case ofp10.T_ECHO_REQUEST:
+				for _, app := range s.appInstance {
+					if actor, ok := app.(ofp10.EchoRequestReactor); ok {
+						actor.EchoRequest(s.DPID())
+					}
 				}
 			}
 		}
