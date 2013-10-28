@@ -15,6 +15,10 @@ const (
 	WOL_MSG  = 0x0842
 	RARP_MSG = 0x8035
 	VLAN_MSG = 0x8100
+
+	IPv6_MSG     = 0x86DD
+	STP_MSG      = 0x4242
+	STP_BPDU_MSG = 0xAAAA
 )
 
 type ReadWriterMeasurer interface {
@@ -124,15 +128,15 @@ func (e *Ethernet) Write(b []byte) (n int, err error) {
 		e.Data = new(ARP)
 		m, _ := e.Data.Write(b[n:])
 		n += m
-	case RARP_MSG:
-	/*case LLDP_MSG:
-	e.Data = new(LLDP)
-	m, _ := e.Data.Write(b[n:])
-	n += m*/
+		//	case RARP_MSG:
+		/*case LLDP_MSG:
+		e.Data = new(LLDP)
+		m, _ := e.Data.Write(b[n:])
+		n += m*/
 	default:
-		e.Data = NewBuffer(b[n:])
-		n += int(e.Data.Len())
-		//n += len(b[n:])
+		//e.Data = NewBuffer(b[n:])
+		//n += int(e.Data.Len())
+		n += len(b[n:])
 	}
 	return
 }
