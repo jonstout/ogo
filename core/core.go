@@ -18,8 +18,18 @@ type OgoInstance struct {
 }
 
 func (o *OgoInstance) ConnectionUp(dpid net.HardwareAddr) {
+	arpFmod := ofp10.NewFlowMod()
+	arpFmod.Match.DLType = 0x0806 // ARP Messages
+	arpFmod.AddAction(ofp10.NewActionOutput(ofp10.P_CONTROLLER))
+
+	dscFmod := ofp10.NewFlowMod()
+	dscFmod.Match.DLType = 0xa0f1 // Link Discovery Messages
+	dscFmod.AddAction(ofp10.NewActionOutput(ofp10.P_CONTROLLER))
+
 	if sw, ok := Switch(dpid); ok {
 		sw.Send(ofp10.NewFeaturesRequest())
+		sw.Send(arpFmod)
+		sw.Send(dscFmod)
 	}
 	go o.linkDiscoveryLoop(dpid)
 }
@@ -66,6 +76,7 @@ func (o *OgoInstance) PacketIn(dpid net.HardwareAddr, msg *ofp10.PacketIn) {
 
 		if sw, ok := Switch(dpid); ok {
 			sw.setLink(dpid, l)
+			//log.Println(sw.Links())
 		}
 	}
 }
