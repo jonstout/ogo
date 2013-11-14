@@ -46,6 +46,7 @@ func (m *MessageStream) outbound() {
 	for {
 		select {
 		case <- m.Shutdown:
+			log.Println("Closing OpenFlow message stream.")
 			m.conn.Close()
 			return
 		case msg := <- m.Outbound:
@@ -55,6 +56,7 @@ func (m *MessageStream) outbound() {
 				m.Error <- err
 				m.Shutdown <- true
 			}
+			log.Println(msg)
 		}
 	}
 }

@@ -19,10 +19,12 @@ type OgoInstance struct {
 
 func (o *OgoInstance) ConnectionUp(dpid net.HardwareAddr) {
 	arpFmod := ofp10.NewFlowMod()
+	arpFmod.HardTimeout = 0
 	arpFmod.Match.DLType = 0x0806 // ARP Messages
 	arpFmod.AddAction(ofp10.NewActionOutput(ofp10.P_CONTROLLER))
 
 	dscFmod := ofp10.NewFlowMod()
+	dscFmod.HardTimeout = 0
 	dscFmod.Match.DLType = 0xa0f1 // Link Discovery Messages
 	dscFmod.AddAction(ofp10.NewActionOutput(ofp10.P_CONTROLLER))
 
@@ -30,6 +32,7 @@ func (o *OgoInstance) ConnectionUp(dpid net.HardwareAddr) {
 		sw.Send(ofp10.NewFeaturesRequest())
 		sw.Send(arpFmod)
 		sw.Send(dscFmod)
+		sw.Send(ofp10.NewEchoRequest())
 	}
 	go o.linkDiscoveryLoop(dpid)
 }
@@ -41,20 +44,24 @@ func (o *OgoInstance) ConnectionDown(dpid net.HardwareAddr) {
 
 func (o *OgoInstance) EchoRequest(dpid net.HardwareAddr) {
 	// Wait three seconds then send an echo_reply message.
-	log.Println("Sending EchoRequest received")
-	if sw, ok := Switch(dpid); ok {
-		res := ofp10.NewEchoReply()
-		sw.Send(res)
-	}
+	go func() {
+		<- time.After(time.Second * 3)
+		if sw, ok := Switch(dpid); ok {
+			res := ofp10.NewEchoReply()
+			sw.Send(res)
+		}
+	}()
 }
 
 func (o *OgoInstance) EchoReply(dpid net.HardwareAddr) {
 	// Wait three seconds then send an echo_reply message.
-	log.Println("Sending EchoReply received")
-	if sw, ok := Switch(dpid); ok {
-		res := ofp10.NewEchoRequest()
-		sw.Send(res)
-	}
+	go func() {
+		<- time.After(time.Second * 3)
+		if sw, ok := Switch(dpid); ok {
+			res := ofp10.NewEchoRequest()
+			sw.Send(res)
+		}
+	}()
 }
 
 func (o *OgoInstance) FeaturesReply(dpid net.HardwareAddr, features *ofp10.SwitchFeatures) {
@@ -97,9 +104,9 @@ func (o *OgoInstance) linkDiscoveryLoop(dpid net.HardwareAddr) {
 			pkt.Data = eth
 			pkt.AddAction(ofp10.NewActionOutput(ofp10.P_FLOOD))
 			
-			if sw, ok := Switch(dpid); ok {
+			/*if sw, ok := Switch(dpid); ok {
 				sw.Send(pkt)
-			}
+			}*/
 		}
 	}
 }
