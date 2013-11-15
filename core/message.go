@@ -34,9 +34,17 @@ func (d *LinkDiscovery) Read(b []byte) (n int, err error) {
 }
 
 func (d *LinkDiscovery) Write(b []byte) (n int, err error) {
-	d.SrcDPID = net.HardwareAddr(b[n : n+8])
+
+	buf := bytes.NewBuffer(b)
+	if err = binary.Read(buf, binary.BigEndian, &d.SrcDPID); err != nil {
+		return
+	}
 	n += 8
-	d.Nsec = int64(binary.BigEndian.Uint64(b[n : n+8]))
+	var tmp uint16
+	if err = binary.Read(buf, binary.BigEndian, tmp); err != nil {
+		return
+	}
+	d.Nsec = int64(tmp)
 	n += 8
 	return
 }
