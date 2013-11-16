@@ -56,7 +56,6 @@ func (m *MessageStream) outbound() {
 				m.Error <- err
 				m.Shutdown <- true
 			}
-			log.Println(msg)
 		}
 	}
 }

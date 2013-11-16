@@ -85,7 +85,7 @@ func (o *OgoInstance) PacketIn(dpid net.HardwareAddr, msg *ofp10.PacketIn) {
 
 		if sw, ok := Switch(dpid); ok {
 			sw.setLink(dpid, l)
-			//log.Println(sw.Links())
+			log.Println(dpid, sw.Links())
 		}
 	}
 }
@@ -106,9 +106,9 @@ func (o *OgoInstance) linkDiscoveryLoop(dpid net.HardwareAddr) {
 			pkt.Data = eth
 			pkt.AddAction(ofp10.NewActionOutput(ofp10.P_FLOOD))
 			
-			/*if sw, ok := Switch(dpid); ok {
+			if sw, ok := Switch(dpid); ok {
 				sw.Send(pkt)
-			}*/
+			}
 		}
 	}
 }

@@ -106,8 +106,8 @@ func main() {
 	fmt.Println("Ogo 2013")
 	ctrl := core.NewController()
 
-	demo := NewDemo()
-	ctrl.RegisterApplication(demo.NewInstance)
+	//demo := NewDemo()
+	//ctrl.RegisterApplication(demo.NewInstance)
 
 	ctrl.Listen(":6633")
 }
