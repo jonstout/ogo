@@ -20,11 +20,13 @@ type OgoInstance struct {
 func (o *OgoInstance) ConnectionUp(dpid net.HardwareAddr) {
 	arpFmod := ofp10.NewFlowMod()
 	arpFmod.HardTimeout = 0
+	arpFmod.Priority = 2
 	arpFmod.Match.DLType = 0x0806 // ARP Messages
 	arpFmod.AddAction(ofp10.NewActionOutput(ofp10.P_CONTROLLER))
 
 	dscFmod := ofp10.NewFlowMod()
 	dscFmod.HardTimeout = 0
+	dscFmod.Priority = 3
 	dscFmod.Match.DLType = 0xa0f1 // Link Discovery Messages
 	dscFmod.AddAction(ofp10.NewActionOutput(ofp10.P_CONTROLLER))
 
