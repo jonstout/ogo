@@ -110,9 +110,8 @@ func disconnect(dpid net.HardwareAddr) {
 // Returns a slice of all links connected to Switch s.
 func (s *OFSwitch) Links() []Link {
 	s.linksMu.RLock()
-	a := make([]Link, 5)
-	for k, v := range s.links {
-		log.Println(k)
+	a := make([]Link, 0)
+	for _, v := range s.links {
 		a = append(a, *v)
 	}
 	s.linksMu.RUnlock()
@@ -133,10 +132,10 @@ func (s *OFSwitch) Link(dpid net.HardwareAddr) (l Link, ok bool) {
 // Updates the link between s.DPID and l.DPID.
 func (s *OFSwitch) setLink(dpid net.HardwareAddr, l *Link) {
 	s.linksMu.Lock()
-	if _, ok := s.links[l.DPID.String()]; ok {
-		s.links[l.DPID.String()] = l
-		log.Println("Link:", dpid, l.Port, l.DPID)
+	if _, ok := s.links[l.DPID.String()]; !ok {
+		log.Println("Link discovered:", dpid, l.Port, l.DPID)
 	}
+	s.links[l.DPID.String()] = l
 	s.linksMu.Unlock()
 }
 

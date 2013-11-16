@@ -76,16 +76,19 @@ func (o *OgoInstance) FeaturesReply(dpid net.HardwareAddr, features *ofp10.Switc
 
 func (o *OgoInstance) PacketIn(dpid net.HardwareAddr, msg *ofp10.PacketIn) {
 	eth := msg.Data
-	if buf, ok := eth.Data.(*pacit.PacitBuffer); ok {
+	if buf, ok := eth.Data.(*pacit.PacitBuffer); ok && eth.Ethertype == 0xa0f1 {
 		linkMsg := new(LinkDiscovery)
-		linkMsg.Write(buf.Bytes())
+		if _, err := linkMsg.Write(buf.Bytes()); err != nil {
+			log.Println(err)
+			return
+		}
 
 		latency := time.Since(time.Unix(0, linkMsg.Nsec))
 		l := &Link{linkMsg.SrcDPID, msg.InPort, latency, -1}
 
 		if sw, ok := Switch(dpid); ok {
 			sw.setLink(dpid, l)
-			log.Println(dpid, sw.Links())
+			//log.Println(dpid, sw.Links())
 		}
 	}
 }

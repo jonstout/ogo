@@ -34,17 +34,15 @@ func (d *LinkDiscovery) Read(b []byte) (n int, err error) {
 }
 
 func (d *LinkDiscovery) Write(b []byte) (n int, err error) {
-
 	buf := bytes.NewBuffer(b)
+	d.SrcDPID = make([]byte, 8)
 	if err = binary.Read(buf, binary.BigEndian, &d.SrcDPID); err != nil {
 		return
 	}
 	n += 8
-	var tmp uint16
-	if err = binary.Read(buf, binary.BigEndian, tmp); err != nil {
+	if err = binary.Read(buf, binary.BigEndian, &d.Nsec); err != nil {
 		return
 	}
-	d.Nsec = int64(tmp)
 	n += 8
 	return
 }
