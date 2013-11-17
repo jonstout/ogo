@@ -88,7 +88,6 @@ func (o *OgoInstance) PacketIn(dpid net.HardwareAddr, msg *ofp10.PacketIn) {
 
 		if sw, ok := Switch(dpid); ok {
 			sw.setLink(dpid, l)
-			//log.Println(dpid, sw.Links())
 		}
 	}
 }
