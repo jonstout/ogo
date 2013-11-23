@@ -52,7 +52,7 @@ func (m *MessageStream) outbound() {
 		case msg := <- m.Outbound:
 			// Forward outbound messages to conn
 			if _, err := m.conn.ReadFrom(msg); err != nil {
-				log.Println(err)
+				log.Println("OutboundError:", err)
 				m.Error <- err
 				m.Shutdown <- true
 			}
@@ -70,7 +70,7 @@ func (m *MessageStream) inbound() {
 		if n, err := m.conn.Read(buf); err != nil {
 			// Likely a read timeout. Send error to any listening
 			// threads. Trigger shutdown to close outbound loop.
-			log.Println(err)
+			log.Println("InboundError:", err)
 			m.Error <- err
 			m.Shutdown <- true
 			return
