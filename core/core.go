@@ -83,6 +83,13 @@ func (o *OgoInstance) PacketIn(dpid net.HardwareAddr, msg *ofp10.PacketIn) {
 			return
 		}
 
+
+		/*if linkMsg.SrcDPID.String() == "00:00:00:00:00:00:00:00" {
+			log.Println(msg.Data.HWSrc, msg.Data.HWDst)
+			log.Println(buf.Bytes())
+			panic(buf.Bytes())
+		}*/
+
 		latency := time.Since(time.Unix(0, linkMsg.Nsec))
 		l := &Link{linkMsg.SrcDPID, msg.InPort, latency, -1}
 
