@@ -47,7 +47,7 @@ func NewActionOutput(number uint16) *ActionOutput {
 	act.Type = AT_OUTPUT
 	act.Length = 8
 	act.Port = number
-	act.MaxLen = 0
+	act.MaxLen = 256
 	return act
 }
 

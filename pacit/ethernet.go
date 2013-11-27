@@ -88,7 +88,7 @@ func (e *Ethernet) Read(b []byte) (n int, err error) {
 type PacitBuffer struct{ *bytes.Buffer }
 
 func NewBuffer(buf []byte) *PacitBuffer {
-	b := &PacitBuffer{Buffer: bytes.NewBuffer(buf)}
+	b := &PacitBuffer{bytes.NewBuffer(buf)}
 	return b
 }
 
@@ -98,21 +98,37 @@ func (b *PacitBuffer) Len() uint16 {
 
 func (e *Ethernet) Write(b []byte) (n int, err error) {
 	// Delimiter comes in from the wire. Not sure why this is the case, ignore
-	n += 1
+	buf := bytes.NewBuffer(b[1:])
 	e.HWDst = make([]byte, 6)
-	e.HWDst = b[1:7]
+	if err = binary.Read(buf, binary.BigEndian, &e.HWDst); err != nil {
+		return
+	}
 	n += 6
 	e.HWSrc = make([]byte, 6)
-	e.HWSrc = b[7:13]
+	if err = binary.Read(buf, binary.BigEndian, &e.HWSrc); err != nil {
+		return
+	}
 	n += 6
-	e.Ethertype = binary.BigEndian.Uint16(b[13:15])
+	if err = binary.Read(buf, binary.BigEndian, &e.Ethertype); err != nil {
+		return
+	}
 	n += 2
+
 	// If tagged
 	if e.Ethertype == VLAN_MSG {
 		e.VLANID = *new(VLAN)
-		e.VLANID.Write(b[13:17])
-		n += 2
-		e.Ethertype = binary.BigEndian.Uint16(b[13:15])
+		vbuf := make([]byte, 5)
+		if err = binary.Read(buf, binary.BigEndian, vbuf); err != nil {
+			return
+		}
+		if m, verr := e.VLANID.Write(vbuf); verr != nil {
+			return
+		} else {
+			n += m
+		}
+		if err = binary.Read(buf, binary.BigEndian, &e.Ethertype); err != nil {
+			return
+		}
 		n += 2
 	} else {
 		e.VLANID = *new(VLAN)
@@ -122,21 +138,15 @@ func (e *Ethernet) Write(b []byte) (n int, err error) {
 	switch e.Ethertype {
 	case IPv4_MSG:
 		e.Data = new(IPv4)
-		m, _ := e.Data.Write(b[n:])
+		m, _ := e.Data.Write(buf.Bytes())
 		n += m
 	case ARP_MSG:
 		e.Data = new(ARP)
-		m, _ := e.Data.Write(b[n:])
+		m, _ := e.Data.Write(buf.Bytes())
 		n += m
-		//	case RARP_MSG:
-		/*case LLDP_MSG:
-		e.Data = new(LLDP)
-		m, _ := e.Data.Write(b[n:])
-		n += m*/
 	default:
-		//e.Data = NewBuffer(b[n:])
-		//n += int(e.Data.Len())
-		n += len(b[n:])
+		e.Data = NewBuffer(buf.Bytes())
+		n += int(e.Data.Len())
 	}
 	return
 }

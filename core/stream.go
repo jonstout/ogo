@@ -2,67 +2,77 @@ package core
 
 import (
 	"encoding/binary"
-	"errors"
 	"github.com/jonstout/ogo/openflow/ofp10"
 	"log"
 	"net"
-	"time"
 )
 
 type MessageStream struct {
-	connection    *net.TCPConn
-	errorMessage  chan error
-	newMessages   chan ofp10.Packet
-	parseRoutines chan int
-	parsedMessage chan ofp10.Packet
+	conn    *net.TCPConn
+	// OpenFlow Version
+	Version uint8
+	// Channel on which to publish connection errors
+	Error  chan error
+	// Channel on which to publish inbound messages
+	Inbound   chan ofp10.Packet
+	// Channel on which to receive outbound messages
+	Outbound chan ofp10.Packet
+	// Channel on which to receive a shutdown command
+	Shutdown chan bool
 }
 
 // Returns a pointer to a new MessageStream. Used to parse
 // OpenFlow messages from conn.
 func NewMessageStream(conn *net.TCPConn) *MessageStream {
-	m := &MessageStream{conn,
-		make(chan error),
-		make(chan ofp10.Packet),
-		make(chan int, 1),
-		make(chan ofp10.Packet)}
-	go m.loop()
+	m := &MessageStream{
+		conn,
+		0,
+		make(chan error, 1), // Error
+		make(chan ofp10.Packet, 1), // Inbound
+		make(chan ofp10.Packet, 1), // Outbound
+		make(chan bool, 1), // Shutdown
+	}
+	go m.outbound()
+	go m.inbound()
 	return m
 }
 
-// Closes the chan returned by m.Updates() and cleans up
-// underlying processes.
-func (m *MessageStream) Close() {
-	m.errorMessage <- errors.New("Stream closed by external process")
+func (m *MessageStream) GetAddr() net.Addr {
+	return m.conn.RemoteAddr()
 }
 
-// Returns a chan that can be used with range to receive a
-// a stream of of type ofp10.Packet.
-func (m *MessageStream) Updates() <-chan ofp10.Packet {
-	return m.newMessages
-}
-
-func (m *MessageStream) loop() {
-	go func() {
-		for {
-			select {
-			case <-m.errorMessage: // Close the m.newMessages chan to end Updates()
-				close(m.newMessages)
-				m.connection.Close()
-				return
-			case msg := <-m.parsedMessage: // Forward parsed messages to Updates()
-				m.newMessages <- msg
+// Listen for a Shutdown signal or Outbound messages.
+func (m *MessageStream) outbound() {
+	for {
+		select {
+		case <- m.Shutdown:
+			log.Println("Closing OpenFlow message stream.")
+			m.conn.Close()
+			return
+		case msg := <- m.Outbound:
+			// Forward outbound messages to conn
+			if _, err := m.conn.ReadFrom(msg); err != nil {
+				log.Println("OutboundError:", err)
+				m.Error <- err
+				m.Shutdown <- true
 			}
 		}
-	}()
+	}
+}
+
+func (m *MessageStream) inbound() {
 
 	cursor := 0
-	unreadBytes := make([]byte, 1024)
+	unreadBytes := make([]byte, 1500)
 	unreadByteLength := 0
 	for {
 		buf := make([]byte, 512)
-		if n, err := m.connection.Read(buf); err != nil {
-			log.Println("Read timeout...")
-			m.errorMessage <- err
+		if n, err := m.conn.Read(buf); err != nil {
+			// Likely a read timeout. Send error to any listening
+			// threads. Trigger shutdown to close outbound loop.
+			log.Println("InboundError:", err)
+			m.Error <- err
+			m.Shutdown <- true
 			return
 		} else {
 
@@ -112,7 +122,7 @@ func (m *MessageStream) parse(buf []byte) {
 		d = new(ofp10.VendorHeader)
 		d.Write(buf)
 	case ofp10.T_FEATURES_REPLY:
-		d = new(ofp10.Header)
+		d = new(ofp10.SwitchFeatures)
 		d.Write(buf)
 	case ofp10.T_GET_CONFIG_REPLY:
 		d = new(ofp10.SwitchConfig)
@@ -132,8 +142,5 @@ func (m *MessageStream) parse(buf []byte) {
 	default:
 		// Unrecognized packet do nothing
 	}
-	select {
-	case m.parsedMessage <- d:
-	case <-time.After(time.Millisecond * 100):
-	}
+	m.Inbound <- d
 }

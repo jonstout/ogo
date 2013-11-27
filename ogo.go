@@ -5,57 +5,86 @@ import (
 	"github.com/jonstout/ogo/core"
 	"github.com/jonstout/ogo/openflow/ofp10"
 	"net"
+	"sync"
 )
 
-// This is a basic learning switch implementation
-type DemoApplication struct {
-	packetIn chan ofp10.Msg
-	hostMap  map[string]uint16
+// Structure to track hosts that we discover.
+type Host struct {
+	mac net.HardwareAddr
+	port uint16
 }
 
-func (b *DemoApplication) InitApplication(args map[string]string) {
-	// SubscribeTo returns a chan to receive a specific message type.
-	b.packetIn = core.SubscribeTo(ofp10.T_PACKET_IN)
-	b.hostMap = make(map[string]uint16)
+// A thread safe map to store our hosts. We are unlikely to
+// actually need a thread safe data structure in this demo.
+type HostMap struct {
+	hosts  map[string]Host
+	sync.RWMutex
 }
 
-func (b *DemoApplication) Name() string {
-	// Every application needs a name
-	return "Demo"
+func NewHostMap() *HostMap {
+	h := new(HostMap)
+	h.hosts = make(map[string]Host)
+	return h
+
 }
 
-func (b *DemoApplication) Receive() {
-	for {
-		select {
-		case m := <-b.packetIn:
-			if pkt, ok := m.Data.(*ofp10.PacketIn); ok {
-				if pkt.Data.Ethertype == 0x806 {
-					b.parsePacketIn(m.DPID, pkt)
-				}
-			}
-		}
-	}
+func (m *HostMap) Host(mac net.HardwareAddr) (h Host, ok bool) {
+	m.RLock()
+	defer m.RUnlock()
+	h, ok = m.hosts[mac.String()]
+	return
 }
 
-func (b *DemoApplication) parsePacketIn(dpid net.HardwareAddr, pkt *ofp10.PacketIn) {
+func (m *HostMap) SetHost(mac net.HardwareAddr, port uint16) {
+	m.Lock()
+	defer m.Unlock()
+	m.hosts[mac.String()] = Host{mac, port}
+}
+
+// Application to spawn per switch instances. May hold global
+// variables such as connections to databases or channels to
+// to web services.
+type Demo struct {
+}
+
+func NewDemo() *Demo {
+	dc := new(Demo)
+	return dc
+}
+
+// Returns a new instance that implements one of the many
+// interfaces found in ofp/ofp10/interface.go
+func (d *Demo) NewInstance() interface{} {
+	// The instance is passed a pointer to the application
+	// for global variables and its own unique HostMap. One
+	// instance is spawned per OpenFlow Switch. Of course
+	// you could return the same pointer every time as well.
+	return &DemoInstance{d, NewHostMap()}
+}
+
+// The instance is passed a pointer to the application
+// for global variables and its own unique HostMap. Each
+// unique instance will act as its own learning switch.
+type DemoInstance struct {
+	*Demo
+	*HostMap
+}
+
+func (b *DemoInstance) PacketIn(dpid net.HardwareAddr, pkt *ofp10.PacketIn) {
 	eth := pkt.Data
-	hwSrc := eth.HWSrc.String()
-	hwDst := eth.HWDst.String()
-	if _, ok := b.hostMap[hwSrc]; !ok {
-		fmt.Println("Learning host", hwSrc)
-		b.hostMap[hwSrc] = pkt.InPort
-	}
-	if _, ok := b.hostMap[hwDst]; ok {
+	b.SetHost(eth.HWSrc, pkt.InPort)
+
+	if host, ok := b.Host(eth.HWDst); ok {
 		f1 := ofp10.NewFlowMod()
-		f1.AddAction(ofp10.NewActionOutput(b.hostMap[hwDst]))
 		f1.Match.DLSrc = eth.HWSrc
 		f1.Match.DLDst = eth.HWDst
+		f1.AddAction(ofp10.NewActionOutput(host.port))
 		f1.IdleTimeout = 3
 
 		f2 := ofp10.NewFlowMod()
-		f2.AddAction(ofp10.NewActionOutput(b.hostMap[hwSrc]))
 		f2.Match.DLSrc = eth.HWDst
 		f2.Match.DLDst = eth.HWSrc
+		f2.AddAction(ofp10.NewActionOutput(pkt.InPort))
 		f2.IdleTimeout = 3
 
 		if s, ok := core.Switch(dpid); ok {
@@ -76,6 +105,9 @@ func (b *DemoApplication) parsePacketIn(dpid net.HardwareAddr, pkt *ofp10.Packet
 func main() {
 	fmt.Println("Ogo 2013")
 	ctrl := core.NewController()
-	ctrl.RegisterApplication(new(DemoApplication))
-	ctrl.Start(":6633")
+
+	//demo := NewDemo()
+	//ctrl.RegisterApplication(demo.NewInstance)
+
+	ctrl.Listen(":6633")
 }

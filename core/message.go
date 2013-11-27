@@ -14,11 +14,11 @@ type LinkDiscovery struct {
 	Nsec    int64 /* Number of nanoseconds elapsed since Jan 1, 1970. */
 }
 
-func NewLinkDiscovery(srcDPID net.HardwareAddr) (d *LinkDiscovery, err error) {
-	d = new(LinkDiscovery)
+func NewLinkDiscovery(srcDPID net.HardwareAddr) *LinkDiscovery {
+	d := new(LinkDiscovery)
 	d.SrcDPID = srcDPID
 	d.Nsec = time.Now().UnixNano()
-	return
+	return d
 }
 
 func (d *LinkDiscovery) Len() uint16 {
@@ -34,10 +34,15 @@ func (d *LinkDiscovery) Read(b []byte) (n int, err error) {
 }
 
 func (d *LinkDiscovery) Write(b []byte) (n int, err error) {
-	d.SrcDPID = net.HardwareAddr(b[n : n+8])
-	//d.src = b[n:n+8]
+	buf := bytes.NewBuffer(b)
+	d.SrcDPID = make([]byte, 8)
+	if err = binary.Read(buf, binary.BigEndian, &d.SrcDPID); err != nil {
+		return
+	}
 	n += 8
-	d.Nsec = int64(binary.BigEndian.Uint64(b[n : n+8]))
+	if err = binary.Read(buf, binary.BigEndian, &d.Nsec); err != nil {
+		return
+	}
 	n += 8
 	return
 }

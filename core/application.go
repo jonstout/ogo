@@ -4,13 +4,11 @@ import (
 	"github.com/jonstout/ogo/openflow/ofp10"
 )
 
-var Applications map[string]Application
+var Applications []InstanceGen
 var messageChans map[uint8][]chan ofp10.Msg
 
 type Application interface {
-	InitApplication(args map[string]string)
-	Name() string
-	Receive()
+	NewInstance() interface{}
 }
 
 func SubscribeTo(msg uint8) chan ofp10.Msg {
