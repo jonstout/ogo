@@ -79,9 +79,8 @@ func Switch(dpid net.HardwareAddr) (*OFSwitch, bool) {
 	defer network.RUnlock()
 	if sw, ok := network.Switches[dpid.String()]; ok {
 		return sw, ok
-	} else {
-		return nil, false
 	}
+	return nil, false
 }
 
 // Returns a slice of *OFPSwitches for operations across all
