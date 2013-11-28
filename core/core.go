@@ -18,20 +18,22 @@ type OgoInstance struct {
 }
 
 func (o *OgoInstance) ConnectionUp(dpid net.HardwareAddr) {
+	dropMod := ofp10.NewFlowMod()
+	dropMod.Priority = 1
+
 	arpFmod := ofp10.NewFlowMod()
-	arpFmod.HardTimeout = 0
 	arpFmod.Priority = 2
 	arpFmod.Match.DLType = 0x0806 // ARP Messages
 	arpFmod.AddAction(ofp10.NewActionOutput(ofp10.P_CONTROLLER))
 
 	dscFmod := ofp10.NewFlowMod()
-	dscFmod.HardTimeout = 0
-	dscFmod.Priority = 3
+	dscFmod.Priority = 0xffff
 	dscFmod.Match.DLType = 0xa0f1 // Link Discovery Messages
 	dscFmod.AddAction(ofp10.NewActionOutput(ofp10.P_CONTROLLER))
 
 	if sw, ok := Switch(dpid); ok {
 		sw.Send(ofp10.NewFeaturesRequest())
+		sw.Send(dropMod)
 		sw.Send(arpFmod)
 		sw.Send(dscFmod)
 		sw.Send(ofp10.NewEchoRequest())
@@ -106,7 +108,7 @@ func (o *OgoInstance) linkDiscoveryLoop(dpid net.HardwareAddr) {
 
 			pkt := ofp10.NewPacketOut()
 			pkt.Data = eth
-			pkt.AddAction(ofp10.NewActionOutput(ofp10.P_FLOOD))
+			pkt.AddAction(ofp10.NewActionOutput(ofp10.P_ALL))
 			
 			if sw, ok := Switch(dpid); ok {
 				sw.Send(pkt)
