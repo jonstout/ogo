@@ -2,7 +2,7 @@ package ofp10
 
 import (
 	"net"
-	)
+)
 
 type ConnectionUpReactor interface {
 	ConnectionUp(dpid net.HardwareAddr)

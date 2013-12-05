@@ -23,15 +23,15 @@ func NewNetwork() *Network {
 var network *Network
 
 type OFSwitch struct {
-	stream *MessageStream
+	stream      *MessageStream
 	appInstance []interface{}
-	dpid          net.HardwareAddr
-	ports         map[uint16]ofp10.PhyPort
-	portsMu sync.RWMutex
-	links         map[string]*Link
-	linksMu sync.RWMutex
-	reqs          map[uint32]chan ofp10.Msg
-	reqsMu sync.RWMutex
+	dpid        net.HardwareAddr
+	ports       map[uint16]ofp10.PhyPort
+	portsMu     sync.RWMutex
+	links       map[string]*Link
+	linksMu     sync.RWMutex
+	reqs        map[uint32]chan ofp10.Msg
+	reqsMu      sync.RWMutex
 }
 
 // Builds and populates a Switch struct then starts listening
@@ -174,11 +174,11 @@ func (s *OFSwitch) Send(req ofp10.Packet) {
 func (s *OFSwitch) receive() {
 	for {
 		select {
-		case msg := <- s.stream.Inbound:
+		case msg := <-s.stream.Inbound:
 			// New message has been received from message
 			// stream.
 			s.distributeMessages(s.dpid, msg)
-		case err := <- s.stream.Error:
+		case err := <-s.stream.Error:
 			// Message stream has been disconnected.
 			for _, app := range s.appInstance {
 				if actor, ok := app.(ofp10.ConnectionDownReactor); ok {
@@ -240,7 +240,7 @@ func (s *OFSwitch) SendAndReceive(msg ofp10.Packet) chan ofp10.Msg {
 	s.reqsMu.Lock()
 	s.reqs[msg.GetHeader().XID] = ch
 	s.reqsMu.Unlock()
-	
+
 	s.Send(msg)
 	return ch
 }

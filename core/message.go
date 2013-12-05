@@ -12,8 +12,7 @@ import (
 type LinkDiscovery struct {
 	SrcDPID net.HardwareAddr
 	Nsec    int64 /* Number of nanoseconds elapsed since Jan 1, 1970. */
-	Pad []byte
-	
+	Pad     []byte
 }
 
 func NewLinkDiscovery(srcDPID net.HardwareAddr) *LinkDiscovery {

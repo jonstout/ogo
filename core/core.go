@@ -49,7 +49,7 @@ func (o *OgoInstance) ConnectionDown(dpid net.HardwareAddr) {
 func (o *OgoInstance) EchoRequest(dpid net.HardwareAddr) {
 	// Wait three seconds then send an echo_reply message.
 	go func() {
-		<- time.After(time.Second * 3)
+		<-time.After(time.Second * 3)
 		if sw, ok := Switch(dpid); ok {
 			res := ofp10.NewEchoReply()
 			sw.Send(res)
@@ -60,7 +60,7 @@ func (o *OgoInstance) EchoRequest(dpid net.HardwareAddr) {
 func (o *OgoInstance) EchoReply(dpid net.HardwareAddr) {
 	// Wait three seconds then send an echo_reply message.
 	go func() {
-		<- time.After(time.Second * 3)
+		<-time.After(time.Second * 3)
 		if sw, ok := Switch(dpid); ok {
 			res := ofp10.NewEchoRequest()
 			sw.Send(res)
@@ -97,7 +97,7 @@ func (o *OgoInstance) PacketIn(dpid net.HardwareAddr, msg *ofp10.PacketIn) {
 func (o *OgoInstance) linkDiscoveryLoop(dpid net.HardwareAddr) {
 	for {
 		select {
-		case <- o.shutdown:
+		case <-o.shutdown:
 			return
 		// Every two seconds send a link discovery packet.
 		case <-time.After(time.Second * 2):
@@ -109,7 +109,7 @@ func (o *OgoInstance) linkDiscoveryLoop(dpid net.HardwareAddr) {
 			pkt := ofp10.NewPacketOut()
 			pkt.Data = eth
 			pkt.AddAction(ofp10.NewActionOutput(ofp10.P_ALL))
-			
+
 			if sw, ok := Switch(dpid); ok {
 				sw.Send(pkt)
 			}

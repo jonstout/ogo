@@ -10,14 +10,14 @@ import (
 
 // Structure to track hosts that we discover.
 type Host struct {
-	mac net.HardwareAddr
+	mac  net.HardwareAddr
 	port uint16
 }
 
 // A thread safe map to store our hosts. We are unlikely to
 // actually need a thread safe data structure in this demo.
 type HostMap struct {
-	hosts  map[string]Host
+	hosts map[string]Host
 	sync.RWMutex
 }
 

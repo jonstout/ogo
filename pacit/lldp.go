@@ -7,8 +7,8 @@ import (
 
 type LLDP struct {
 	Chassis ChassisTLV
-	Port PortTLV
-	TTL TTLTLV
+	Port    PortTLV
+	TTL     TTLTLV
 }
 
 func (d *LLDP) Len() (n uint16) {
@@ -46,7 +46,7 @@ func (d *LLDP) Write(b []byte) (n int, err error) {
 		return
 	}
 	n += p
-	return	
+	return
 }
 
 // Chassis ID subtypes
@@ -62,16 +62,16 @@ const (
 )
 
 type ChassisTLV struct {
-	Type uint8
-	Length uint16
+	Type    uint8
+	Length  uint16
 	Subtype uint8
-	Data []uint8
+	Data    []uint8
 }
 
 func (t *ChassisTLV) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
 	var tni uint16 = 0
-	typeAndLen := (tni | uint16(t.Type) << 9) + (tni | uint16(t.Length))
+	typeAndLen := (tni | uint16(t.Type)<<9) + (tni | uint16(t.Length))
 	binary.Write(buf, binary.BigEndian, typeAndLen)
 	binary.Write(buf, binary.BigEndian, t.Subtype)
 	binary.Write(buf, binary.BigEndian, t.Data)
@@ -87,7 +87,7 @@ func (t *ChassisTLV) Write(b []byte) (n int, err error) {
 	}
 	n += 2
 	t.Type = uint8(typeAndLen >> 9)
-	t.Length = uint16( uint16(0x01ff) & typeAndLen)
+	t.Length = uint16(uint16(0x01ff) & typeAndLen)
 	if err = binary.Read(buf, binary.BigEndian, &t.Subtype); err != nil {
 		return
 	}
@@ -106,23 +106,23 @@ const (
 	PT_IFACE_ALIAS
 	PT_PORT_COMPONENT
 	PT_MAC_ADDR
-	PT_NET_ADDR	
+	PT_NET_ADDR
 	PT_IFACE_NAME
 	PT_CIRCUIT_ID
 	PT_LOCAL_ASSGN
 )
 
 type PortTLV struct {
-	Type uint8 //7bits
-	Length uint16 //9bits
+	Type    uint8  //7bits
+	Length  uint16 //9bits
 	Subtype uint8
-	Data []uint8
+	Data    []uint8
 }
 
 func (t *PortTLV) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
 	var tni uint16 = 0
-	typeAndLen := (tni | uint16(t.Type) << 9) + (tni | uint16(t.Length))
+	typeAndLen := (tni | uint16(t.Type)<<9) + (tni | uint16(t.Length))
 	binary.Write(buf, binary.BigEndian, typeAndLen)
 	binary.Write(buf, binary.BigEndian, t.Subtype)
 	binary.Write(buf, binary.BigEndian, t.Data)
@@ -138,7 +138,7 @@ func (t *PortTLV) Write(b []byte) (n int, err error) {
 	}
 	n += 2
 	t.Type = uint8(typeAndLen >> 9)
-	t.Length = uint16( uint16(0x01ff) & typeAndLen)
+	t.Length = uint16(uint16(0x01ff) & typeAndLen)
 	if err = binary.Read(buf, binary.BigEndian, &t.Subtype); err != nil {
 		return
 	}
@@ -152,15 +152,15 @@ func (t *PortTLV) Write(b []byte) (n int, err error) {
 }
 
 type TTLTLV struct {
-	Type uint8 //7 bits
-	Length uint16 //9 bits
+	Type    uint8  //7 bits
+	Length  uint16 //9 bits
 	Seconds uint16
 }
 
 func (t *TTLTLV) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
 	var tni uint16 = 0
-	typeAndLen := (tni | uint16(t.Type) << 9) + (tni | uint16(t.Length))
+	typeAndLen := (tni | uint16(t.Type)<<9) + (tni | uint16(t.Length))
 	binary.Write(buf, binary.BigEndian, typeAndLen)
 	binary.Write(buf, binary.BigEndian, t.Seconds)
 	n, err = buf.Read(b)
@@ -175,7 +175,7 @@ func (t *TTLTLV) Write(b []byte) (n int, err error) {
 	}
 	n += 2
 	t.Type = uint8(typeAndLen >> 9)
-	t.Length = uint16( uint16(0x01ff) & typeAndLen)
+	t.Length = uint16(uint16(0x01ff) & typeAndLen)
 	if err = binary.Read(buf, binary.BigEndian, &t.Seconds); err != nil {
 		return
 	}
