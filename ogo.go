@@ -44,22 +44,20 @@ func (m *HostMap) SetHost(mac net.HardwareAddr, port uint16) {
 // Returns a new instance that implements one of the many
 // interfaces found in ofp/ofp10/interface.go. One
 // DemoInstance will be created for each switch that connects
-// to the network. Of course you could return the same
-// pointer every time as well.
+// to the network.
 func NewDemoInstance() interface{} {
-	return &DemoInstance{NewHostMap()}
+	return &DemoInstance{*NewHostMap()}
 }
 
-// The instance is passed a pointer to the application
-// for global variables and its own unique HostMap. Each
-// unique instance will act as its own learning switch.
+// Acts as a simple learning switch.
 type DemoInstance struct {
-	*HostMap
+	HostMap
 }
 
 func (b *DemoInstance) PacketIn(dpid net.HardwareAddr, pkt *ofp10.PacketIn) {
 	eth := pkt.Data
-	if eth.Ethertype != 0x0806 {
+	// Ignore link discovery packet types.
+	if eth.Ethertype == 0xa0f1 || eth.Ethertype == 0x88cc {
 		return
 	}
 
@@ -84,8 +82,8 @@ func (b *DemoInstance) PacketIn(dpid net.HardwareAddr, pkt *ofp10.PacketIn) {
 		}
 	} else {
 		p := ofp10.NewPacketOut()
-		a := ofp10.NewActionOutput(ofp10.P_ALL)
-		p.AddAction(a)
+		p.InPort = pkt.InPort
+		p.AddAction(ofp10.NewActionOutput(ofp10.P_ALL))
 		p.Data = &eth
 		if sw, ok := core.Switch(dpid); ok {
 			sw.Send(p)
@@ -95,9 +93,8 @@ func (b *DemoInstance) PacketIn(dpid net.HardwareAddr, pkt *ofp10.PacketIn) {
 
 func main() {
 	fmt.Println("Ogo 2013")
+
 	ctrl := core.NewController()
-
 	ctrl.RegisterApplication(NewDemoInstance)
-
 	ctrl.Listen(":6633")
 }
