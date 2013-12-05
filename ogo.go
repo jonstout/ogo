@@ -25,7 +25,6 @@ func NewHostMap() *HostMap {
 	h := new(HostMap)
 	h.hosts = make(map[string]Host)
 	return h
-
 }
 
 func (m *HostMap) Host(mac net.HardwareAddr) (h Host, ok bool) {
