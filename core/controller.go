@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-type Controller struct { }
+type Controller struct{}
 
 type InstanceGen func() interface{}
 
@@ -19,7 +19,6 @@ func NewController() *Controller {
 	c.RegisterApplication(NewInstance)
 	return c
 }
-
 
 func (c *Controller) Listen(port string) {
 	addr, _ := net.ResolveTCPAddr("tcp", port)
@@ -40,7 +39,6 @@ func (c *Controller) Listen(port string) {
 	}
 }
 
-
 func (c *Controller) handleConnection(conn *net.TCPConn) {
 	stream := NewMessageStream(conn)
 	stream.Outbound <- ofp10.NewHello()
@@ -48,8 +46,8 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
 	for {
 		select {
 		//case stream.Outbound <- ofp10.NewHello():
-			// Send hello message with latest protocol version.
-		case msg := <- stream.Inbound:
+		// Send hello message with latest protocol version.
+		case msg := <-stream.Inbound:
 			switch m := msg.(type) {
 			// A Hello message of the appropriate type
 			// completes version negotiation. If version
@@ -87,11 +85,11 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
 				stream.Version = m.Header.Version
 				stream.Shutdown <- true
 			}
-		case err := <- stream.Error:
+		case err := <-stream.Error:
 			// The connection has been shutdown.
 			log.Println(err)
 			return
-		case <- time.After(time.Second * 3):
+		case <-time.After(time.Second * 3):
 			// This shouldn't happen. If it does, both the controller
 			// and switch are no longer communicating. The TCPConn is
 			// still established though.
@@ -100,7 +98,6 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
 		}
 	}
 }
-
 
 // Setup OpenFlow Message chans for each message type.
 func (c *Controller) RegisterApplication(fn InstanceGen) {

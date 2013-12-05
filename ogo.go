@@ -10,14 +10,14 @@ import (
 
 // Structure to track hosts that we discover.
 type Host struct {
-	mac net.HardwareAddr
+	mac  net.HardwareAddr
 	port uint16
 }
 
 // A thread safe map to store our hosts. We are unlikely to
 // actually need a thread safe data structure in this demo.
 type HostMap struct {
-	hosts  map[string]Host
+	hosts map[string]Host
 	sync.RWMutex
 }
 
@@ -41,40 +41,29 @@ func (m *HostMap) SetHost(mac net.HardwareAddr, port uint16) {
 	m.hosts[mac.String()] = Host{mac, port}
 }
 
-// Application to spawn per switch instances. May hold global
-// variables such as connections to databases or channels to
-// to web services.
-type Demo struct {
-}
-
-func NewDemo() *Demo {
-	dc := new(Demo)
-	return dc
-}
-
 // Returns a new instance that implements one of the many
-// interfaces found in ofp/ofp10/interface.go
-func (d *Demo) NewInstance() interface{} {
-	// The instance is passed a pointer to the application
-	// for global variables and its own unique HostMap. One
-	// instance is spawned per OpenFlow Switch. Of course
-	// you could return the same pointer every time as well.
-	return &DemoInstance{d, NewHostMap()}
+// interfaces found in ofp/ofp10/interface.go. One
+// DemoInstance will be created for each switch that connects
+// to the network.
+func NewDemoInstance() interface{} {
+	return &DemoInstance{*NewHostMap()}
 }
 
-// The instance is passed a pointer to the application
-// for global variables and its own unique HostMap. Each
-// unique instance will act as its own learning switch.
+// Acts as a simple learning switch.
 type DemoInstance struct {
-	*Demo
-	*HostMap
+	HostMap
 }
 
 func (b *DemoInstance) PacketIn(dpid net.HardwareAddr, pkt *ofp10.PacketIn) {
 	eth := pkt.Data
-	b.SetHost(eth.HWSrc, pkt.InPort)
+	// Ignore link discovery packet types.
+	if eth.Ethertype == 0xa0f1 || eth.Ethertype == 0x88cc {
+		return
+	}
 
+	b.SetHost(eth.HWSrc, pkt.InPort)
 	if host, ok := b.Host(eth.HWDst); ok {
+		fmt.Println(eth.HWSrc, ":", pkt.InPort, "to", eth.HWDst, ":", host.port)
 		f1 := ofp10.NewFlowMod()
 		f1.Match.DLSrc = eth.HWSrc
 		f1.Match.DLDst = eth.HWDst
@@ -93,8 +82,8 @@ func (b *DemoInstance) PacketIn(dpid net.HardwareAddr, pkt *ofp10.PacketIn) {
 		}
 	} else {
 		p := ofp10.NewPacketOut()
-		a := ofp10.NewActionOutput(ofp10.P_FLOOD)
-		p.AddAction(a)
+		p.InPort = pkt.InPort
+		p.AddAction(ofp10.NewActionOutput(ofp10.P_ALL))
 		p.Data = &eth
 		if sw, ok := core.Switch(dpid); ok {
 			sw.Send(p)
@@ -104,10 +93,8 @@ func (b *DemoInstance) PacketIn(dpid net.HardwareAddr, pkt *ofp10.PacketIn) {
 
 func main() {
 	fmt.Println("Ogo 2013")
+
 	ctrl := core.NewController()
-
-	//demo := NewDemo()
-	//ctrl.RegisterApplication(demo.NewInstance)
-
+	ctrl.RegisterApplication(NewDemoInstance)
 	ctrl.Listen(":6633")
 }

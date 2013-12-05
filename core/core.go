@@ -18,20 +18,22 @@ type OgoInstance struct {
 }
 
 func (o *OgoInstance) ConnectionUp(dpid net.HardwareAddr) {
+	dropMod := ofp10.NewFlowMod()
+	dropMod.Priority = 1
+
 	arpFmod := ofp10.NewFlowMod()
-	arpFmod.HardTimeout = 0
 	arpFmod.Priority = 2
 	arpFmod.Match.DLType = 0x0806 // ARP Messages
 	arpFmod.AddAction(ofp10.NewActionOutput(ofp10.P_CONTROLLER))
 
 	dscFmod := ofp10.NewFlowMod()
-	dscFmod.HardTimeout = 0
-	dscFmod.Priority = 3
+	dscFmod.Priority = 0xffff
 	dscFmod.Match.DLType = 0xa0f1 // Link Discovery Messages
 	dscFmod.AddAction(ofp10.NewActionOutput(ofp10.P_CONTROLLER))
 
 	if sw, ok := Switch(dpid); ok {
 		sw.Send(ofp10.NewFeaturesRequest())
+		sw.Send(dropMod)
 		sw.Send(arpFmod)
 		sw.Send(dscFmod)
 		sw.Send(ofp10.NewEchoRequest())
@@ -47,7 +49,7 @@ func (o *OgoInstance) ConnectionDown(dpid net.HardwareAddr) {
 func (o *OgoInstance) EchoRequest(dpid net.HardwareAddr) {
 	// Wait three seconds then send an echo_reply message.
 	go func() {
-		<- time.After(time.Second * 3)
+		<-time.After(time.Second * 3)
 		if sw, ok := Switch(dpid); ok {
 			res := ofp10.NewEchoReply()
 			sw.Send(res)
@@ -58,7 +60,7 @@ func (o *OgoInstance) EchoRequest(dpid net.HardwareAddr) {
 func (o *OgoInstance) EchoReply(dpid net.HardwareAddr) {
 	// Wait three seconds then send an echo_reply message.
 	go func() {
-		<- time.After(time.Second * 3)
+		<-time.After(time.Second * 3)
 		if sw, ok := Switch(dpid); ok {
 			res := ofp10.NewEchoRequest()
 			sw.Send(res)
@@ -95,7 +97,7 @@ func (o *OgoInstance) PacketIn(dpid net.HardwareAddr, msg *ofp10.PacketIn) {
 func (o *OgoInstance) linkDiscoveryLoop(dpid net.HardwareAddr) {
 	for {
 		select {
-		case <- o.shutdown:
+		case <-o.shutdown:
 			return
 		// Every two seconds send a link discovery packet.
 		case <-time.After(time.Second * 2):
@@ -106,8 +108,8 @@ func (o *OgoInstance) linkDiscoveryLoop(dpid net.HardwareAddr) {
 
 			pkt := ofp10.NewPacketOut()
 			pkt.Data = eth
-			pkt.AddAction(ofp10.NewActionOutput(ofp10.P_FLOOD))
-			
+			pkt.AddAction(ofp10.NewActionOutput(ofp10.P_ALL))
+
 			if sw, ok := Switch(dpid); ok {
 				sw.Send(pkt)
 			}

@@ -338,9 +338,9 @@ func (a *ActionVLANPCP) Write(b []byte) (n int, err error) {
 // An action_strip_vlan takes no arguments and consists only of a generic
 // ofp_action_header. This action strips the VLAN tag if one is present.
 type ActionStripVLAN struct {
-	Type    uint16
-	Length  uint16
-	pad     []uint8
+	Type   uint16
+	Length uint16
+	pad    []uint8
 }
 
 // Action to strip VLAN IDs from tagged packets.

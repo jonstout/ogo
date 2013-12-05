@@ -8,13 +8,13 @@ import (
 )
 
 type MessageStream struct {
-	conn    *net.TCPConn
+	conn *net.TCPConn
 	// OpenFlow Version
 	Version uint8
 	// Channel on which to publish connection errors
-	Error  chan error
+	Error chan error
 	// Channel on which to publish inbound messages
-	Inbound   chan ofp10.Packet
+	Inbound chan ofp10.Packet
 	// Channel on which to receive outbound messages
 	Outbound chan ofp10.Packet
 	// Channel on which to receive a shutdown command
@@ -27,10 +27,10 @@ func NewMessageStream(conn *net.TCPConn) *MessageStream {
 	m := &MessageStream{
 		conn,
 		0,
-		make(chan error, 1), // Error
+		make(chan error, 1),        // Error
 		make(chan ofp10.Packet, 1), // Inbound
 		make(chan ofp10.Packet, 1), // Outbound
-		make(chan bool, 1), // Shutdown
+		make(chan bool, 1),         // Shutdown
 	}
 	go m.outbound()
 	go m.inbound()
@@ -45,11 +45,11 @@ func (m *MessageStream) GetAddr() net.Addr {
 func (m *MessageStream) outbound() {
 	for {
 		select {
-		case <- m.Shutdown:
+		case <-m.Shutdown:
 			log.Println("Closing OpenFlow message stream.")
 			m.conn.Close()
 			return
-		case msg := <- m.Outbound:
+		case msg := <-m.Outbound:
 			// Forward outbound messages to conn
 			if _, err := m.conn.ReadFrom(msg); err != nil {
 				log.Println("OutboundError:", err)
