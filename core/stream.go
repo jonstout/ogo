@@ -97,7 +97,7 @@ func NewMessageStream(conn *net.TCPConn) *MessageStream {
 	//go m.inbound()
 	go m.Buffer.ReadFrom(conn)
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 25; i++ {
 		go m.parse()
 	}
 	return m
