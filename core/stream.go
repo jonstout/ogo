@@ -9,37 +9,34 @@ import (
 )
 
 type MessageBuffer struct {
-	Empty chan bytes.Buffer
-	Full chan bytes.Buffer
+	Empty chan *bytes.Buffer
+	Full chan *bytes.Buffer
 }
 
 func NewMessageBuffer() *MessageBuffer {
 	m := new(MessageBuffer)
-	m.Empty = make(chan bytes.Buffer, 50)
-	m.Full = make(chan bytes.Buffer, 50)
+	m.Empty = make(chan *bytes.Buffer, 50)
+	m.Full = make(chan *bytes.Buffer, 50)
 
 	for i := 0; i < 50; i++ {
-		m.Empty <- *bytes.NewBuffer(make([]byte, 0, 2048))
+		m.Empty <- bytes.NewBuffer(make([]byte, 0, 2048))
 	}
 	return m
 }
 
 func (b *MessageBuffer) ReadFrom(conn *net.TCPConn) error {
 	msg := 0
-
 	hdr := 0
 	hdrBuf := make([]byte, 4)
 
 	tmp := make([]byte, 2048)
 	buf := <- b.Empty
-
 	for {
 		n, err := conn.Read(tmp)
 		if err != nil {
 			log.Println("InboundError", err)
 			return err
-		}
-		
+		}		
 		
 		for i := 0; i < n; i++ {
 			if hdr < 4 {
@@ -97,7 +94,7 @@ func NewMessageStream(conn *net.TCPConn) *MessageStream {
 	//go m.inbound()
 	go m.Buffer.ReadFrom(conn)
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 25; i++ {
 		go m.parse()
 	}
 	return m
@@ -126,51 +123,12 @@ func (m *MessageStream) outbound() {
 	}
 }
 
-func (m *MessageStream) inbound() {
-
-	cursor := 0
-	unreadBytes := make([]byte, 1500)
-	unreadByteLength := 0
-	for {
-		buf := make([]byte, 512)
-		if n, err := m.conn.Read(buf); err != nil {
-			// Likely a read timeout. Send error to any listening
-			// threads. Trigger shutdown to close outbound loop.
-			log.Println("InboundError:", err)
-			m.Error <- err
-			m.Shutdown <- true
-			return
-		} else {
-
-			copy(unreadBytes, unreadBytes[cursor:])
-			copy(unreadBytes[unreadByteLength:], buf)
-
-			cursor = 0
-			unreadByteLength = unreadByteLength + n
-
-			// A minimum of 4 bytes should be in the buffer
-			for unreadByteLength >= 4 {
-				messageLength := int(binary.BigEndian.Uint16(unreadBytes[cursor+2 : cursor+4]))
-
-				if unreadByteLength >= messageLength {
-					end := cursor + messageLength
-					//m.parse(unreadBytes[cursor:end])
-
-					cursor = end
-					unreadByteLength = unreadByteLength - messageLength
-				} else {
-					break
-				}
-			}
-		}
-	}
-}
-
 func (m *MessageStream) parse() {
-	var d ofp10.Packet
 	for {
 		b := <- m.Buffer.Full
 		buf := b.Bytes()
+		var d ofp10.Packet
+
 		switch buf[1] {
 		case ofp10.T_PACKET_IN:
 			d = new(ofp10.PacketIn)
