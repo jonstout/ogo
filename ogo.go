@@ -62,7 +62,7 @@ func (b *DemoInstance) PacketIn(dpid net.HardwareAddr, pkt *ofp10.PacketIn) {
 
 	b.SetHost(eth.HWSrc, pkt.InPort)
 	if host, ok := b.Host(eth.HWDst); ok {
-		fmt.Println(eth.HWSrc, ":", pkt.InPort, "to", eth.HWDst, ":", host.port)
+		//fmt.Println(eth.HWSrc, ":", pkt.InPort, "to", eth.HWDst, ":", host.port)
 		f1 := ofp10.NewFlowMod()
 		f1.Match.DLSrc = eth.HWSrc
 		f1.Match.DLDst = eth.HWDst

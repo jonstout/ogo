@@ -26,19 +26,20 @@ func (o *OgoInstance) ConnectionUp(dpid net.HardwareAddr) {
 	arpFmod.Match.DLType = 0x0806 // ARP Messages
 	arpFmod.AddAction(ofp10.NewActionOutput(ofp10.P_CONTROLLER))
 
+	/*
 	dscFmod := ofp10.NewFlowMod()
 	dscFmod.Priority = 0xffff
 	dscFmod.Match.DLType = 0xa0f1 // Link Discovery Messages
 	dscFmod.AddAction(ofp10.NewActionOutput(ofp10.P_CONTROLLER))
-
+	 */
 	if sw, ok := Switch(dpid); ok {
 		sw.Send(ofp10.NewFeaturesRequest())
 		sw.Send(dropMod)
 		sw.Send(arpFmod)
-		sw.Send(dscFmod)
+		//sw.Send(dscFmod)
 		sw.Send(ofp10.NewEchoRequest())
 	}
-	go o.linkDiscoveryLoop(dpid)
+	//go o.linkDiscoveryLoop(dpid)
 }
 
 func (o *OgoInstance) ConnectionDown(dpid net.HardwareAddr) {

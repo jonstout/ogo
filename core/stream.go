@@ -5,62 +5,62 @@ import (
 	"github.com/jonstout/ogo/openflow/ofp10"
 	"log"
 	"net"
+	"bytes"
 )
 
 type MessageBuffer struct {
-	Empty chan []byte
-	Full chan []byte
+	Empty chan bytes.Buffer
+	Full chan bytes.Buffer
 }
 
 func NewMessageBuffer() *MessageBuffer {
 	m := new(MessageBuffer)
-	m.Empty = make(chan []byte, 50)
-	m.Full = make(chan []byte, 50)
+	m.Empty = make(chan bytes.Buffer, 50)
+	m.Full = make(chan bytes.Buffer, 50)
 
 	for i := 0; i < 50; i++ {
-		m.Empty <- make([]byte, 2048)
+		m.Empty <- *bytes.NewBuffer(make([]byte, 0, 2048))
 	}
 	return m
 }
 
 func (b *MessageBuffer) ReadFrom(conn *net.TCPConn) error {
-	beg := 0
-	end := 0
 	msg := 0
 
+	hdr := 0
+	hdrBuf := make([]byte, 4)
+
 	tmp := make([]byte, 2048)
+	buf := <- b.Empty
+
 	for {
-		buf := <- b.Empty
-		for {
-			n, err := conn.Read(tmp[end:])
-			if err != nil {
-				log.Println(err)
-				return err
-			}
-			end += n
-
-			for {
-				if end < (beg+4) {
-					// Do another read
-					break
+		n, err := conn.Read(tmp)
+		if err != nil {
+			log.Println("InboundError", err)
+			return err
+		}
+		
+		
+		for i := 0; i < n; i++ {
+			if hdr < 4 {
+				hdrBuf[hdr] = tmp[i]
+				buf.WriteByte(tmp[i])
+				hdr += 1
+				if hdr >= 4 {
+					msg = int(binary.BigEndian.Uint16(hdrBuf[2:])) - 4
 				}
-				msg = int(binary.BigEndian.Uint16(tmp[beg+2:beg+4]))
-
-				if end < (beg+msg) {
-					// Do another read
-					break
-				}
-
-				// At least one full message in tmp buffer
-				copy(buf, tmp[beg:beg+msg])
-				b.Full <- buf
-				buf = <- b.Empty
-
-				beg += msg
+				continue
 			}
-			copy(tmp, tmp[beg:])
-			end = end - beg
-			beg = 0
+			if msg > 0 {
+				buf.WriteByte(tmp[i])
+				msg = msg - 1
+				if msg == 0 {
+					hdr = 0
+					b.Full <- buf
+					buf = <- b.Empty
+				}
+				continue
+			}
 		}
 	}
 }
@@ -97,7 +97,7 @@ func NewMessageStream(conn *net.TCPConn) *MessageStream {
 	//go m.inbound()
 	go m.Buffer.ReadFrom(conn)
 
-	for i := 0; i < 25; i++ {
+	for i := 0; i < 5; i++ {
 		go m.parse()
 	}
 	return m
@@ -169,7 +169,8 @@ func (m *MessageStream) inbound() {
 func (m *MessageStream) parse() {
 	var d ofp10.Packet
 	for {
-		buf := <- m.Buffer.Full
+		b := <- m.Buffer.Full
+		buf := b.Bytes()
 		switch buf[1] {
 		case ofp10.T_PACKET_IN:
 			d = new(ofp10.PacketIn)
@@ -210,7 +211,8 @@ func (m *MessageStream) parse() {
 		default:
 			// Unrecognized packet do nothing
 		}
-		m.Buffer.Empty <- buf
+		b.Reset()
+		m.Buffer.Empty <- b
 		m.Inbound <- d
 	}
 }
