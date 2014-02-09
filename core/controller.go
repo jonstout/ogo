@@ -64,6 +64,7 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
 				} else {
 					// Connection should be severed if controller
 					// doesn't support switch version.
+					log.Println("Received unsupported ofp version", m.Version)
 					stream.Shutdown <- true
 				}
 			// After a vaild FeaturesReply has been received we

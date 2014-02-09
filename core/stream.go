@@ -7,8 +7,67 @@ import (
 	"net"
 )
 
+type MessageBuffer struct {
+	Empty chan []byte
+	Full chan []byte
+}
+
+func NewMessageBuffer() *MessageBuffer {
+	m := new(MessageBuffer)
+	m.Empty = make(chan []byte, 50)
+	m.Full = make(chan []byte, 50)
+
+	for i := 0; i < 50; i++ {
+		m.Empty <- make([]byte, 2048)
+	}
+	return m
+}
+
+func (b *MessageBuffer) ReadFrom(conn *net.TCPConn) error {
+	beg := 0
+	end := 0
+	msg := 0
+
+	tmp := make([]byte, 2048)
+	for {
+		buf := <- b.Empty
+		for {
+			n, err := conn.Read(tmp[end:])
+			if err != nil {
+				log.Println(err)
+				return err
+			}
+			end += n
+
+			for {
+				if end < (beg+4) {
+					// Do another read
+					break
+				}
+				msg = int(binary.BigEndian.Uint16(tmp[beg+2:beg+4]))
+
+				if end < (beg+msg) {
+					// Do another read
+					break
+				}
+
+				// At least one full message in tmp buffer
+				copy(buf, tmp[beg:beg+msg])
+				b.Full <- buf
+				buf = <- b.Empty
+
+				beg += msg
+			}
+			copy(tmp, tmp[beg:])
+			end = end - beg
+			beg = 0
+		}
+	}
+}
+
 type MessageStream struct {
 	conn *net.TCPConn
+	Buffer *MessageBuffer
 	// OpenFlow Version
 	Version uint8
 	// Channel on which to publish connection errors
@@ -26,14 +85,21 @@ type MessageStream struct {
 func NewMessageStream(conn *net.TCPConn) *MessageStream {
 	m := &MessageStream{
 		conn,
+		NewMessageBuffer(),
 		0,
 		make(chan error, 1),        // Error
 		make(chan ofp10.Packet, 1), // Inbound
 		make(chan ofp10.Packet, 1), // Outbound
 		make(chan bool, 1),         // Shutdown
 	}
+
 	go m.outbound()
-	go m.inbound()
+	//go m.inbound()
+	go m.Buffer.ReadFrom(conn)
+
+	for i := 0; i < 5; i++ {
+		go m.parse()
+	}
 	return m
 }
 
@@ -88,7 +154,7 @@ func (m *MessageStream) inbound() {
 
 				if unreadByteLength >= messageLength {
 					end := cursor + messageLength
-					m.parse(unreadBytes[cursor:end])
+					//m.parse(unreadBytes[cursor:end])
 
 					cursor = end
 					unreadByteLength = unreadByteLength - messageLength
@@ -100,47 +166,51 @@ func (m *MessageStream) inbound() {
 	}
 }
 
-func (m *MessageStream) parse(buf []byte) {
+func (m *MessageStream) parse() {
 	var d ofp10.Packet
-	switch buf[1] {
-	case ofp10.T_PACKET_IN:
-		d = new(ofp10.PacketIn)
-		d.Write(buf)
-	case ofp10.T_HELLO:
-		d = new(ofp10.Header)
-		d.Write(buf)
-	case ofp10.T_ECHO_REPLY:
-		d = new(ofp10.Header)
-		d.Write(buf)
-	case ofp10.T_ECHO_REQUEST:
-		d = new(ofp10.Header)
-		d.Write(buf)
-	case ofp10.T_ERROR:
-		d = new(ofp10.ErrorMsg)
-		d.Write(buf)
-	case ofp10.T_VENDOR:
-		d = new(ofp10.VendorHeader)
-		d.Write(buf)
-	case ofp10.T_FEATURES_REPLY:
-		d = new(ofp10.SwitchFeatures)
-		d.Write(buf)
-	case ofp10.T_GET_CONFIG_REPLY:
-		d = new(ofp10.SwitchConfig)
-		d.Write(buf)
-	case ofp10.T_FLOW_REMOVED:
-		d = new(ofp10.FlowRemoved)
-		d.Write(buf)
-	case ofp10.T_PORT_STATUS:
-		d = new(ofp10.PortStatus)
-		d.Write(buf)
-	case ofp10.T_STATS_REPLY:
-		d = new(ofp10.StatsReply)
-		d.Write(buf)
-	case ofp10.T_BARRIER_REPLY:
-		d = new(ofp10.Header)
-		d.Write(buf)
-	default:
-		// Unrecognized packet do nothing
+	for {
+		buf := <- m.Buffer.Full
+		switch buf[1] {
+		case ofp10.T_PACKET_IN:
+			d = new(ofp10.PacketIn)
+			d.Write(buf)
+		case ofp10.T_HELLO:
+			d = new(ofp10.Header)
+			d.Write(buf)
+		case ofp10.T_ECHO_REPLY:
+			d = new(ofp10.Header)
+			d.Write(buf)
+		case ofp10.T_ECHO_REQUEST:
+			d = new(ofp10.Header)
+			d.Write(buf)
+		case ofp10.T_ERROR:
+			d = new(ofp10.ErrorMsg)
+			d.Write(buf)
+		case ofp10.T_VENDOR:
+			d = new(ofp10.VendorHeader)
+			d.Write(buf)
+		case ofp10.T_FEATURES_REPLY:
+			d = new(ofp10.SwitchFeatures)
+			d.Write(buf)
+		case ofp10.T_GET_CONFIG_REPLY:
+			d = new(ofp10.SwitchConfig)
+			d.Write(buf)
+		case ofp10.T_FLOW_REMOVED:
+			d = new(ofp10.FlowRemoved)
+			d.Write(buf)
+		case ofp10.T_PORT_STATUS:
+			d = new(ofp10.PortStatus)
+			d.Write(buf)
+		case ofp10.T_STATS_REPLY:
+			d = new(ofp10.StatsReply)
+			d.Write(buf)
+		case ofp10.T_BARRIER_REPLY:
+			d = new(ofp10.Header)
+			d.Write(buf)
+		default:
+			// Unrecognized packet do nothing
+		}
+		m.Buffer.Empty <- buf
+		m.Inbound <- d
 	}
-	m.Inbound <- d
 }
