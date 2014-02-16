@@ -9,11 +9,13 @@ import (
 
 type Controller struct{}
 
-type InstanceGen func() interface{}
+//type InstanceGen func() interface{}
+type ApplicationInstanceGenerator func() interface{}
+var Applications []ApplicationInstanceGenerator
 
 func NewController() *Controller {
 	c := new(Controller)
-	Applications = *new([]InstanceGen)
+	Applications = *new([]ApplicationInstanceGenerator)
 	network = NewNetwork()
 
 	c.RegisterApplication(NewInstance)
@@ -101,6 +103,6 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
 }
 
 // Setup OpenFlow Message chans for each message type.
-func (c *Controller) RegisterApplication(fn InstanceGen) {
+func (c *Controller) RegisterApplication(fn ApplicationInstanceGenerator) {
 	Applications = append(Applications, fn)
 }
