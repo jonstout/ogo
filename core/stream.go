@@ -8,13 +8,13 @@ import (
 	"bytes"
 )
 
-type MessageBuffer struct {
+type BufferPool struct {
 	Empty chan *bytes.Buffer
 	Full chan *bytes.Buffer
 }
 
-func NewMessageBuffer() *MessageBuffer {
-	m := new(MessageBuffer)
+func NewBufferPool() *BufferPool {
+	m := new(BufferPool)
 	m.Empty = make(chan *bytes.Buffer, 50)
 	m.Full = make(chan *bytes.Buffer, 50)
 
@@ -24,47 +24,9 @@ func NewMessageBuffer() *MessageBuffer {
 	return m
 }
 
-func (b *MessageBuffer) ReadFrom(conn *net.TCPConn) error {
-	msg := 0
-	hdr := 0
-	hdrBuf := make([]byte, 4)
-
-	tmp := make([]byte, 2048)
-	buf := <- b.Empty
-	for {
-		n, err := conn.Read(tmp)
-		if err != nil {
-			log.Println("InboundError", err)
-			return err
-		}		
-		
-		for i := 0; i < n; i++ {
-			if hdr < 4 {
-				hdrBuf[hdr] = tmp[i]
-				buf.WriteByte(tmp[i])
-				hdr += 1
-				if hdr >= 4 {
-					msg = int(binary.BigEndian.Uint16(hdrBuf[2:])) - 4
-				}
-				continue
-			}
-			if msg > 0 {
-				buf.WriteByte(tmp[i])
-				msg = msg - 1
-				if msg == 0 {
-					hdr = 0
-					b.Full <- buf
-					buf = <- b.Empty
-				}
-				continue
-			}
-		}
-	}
-}
-
 type MessageStream struct {
 	conn *net.TCPConn
-	Buffer *MessageBuffer
+	pool *BufferPool
 	// OpenFlow Version
 	Version uint8
 	// Channel on which to publish connection errors
@@ -82,7 +44,7 @@ type MessageStream struct {
 func NewMessageStream(conn *net.TCPConn) *MessageStream {
 	m := &MessageStream{
 		conn,
-		NewMessageBuffer(),
+		NewBufferPool(),
 		0,
 		make(chan error, 1),        // Error
 		make(chan ofp10.Packet, 1), // Inbound
@@ -91,7 +53,7 @@ func NewMessageStream(conn *net.TCPConn) *MessageStream {
 	}
 
 	go m.outbound()
-	go m.Buffer.ReadFrom(conn)
+	go m.inbound()
 
 	for i := 0; i < 25; i++ {
 		go m.parse()
@@ -122,9 +84,49 @@ func (m *MessageStream) outbound() {
 	}
 }
 
+func (m *MessageStream) inbound() {
+	msg := 0
+	hdr := 0
+	hdrBuf := make([]byte, 4)
+
+	tmp := make([]byte, 2048)
+	buf := <- m.pool.Empty
+	for {
+		n, err := m.conn.Read(tmp)
+		if err != nil {
+			log.Println("InboundError", err)
+			m.Error <- err
+			m.Shutdown <- true
+			return
+		}		
+		
+		for i := 0; i < n; i++ {
+			if hdr < 4 {
+				hdrBuf[hdr] = tmp[i]
+				buf.WriteByte(tmp[i])
+				hdr += 1
+				if hdr >= 4 {
+					msg = int(binary.BigEndian.Uint16(hdrBuf[2:])) - 4
+				}
+				continue
+			}
+			if msg > 0 {
+				buf.WriteByte(tmp[i])
+				msg = msg - 1
+				if msg == 0 {
+					hdr = 0
+					m.pool.Full <- buf
+					buf = <- m.pool.Empty
+				}
+				continue
+			}
+		}
+	}
+}
+
 func (m *MessageStream) parse() {
 	for {
-		b := <- m.Buffer.Full
+		b := <- m.pool.Full
 		buf := b.Bytes()
 		var d ofp10.Packet
 
@@ -169,7 +171,7 @@ func (m *MessageStream) parse() {
 			// Unrecognized packet do nothing
 		}
 		b.Reset()
-		m.Buffer.Empty <- b
+		m.pool.Empty <- b
 		m.Inbound <- d
 	}
 }
