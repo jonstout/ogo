@@ -177,7 +177,7 @@ func (s *OFSwitch) receive() {
 		case msg := <-s.stream.Inbound:
 			// New message has been received from message
 			// stream.
-			s.distributeMessages(s.dpid, msg)
+			go s.distributeMessages(s.dpid, msg)
 		case err := <-s.stream.Error:
 			// Message stream has been disconnected.
 			for _, app := range s.appInstance {

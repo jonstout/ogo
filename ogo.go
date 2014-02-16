@@ -6,6 +6,7 @@ import (
 	"github.com/jonstout/ogo/openflow/ofp10"
 	"net"
 	"sync"
+	"runtime"
 )
 
 // Structure to track hosts that we discover.
@@ -14,8 +15,7 @@ type Host struct {
 	port uint16
 }
 
-// A thread safe map to store our hosts. We are unlikely to
-// actually need a thread safe data structure in this demo.
+// A thread safe map to store our hosts.
 type HostMap struct {
 	hosts map[string]Host
 	sync.RWMutex
@@ -27,6 +27,7 @@ func NewHostMap() *HostMap {
 	return h
 }
 
+// Returns the host associated with mac.
 func (m *HostMap) Host(mac net.HardwareAddr) (h Host, ok bool) {
 	m.RLock()
 	defer m.RUnlock()
@@ -34,23 +35,26 @@ func (m *HostMap) Host(mac net.HardwareAddr) (h Host, ok bool) {
 	return
 }
 
+// Records the host mac address and the port where mac was discovered.
 func (m *HostMap) SetHost(mac net.HardwareAddr, port uint16) {
 	m.Lock()
 	defer m.Unlock()
 	m.hosts[mac.String()] = Host{mac, port}
 }
 
+var hostMap HostMap
+
 // Returns a new instance that implements one of the many
 // interfaces found in ofp/ofp10/interface.go. One
 // DemoInstance will be created for each switch that connects
 // to the network.
 func NewDemoInstance() interface{} {
-	return &DemoInstance{*NewHostMap()}
+	return &DemoInstance{&hostMap}
 }
 
 // Acts as a simple learning switch.
 type DemoInstance struct {
-	HostMap
+	*HostMap
 }
 
 func (b *DemoInstance) PacketIn(dpid net.HardwareAddr, pkt *ofp10.PacketIn) {
@@ -62,7 +66,6 @@ func (b *DemoInstance) PacketIn(dpid net.HardwareAddr, pkt *ofp10.PacketIn) {
 
 	b.SetHost(eth.HWSrc, pkt.InPort)
 	if host, ok := b.Host(eth.HWDst); ok {
-		fmt.Println(eth.HWSrc, ":", pkt.InPort, "to", eth.HWDst, ":", host.port)
 		f1 := ofp10.NewFlowMod()
 		f1.Match.DLSrc = eth.HWSrc
 		f1.Match.DLDst = eth.HWDst
@@ -92,8 +95,9 @@ func (b *DemoInstance) PacketIn(dpid net.HardwareAddr, pkt *ofp10.PacketIn) {
 
 func main() {
 	fmt.Println("Ogo 2013")
-
+	runtime.GOMAXPROCS(runtime.NumCPU())
 	ctrl := core.NewController()
+	hostMap = *NewHostMap()
 	ctrl.RegisterApplication(NewDemoInstance)
 	ctrl.Listen(":6633")
 }

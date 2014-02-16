@@ -58,7 +58,7 @@ func (o *OgoInstance) EchoRequest(dpid net.HardwareAddr) {
 }
 
 func (o *OgoInstance) EchoReply(dpid net.HardwareAddr) {
-	// Wait three seconds then send an echo_reply message.
+	// Wait three seconds then send an echo_request message.
 	go func() {
 		<-time.After(time.Second * 3)
 		if sw, ok := Switch(dpid); ok {

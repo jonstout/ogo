@@ -8,12 +8,13 @@ import (
 )
 
 type Controller struct{}
+type ApplicationInstanceGenerator func() interface{}
 
-type InstanceGen func() interface{}
+var Applications []ApplicationInstanceGenerator
 
 func NewController() *Controller {
 	c := new(Controller)
-	Applications = *new([]InstanceGen)
+	Applications = *new([]ApplicationInstanceGenerator)
 	network = NewNetwork()
 
 	c.RegisterApplication(NewInstance)
@@ -64,6 +65,7 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
 				} else {
 					// Connection should be severed if controller
 					// doesn't support switch version.
+					log.Println("Received unsupported ofp version", m.Version)
 					stream.Shutdown <- true
 				}
 			// After a vaild FeaturesReply has been received we
@@ -100,6 +102,6 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
 }
 
 // Setup OpenFlow Message chans for each message type.
-func (c *Controller) RegisterApplication(fn InstanceGen) {
+func (c *Controller) RegisterApplication(fn ApplicationInstanceGenerator) {
 	Applications = append(Applications, fn)
 }

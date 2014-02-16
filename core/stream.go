@@ -5,10 +5,28 @@ import (
 	"github.com/jonstout/ogo/openflow/ofp10"
 	"log"
 	"net"
+	"bytes"
 )
+
+type BufferPool struct {
+	Empty chan *bytes.Buffer
+	Full chan *bytes.Buffer
+}
+
+func NewBufferPool() *BufferPool {
+	m := new(BufferPool)
+	m.Empty = make(chan *bytes.Buffer, 50)
+	m.Full = make(chan *bytes.Buffer, 50)
+
+	for i := 0; i < 50; i++ {
+		m.Empty <- bytes.NewBuffer(make([]byte, 0, 2048))
+	}
+	return m
+}
 
 type MessageStream struct {
 	conn *net.TCPConn
+	pool *BufferPool
 	// OpenFlow Version
 	Version uint8
 	// Channel on which to publish connection errors
@@ -26,14 +44,20 @@ type MessageStream struct {
 func NewMessageStream(conn *net.TCPConn) *MessageStream {
 	m := &MessageStream{
 		conn,
+		NewBufferPool(),
 		0,
 		make(chan error, 1),        // Error
 		make(chan ofp10.Packet, 1), // Inbound
 		make(chan ofp10.Packet, 1), // Outbound
 		make(chan bool, 1),         // Shutdown
 	}
+
 	go m.outbound()
 	go m.inbound()
+
+	for i := 0; i < 25; i++ {
+		go m.parse()
+	}
 	return m
 }
 
@@ -61,86 +85,93 @@ func (m *MessageStream) outbound() {
 }
 
 func (m *MessageStream) inbound() {
+	msg := 0
+	hdr := 0
+	hdrBuf := make([]byte, 4)
 
-	cursor := 0
-	unreadBytes := make([]byte, 1500)
-	unreadByteLength := 0
+	tmp := make([]byte, 2048)
+	buf := <- m.pool.Empty
 	for {
-		buf := make([]byte, 512)
-		if n, err := m.conn.Read(buf); err != nil {
-			// Likely a read timeout. Send error to any listening
-			// threads. Trigger shutdown to close outbound loop.
-			log.Println("InboundError:", err)
+		n, err := m.conn.Read(tmp)
+		if err != nil {
+			log.Println("InboundError", err)
 			m.Error <- err
 			m.Shutdown <- true
 			return
-		} else {
-
-			copy(unreadBytes, unreadBytes[cursor:])
-			copy(unreadBytes[unreadByteLength:], buf)
-
-			cursor = 0
-			unreadByteLength = unreadByteLength + n
-
-			// A minimum of 4 bytes should be in the buffer
-			for unreadByteLength >= 4 {
-				messageLength := int(binary.BigEndian.Uint16(unreadBytes[cursor+2 : cursor+4]))
-
-				if unreadByteLength >= messageLength {
-					end := cursor + messageLength
-					m.parse(unreadBytes[cursor:end])
-
-					cursor = end
-					unreadByteLength = unreadByteLength - messageLength
-				} else {
-					break
+		}		
+		
+		for i := 0; i < n; i++ {
+			if hdr < 4 {
+				hdrBuf[hdr] = tmp[i]
+				buf.WriteByte(tmp[i])
+				hdr += 1
+				if hdr >= 4 {
+					msg = int(binary.BigEndian.Uint16(hdrBuf[2:])) - 4
 				}
+				continue
+			}
+			if msg > 0 {
+				buf.WriteByte(tmp[i])
+				msg = msg - 1
+				if msg == 0 {
+					hdr = 0
+					m.pool.Full <- buf
+					buf = <- m.pool.Empty
+				}
+				continue
 			}
 		}
 	}
 }
 
-func (m *MessageStream) parse(buf []byte) {
-	var d ofp10.Packet
-	switch buf[1] {
-	case ofp10.T_PACKET_IN:
-		d = new(ofp10.PacketIn)
-		d.Write(buf)
-	case ofp10.T_HELLO:
-		d = new(ofp10.Header)
-		d.Write(buf)
-	case ofp10.T_ECHO_REPLY:
-		d = new(ofp10.Header)
-		d.Write(buf)
-	case ofp10.T_ECHO_REQUEST:
-		d = new(ofp10.Header)
-		d.Write(buf)
-	case ofp10.T_ERROR:
-		d = new(ofp10.ErrorMsg)
-		d.Write(buf)
-	case ofp10.T_VENDOR:
-		d = new(ofp10.VendorHeader)
-		d.Write(buf)
-	case ofp10.T_FEATURES_REPLY:
-		d = new(ofp10.SwitchFeatures)
-		d.Write(buf)
-	case ofp10.T_GET_CONFIG_REPLY:
-		d = new(ofp10.SwitchConfig)
-		d.Write(buf)
-	case ofp10.T_FLOW_REMOVED:
-		d = new(ofp10.FlowRemoved)
-		d.Write(buf)
-	case ofp10.T_PORT_STATUS:
-		d = new(ofp10.PortStatus)
-		d.Write(buf)
-	case ofp10.T_STATS_REPLY:
-		d = new(ofp10.StatsReply)
-		d.Write(buf)
-	case ofp10.T_BARRIER_REPLY:
-		d = new(ofp10.Header)
-		d.Write(buf)
-	default:
-		// Unrecognized packet do nothing
+func (m *MessageStream) parse() {
+	for {
+		b := <- m.pool.Full
+		buf := b.Bytes()
+		var d ofp10.Packet
+
+		switch buf[1] {
+		case ofp10.T_PACKET_IN:
+			d = new(ofp10.PacketIn)
+			d.Write(buf)
+		case ofp10.T_HELLO:
+			d = new(ofp10.Header)
+			d.Write(buf)
+		case ofp10.T_ECHO_REPLY:
+			d = new(ofp10.Header)
+			d.Write(buf)
+		case ofp10.T_ECHO_REQUEST:
+			d = new(ofp10.Header)
+			d.Write(buf)
+		case ofp10.T_ERROR:
+			d = new(ofp10.ErrorMsg)
+			d.Write(buf)
+		case ofp10.T_VENDOR:
+			d = new(ofp10.VendorHeader)
+			d.Write(buf)
+		case ofp10.T_FEATURES_REPLY:
+			d = new(ofp10.SwitchFeatures)
+			d.Write(buf)
+		case ofp10.T_GET_CONFIG_REPLY:
+			d = new(ofp10.SwitchConfig)
+			d.Write(buf)
+		case ofp10.T_FLOW_REMOVED:
+			d = new(ofp10.FlowRemoved)
+			d.Write(buf)
+		case ofp10.T_PORT_STATUS:
+			d = new(ofp10.PortStatus)
+			d.Write(buf)
+		case ofp10.T_STATS_REPLY:
+			d = new(ofp10.StatsReply)
+			d.Write(buf)
+		case ofp10.T_BARRIER_REPLY:
+			d = new(ofp10.Header)
+			d.Write(buf)
+		default:
+			// Unrecognized packet do nothing
+		}
+		b.Reset()
+		m.pool.Empty <- b
+		m.Inbound <- d
 	}
-	m.Inbound <- d
 }
