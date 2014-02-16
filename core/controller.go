@@ -8,9 +8,8 @@ import (
 )
 
 type Controller struct{}
-
-//type InstanceGen func() interface{}
 type ApplicationInstanceGenerator func() interface{}
+
 var Applications []ApplicationInstanceGenerator
 
 func NewController() *Controller {
