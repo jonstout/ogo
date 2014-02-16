@@ -91,7 +91,6 @@ func NewMessageStream(conn *net.TCPConn) *MessageStream {
 	}
 
 	go m.outbound()
-	//go m.inbound()
 	go m.Buffer.ReadFrom(conn)
 
 	for i := 0; i < 25; i++ {
