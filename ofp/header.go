@@ -1,6 +1,6 @@
 package ofp
 
-import "binary"
+import "encoding/binary"
 
 // The version specifies the OpenFlow protocol version being
 // used. During the current draft phase of the OpenFlow

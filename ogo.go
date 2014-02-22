@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/jonstout/ogo/core"
-	"github.com/jonstout/ogo/openflow/ofp10"
+	"github.com/jonstout/ogo/ofp/ofp10"
 	"net"
 	"sync"
 	"runtime"
