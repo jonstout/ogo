@@ -4,8 +4,8 @@ import (
 	"log"
 	"io"
 	
-	"github.com/jonstout/ogo/ofp/ofp10"
-	"github.com/jonstout/ogo/ofp/ofp13"
+	"github.com/jonstout/ogo/protocol/ofp10"
+	"github.com/jonstout/ogo/protocol/ofp13"
 )
 
 type Message interface {

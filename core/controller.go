@@ -1,7 +1,7 @@
 package core
 
 import (
-	"github.com/jonstout/ogo/ofp/ofp10"
+	"github.com/jonstout/ogo/protocol/ofp10"
 	"log"
 	"net"
 	"time"

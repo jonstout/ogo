@@ -2,7 +2,7 @@ package core
 
 import (
 	"encoding/binary"
-	"github.com/jonstout/ogo/ofp"
+	"github.com/jonstout/ogo/protocol/ofp"
 	"log"
 	"net"
 	"bytes"

@@ -1,8 +1,9 @@
 package core
 
 import (
-	"github.com/jonstout/ogo/ofp/ofp10"
-	"github.com/jonstout/ogo/pacit"
+	"github.com/jonstout/ogo/protocol/eth"
+	"github.com/jonstout/ogo/protocol/ofp10"
+
 	"log"
 	"net"
 	"time"
@@ -101,13 +102,13 @@ func (o *OgoInstance) linkDiscoveryLoop(dpid net.HardwareAddr) {
 			return
 		// Every two seconds send a link discovery packet.
 		case <-time.After(time.Second * 2):
-			eth := pacit.NewEthernet()
-			eth.Ethertype = 0xa0f1
-			eth.HWSrc = dpid[2:]
-			eth.Data = NewLinkDiscovery(dpid)
+			e := eth.NewEthernet()
+			e.Ethertype = 0xa0f1
+			e.HWSrc = dpid[2:]
+			e.Data = NewLinkDiscovery(dpid)
 
 			pkt := ofp10.NewPacketOut()
-			pkt.Data = eth
+			pkt.Data = e
 			pkt.AddAction(ofp10.NewActionOutput(ofp10.P_ALL))
 
 			if sw, ok := Switch(dpid); ok {

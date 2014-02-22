@@ -11,7 +11,7 @@ import (
 	//"fmt"
 	"bytes"
 	"encoding/binary"
-	"github.com/jonstout/ogo/pacit"
+	"github.com/jonstout/ogo/protocol/eth"
 	"io"
 	"net"
 )
@@ -289,7 +289,7 @@ type PacketIn struct {
 	TotalLen uint16
 	InPort   uint16
 	Reason   uint8
-	Data     pacit.Ethernet
+	Data     eth.Ethernet
 }
 
 func (p *PacketIn) GetHeader() *Header {
@@ -333,7 +333,7 @@ func (p *PacketIn) Write(b []byte) (n int, err error) {
 	p.Reason = b[16]
 	n += 1
 	//TODO::Parse Data
-	p.Data = pacit.Ethernet{}
+	p.Data = eth.Ethernet{}
 	if m, err := p.Data.Write(b[n:]); m == 0 {
 		return m, err
 	} else {

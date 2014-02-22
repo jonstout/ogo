@@ -1,4 +1,4 @@
-package pacit
+package icmp
 
 import (
 	"bytes"
