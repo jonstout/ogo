@@ -8,11 +8,6 @@ import (
 	"github.com/jonstout/ogo/ofp/ofp13"
 )
 
-// OpenFlow message header.
-type Header struct {
-
-}
-
 type Message interface {
 	io.ReadWriter
 	
@@ -27,10 +22,5 @@ func Parse(b []byte) (message *Message, err error) {
 	case 4:
 		message, err = ofp13.Parse(b)
 	}
-	
-	// Log all message parsing errors.
-	if err != nil {
-		log.Print(err)
-		return
-	}
+	return
 }

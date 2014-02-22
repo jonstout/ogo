@@ -2,7 +2,7 @@ package core
 
 import (
 	"encoding/binary"
-	"github.com/jonstout/ogo/openflow/ofp10"
+	"github.com/jonstout/ogo/ofp"
 	"log"
 	"net"
 	"bytes"
@@ -127,51 +127,14 @@ func (m *MessageStream) inbound() {
 func (m *MessageStream) parse() {
 	for {
 		b := <- m.pool.Full
-		buf := b.Bytes()
-		var d ofp10.Packet
-
-		switch buf[1] {
-		case ofp10.T_PACKET_IN:
-			d = new(ofp10.PacketIn)
-			d.Write(buf)
-		case ofp10.T_HELLO:
-			d = new(ofp10.Header)
-			d.Write(buf)
-		case ofp10.T_ECHO_REPLY:
-			d = new(ofp10.Header)
-			d.Write(buf)
-		case ofp10.T_ECHO_REQUEST:
-			d = new(ofp10.Header)
-			d.Write(buf)
-		case ofp10.T_ERROR:
-			d = new(ofp10.ErrorMsg)
-			d.Write(buf)
-		case ofp10.T_VENDOR:
-			d = new(ofp10.VendorHeader)
-			d.Write(buf)
-		case ofp10.T_FEATURES_REPLY:
-			d = new(ofp10.SwitchFeatures)
-			d.Write(buf)
-		case ofp10.T_GET_CONFIG_REPLY:
-			d = new(ofp10.SwitchConfig)
-			d.Write(buf)
-		case ofp10.T_FLOW_REMOVED:
-			d = new(ofp10.FlowRemoved)
-			d.Write(buf)
-		case ofp10.T_PORT_STATUS:
-			d = new(ofp10.PortStatus)
-			d.Write(buf)
-		case ofp10.T_STATS_REPLY:
-			d = new(ofp10.StatsReply)
-			d.Write(buf)
-		case ofp10.T_BARRIER_REPLY:
-			d = new(ofp10.Header)
-			d.Write(buf)
-		default:
-			// Unrecognized packet do nothing
+		msg, err := ofp.Parse(b.Bytes())
+		// Log all message parsing errors.
+		if err != nil {
+			log.Print(err)
 		}
+		
+		m.Inbound <- msg
 		b.Reset()
 		m.pool.Empty <- b
-		m.Inbound <- d
 	}
 }
