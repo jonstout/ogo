@@ -11,7 +11,6 @@ import (
 type Message interface {
 	io.ReadWriter
 	
-	GetHeader() Header
 	Len() uint16
 }
 

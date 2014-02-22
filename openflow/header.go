@@ -20,22 +20,14 @@ type Header struct {
 var NewOfp10Header func() *Header = newHeaderGenerator(1)
 var NewOfp13Header func() *Header = newHeaderGenerator(4)
 
+var messageXid uint32 = 1
+
 func newHeaderGenerator(ver int) func() *Header {
 	var xid uint32 = 1
 	return func() *Header {
-		p := new(Header)
-		p.Version = uint8(1)
-		p.Type = 0
-		p.Length = 8
-		p.XID = xid
-		xid += 1
-
+		p := &Header{uint8(ver), 0, 8, messageXid += 1}
 		return p
 	}
-}
-
-func (h *Header) GetHeader() *Header {
-	return h
 }
 
 func (h *Header) Len() (n uint16) {
@@ -52,21 +44,32 @@ func (h *Header) Read(b []byte) (n int, err error) {
 	return n, io.EOF
 }
 
+// The OFPT_HELLO message consists of an OpenFlow header plus a set of variable size hello elements.
+// The version field part of the header field (see 7.1) must be set to the highest OpenFlow switch protocol
+// version supported by the sender (see 6.3.1).
+// The elements field is a set of hello elements, containing optional data to inform the initial handshake
+// of the connection. Implementations must ignore (skip) all elements of a Hello message that they do not
+// support.
 type HelloElemHeader struct {
 	Type uint16
 	Length uint16
 }
 
 func (h *HelloElemHeader) MarshelBinary(b []byte) {
-
+	if len(b) > 3 {
+		binary.BigEndian.PutUint16(b[:2], h.Type)
+		binary.BigEndian.PutUint16(b[2:], h.Length)
+	} else {
+		return errors.New("The []byte is too short to marshel a full HelloElemHeader.")	
+	}
 }
 
 func (h *HelloElemHeader) UnmarshelBinary(b []byte) error {
-	if len(b) > 4 {
+	if len(b) > 3 {
 		h.Type = binary.BigEndian.Uint16(b[:2])
-		h.Length = binary.BigEndian.Uint16(b[2:4])
+		h.Length = binary.BigEndian.Uint16(b[2:])
 	} else {
-		return errors.New("")
+		return errors.New("The []byte is too short to unmarshel a full HelloElemHeader.")
 	}
 }
 
