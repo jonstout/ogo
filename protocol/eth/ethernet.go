@@ -5,6 +5,9 @@ import (
 	"encoding/binary"
 	"io"
 	"net"
+	
+	"github.com/jonstout/ogo/protocol/ipv4"
+	"github.com/jonstout/ogo/protocol/arp"
 )
 
 // see http://en.wikipedia.org/wiki/EtherType
@@ -137,11 +140,11 @@ func (e *Ethernet) Write(b []byte) (n int, err error) {
 
 	switch e.Ethertype {
 	case IPv4_MSG:
-		e.Data = new(IPv4)
+		e.Data = new(ipv4.IPv4)
 		m, _ := e.Data.Write(buf.Bytes())
 		n += m
 	case ARP_MSG:
-		e.Data = new(ARP)
+		e.Data = new(arp.ARP)
 		m, _ := e.Data.Write(buf.Bytes())
 		n += m
 	default:

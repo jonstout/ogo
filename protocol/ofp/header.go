@@ -1,6 +1,11 @@
 package ofp
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"bytes"
+	"io"
+	"errors"
+)
 
 // The version specifies the OpenFlow protocol version being
 // used. During the current draft phase of the OpenFlow
@@ -25,7 +30,8 @@ var messageXid uint32 = 1
 func newHeaderGenerator(ver int) func() *Header {
 	var xid uint32 = 1
 	return func() *Header {
-		p := &Header{uint8(ver), 0, 8, messageXid += 1}
+		messageXid += 1
+		p := &Header{uint8(ver), 0, 8, messageXid}
 		return p
 	}
 }

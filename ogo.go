@@ -2,11 +2,12 @@ package main
 
 import (
 	"fmt"
+	"net"
+	"runtime"
+	"sync"	
+	
 	"github.com/jonstout/ogo/core"
 	"github.com/jonstout/ogo/protocol/ofp10"
-	"net"
-	"sync"
-	"runtime"
 )
 
 // Structure to track hosts that we discover.
