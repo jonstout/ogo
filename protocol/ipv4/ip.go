@@ -5,6 +5,10 @@ import (
 	"encoding/binary"
 	"io"
 	"net"
+	
+	"github.com/jonstout/ogo/protocol/icmp"
+	"github.com/jonstout/ogo/protocol/udp"
+	"github.com/jonstout/ogo/protocol/util"
 )
 
 const (
@@ -30,7 +34,7 @@ type IPv4 struct {
 	NWSrc          net.IP
 	NWDst          net.IP
 	Options        []byte
-	Data           ReadWriteMeasurer
+	Data           util.Message // ReadWriteMeasurer
 }
 
 func (i *IPv4) Len() (n uint16) {
@@ -58,7 +62,7 @@ func (i *IPv4) Read(b []byte) (n int, err error) {
 	binary.Write(hdr, binary.BigEndian, i.NWDst)
 	binary.Write(hdr, binary.BigEndian, i.Options)
 	if i.Checksum == 0 {
-		i.Checksum = checksum(hdr.Bytes())
+		i.Checksum = util.Checksum(hdr.Bytes())
 	}
 	io.CopyN(buf, hdr, 10)
 	binary.Write(buf, binary.BigEndian, i.Checksum)
@@ -140,12 +144,12 @@ func (i *IPv4) ReadFrom(r io.Reader) (n int64, err error) {
 	case IP_ICMP:
 		trash := make([]byte, int(i.Length-20))
 		binary.Read(r, binary.BigEndian, &trash)
-		i.Data = new(ICMP)
+		i.Data = new(icmp.ICMP)
 		if n, err := i.Data.Read(trash); err != nil {
 			return int64(n), err
 		}
 	case IP_UDP:
-		i.Data = new(UDP)
+		i.Data = new(udp.UDP)
 		data := make([]byte, int(i.Length-20))
 		binary.Read(r, binary.BigEndian, &data)
 		if n, err := i.Data.Read(data); err != nil {
@@ -196,14 +200,14 @@ func (i *IPv4) Write(b []byte) (n int, err error) {
 	}
 	switch i.Protocol {
 	case IP_ICMP:
-		i.Data = new(ICMP)
+		i.Data = new(icmp.ICMP)
 		m, err := i.Data.Write(b[n:])
 		if err != nil {
 			return m, err
 		}
 		n += m
 	case IP_UDP:
-		i.Data = new(UDP)
+		i.Data = new(udp.UDP)
 		m, err := i.Data.Write(b[n:])
 		if err != nil {
 			return m, err

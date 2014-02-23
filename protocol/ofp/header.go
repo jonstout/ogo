@@ -28,7 +28,6 @@ var NewOfp13Header func() *Header = newHeaderGenerator(4)
 var messageXid uint32 = 1
 
 func newHeaderGenerator(ver int) func() *Header {
-	var xid uint32 = 1
 	return func() *Header {
 		messageXid += 1
 		p := &Header{uint8(ver), 0, 8, messageXid}
@@ -61,22 +60,23 @@ type HelloElemHeader struct {
 	Length uint16
 }
 
-func (h *HelloElemHeader) MarshelBinary(b []byte) {
-	if len(b) > 3 {
-		binary.BigEndian.PutUint16(b[:2], h.Type)
-		binary.BigEndian.PutUint16(b[2:], h.Length)
-	} else {
-		return errors.New("The []byte is too short to marshel a full HelloElemHeader.")	
+func (h *HelloElemHeader) MarshelBinary() (data []byte, err error) {
+	data = make([]byte, 4)
+	if len(data) < 4 {
+		err = errors.New("The []byte is too short to marshel a full HelloElemHeader.")
 	}
+	binary.BigEndian.PutUint16(data[:2], h.Type)
+	binary.BigEndian.PutUint16(data[2:], h.Length)
+	return
 }
 
 func (h *HelloElemHeader) UnmarshelBinary(b []byte) error {
-	if len(b) > 3 {
-		h.Type = binary.BigEndian.Uint16(b[:2])
-		h.Length = binary.BigEndian.Uint16(b[2:])
-	} else {
+	if len(b) < 4 {
 		return errors.New("The []byte is too short to unmarshel a full HelloElemHeader.")
 	}
+	h.Type = binary.BigEndian.Uint16(b[:2])
+	h.Length = binary.BigEndian.Uint16(b[2:])
+	return nil
 }
 
 // OpenFlow ofp_hello.

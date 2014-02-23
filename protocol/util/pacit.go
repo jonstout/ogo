@@ -1,9 +1,16 @@
 package util
 
 import (
-	"errors"
+	//"errors"
+	"io"
 )
 
+type Message interface {
+	io.ReadWriter
+	
+	Len() uint16
+}
+/*
 var ErrTruncated = errors.New("incomplete packet")
 
 type Packet struct {
@@ -11,12 +18,12 @@ type Packet struct {
 	Delimiter  uint8
 	HWDst      [6]uint8
 	HWSrc      [6]uint8
-	VLANHeader VLAN
+	VLANHeader eth.VLAN
 	Ethertype  uint16
 	Payload    []uint8
-}
+}*/
 
-func checksum(b []byte) uint16 {
+func Checksum(b []byte) uint16 {
 	csumcv := len(b) - 1 // checksum coverage
 	s := uint32(0)
 	for i := 0; i < csumcv; i += 2 {
