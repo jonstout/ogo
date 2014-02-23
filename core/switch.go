@@ -2,6 +2,7 @@ package core
 
 import (
 	"github.com/jonstout/ogo/protocol/ofp10"
+	"github.com/jonstout/ogo/protocol/util"
 	"log"
 	"net"
 	"sync"
@@ -166,7 +167,7 @@ func (sw *OFSwitch) Port(portNo uint16) (port ofp10.PhyPort, ok bool) {
 }
 
 // Sends an OpenFlow message to this Switch.
-func (s *OFSwitch) Send(req ofp10.Packet) {
+func (s *OFSwitch) Send(req util.Message) {
 	s.stream.Outbound <- req
 }
 
@@ -190,41 +191,33 @@ func (s *OFSwitch) receive() {
 	}
 }
 
-func (s *OFSwitch) distributeMessages(dpid net.HardwareAddr, msg ofp10.Packet) {
-	header := msg.GetHeader()
-
+func (s *OFSwitch) distributeMessages(dpid net.HardwareAddr, msg util.Message) {
 	s.reqsMu.RLock()
-	if ch, ok := s.reqs[header.XID]; ok {
-		m := ofp10.Msg{msg, dpid}
-		ch <- m
-		delete(s.reqs, header.XID)
-	} else {
-		switch t := msg.(type) {
-		case *ofp10.SwitchFeatures:
+	switch t := msg.(type) {
+	case *ofp10.SwitchFeatures:
+		for _, app := range s.appInstance {
+			if actor, ok := app.(ofp10.SwitchFeaturesReactor); ok {
+				actor.FeaturesReply(s.DPID(), t)
+			}
+		}
+	case *ofp10.PacketIn:
+		for _, app := range s.appInstance {
+			if actor, ok := app.(ofp10.PacketInReactor); ok {
+				actor.PacketIn(s.DPID(), t)
+			}
+		}
+	case *ofp10.Header:
+		switch t.GetHeader().Type {
+		case ofp10.T_ECHO_REPLY:
 			for _, app := range s.appInstance {
-				if actor, ok := app.(ofp10.SwitchFeaturesReactor); ok {
-					actor.FeaturesReply(s.DPID(), t)
+				if actor, ok := app.(ofp10.EchoReplyReactor); ok {
+					actor.EchoReply(s.DPID())
 				}
 			}
-		case *ofp10.PacketIn:
+		case ofp10.T_ECHO_REQUEST:
 			for _, app := range s.appInstance {
-				if actor, ok := app.(ofp10.PacketInReactor); ok {
-					actor.PacketIn(s.DPID(), t)
-				}
-			}
-		case *ofp10.Header:
-			switch t.GetHeader().Type {
-			case ofp10.T_ECHO_REPLY:
-				for _, app := range s.appInstance {
-					if actor, ok := app.(ofp10.EchoReplyReactor); ok {
-						actor.EchoReply(s.DPID())
-					}
-				}
-			case ofp10.T_ECHO_REQUEST:
-				for _, app := range s.appInstance {
-					if actor, ok := app.(ofp10.EchoRequestReactor); ok {
-						actor.EchoRequest(s.DPID())
-					}
+				if actor, ok := app.(ofp10.EchoRequestReactor); ok {
+					actor.EchoRequest(s.DPID())
 				}
 			}
 		}
@@ -235,12 +228,10 @@ func (s *OFSwitch) distributeMessages(dpid net.HardwareAddr, msg ofp10.Packet) {
 // Sends an OpenFlow message to s, and returns a channel to receive
 // a response on. Any error encountered during the send except io.EOF
 // is returned.
-func (s *OFSwitch) SendAndReceive(msg ofp10.Packet) chan ofp10.Msg {
-	ch := make(chan ofp10.Msg)
-	s.reqsMu.Lock()
-	s.reqs[msg.GetHeader().XID] = ch
-	s.reqsMu.Unlock()
-
+//
+// TODO: Actually make work.
+func (s *OFSwitch) SendAndReceive(msg util.Message) chan util.Message {
+	ch := make(chan util.Message)
 	s.Send(msg)
 	return ch
 }

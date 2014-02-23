@@ -3,6 +3,7 @@ package core
 import (
 	"github.com/jonstout/ogo/protocol/eth"
 	"github.com/jonstout/ogo/protocol/ofp10"
+	"github.com/jonstout/ogo/protocol/util"
 
 	"log"
 	"net"
@@ -79,7 +80,7 @@ func (o *OgoInstance) FeaturesReply(dpid net.HardwareAddr, features *ofp10.Switc
 
 func (o *OgoInstance) PacketIn(dpid net.HardwareAddr, msg *ofp10.PacketIn) {
 	eth := msg.Data
-	if buf, ok := eth.Data.(*pacit.PacitBuffer); ok && eth.Ethertype == 0xa0f1 {
+	if buf, ok := eth.Data.(*util.Buffer); ok && eth.Ethertype == 0xa0f1 {
 		linkMsg := new(LinkDiscovery)
 		if _, err := linkMsg.Write(buf.Bytes()); err != nil {
 			log.Println(err)

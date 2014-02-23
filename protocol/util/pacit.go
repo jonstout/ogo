@@ -2,6 +2,7 @@ package util
 
 import (
 	//"errors"
+	"bytes"
 	"io"
 )
 
@@ -10,6 +11,19 @@ type Message interface {
 	
 	Len() uint16
 }
+
+type Buffer struct { bytes.Buffer }
+
+func NewBuffer(buf []byte) *Buffer {
+	b := new(Buffer)
+	b.Buffer = *bytes.NewBuffer(buf)
+	return b
+}
+
+func (b *Buffer) Len() uint16 {
+	return uint16(b.Len())
+}
+
 /*
 var ErrTruncated = errors.New("incomplete packet")
 
