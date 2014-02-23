@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/binary"
 	"github.com/jonstout/ogo/protocol/ofp"
+	"github.com/jonstout/ogo/protocol/util"
 	"log"
 	"net"
 	"bytes"
@@ -32,9 +33,9 @@ type MessageStream struct {
 	// Channel on which to publish connection errors
 	Error chan error
 	// Channel on which to publish inbound messages
-	Inbound chan ofp10.Packet
+	Inbound chan util.Message
 	// Channel on which to receive outbound messages
-	Outbound chan ofp10.Packet
+	Outbound chan util.Message
 	// Channel on which to receive a shutdown command
 	Shutdown chan bool
 }
@@ -47,8 +48,8 @@ func NewMessageStream(conn *net.TCPConn) *MessageStream {
 		NewBufferPool(),
 		0,
 		make(chan error, 1),        // Error
-		make(chan ofp10.Packet, 1), // Inbound
-		make(chan ofp10.Packet, 1), // Outbound
+		make(chan util.Message, 1), // Inbound
+		make(chan util.Message, 1), // Outbound
 		make(chan bool, 1),         // Shutdown
 	}
 

@@ -22,7 +22,7 @@ type PhyPort struct {
 	Peer       uint32
 }
 
-func (e *PhyPort) Len() (n uint16) {
+func (p *PhyPort) Len() (n uint16) {
 	n += 2
 	n += uint16(len(p.HWAddr))
 	n += uint16(len(p.Name))

@@ -182,6 +182,13 @@ func (f *FlowRemoved) GetHeader() *Header {
 	return &f.Header
 }
 
+func (f *FlowRemoved) Len() (n uint16) {
+	n = f.Header.Len()
+	n += f.Match.Len()
+	n += 42
+	return
+}
+
 func (f *FlowRemoved) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, f)

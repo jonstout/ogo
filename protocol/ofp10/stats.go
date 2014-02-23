@@ -647,6 +647,11 @@ type PortStats struct {
 	Collisions uint64
 }
 
+func (p *PortStats) Len() (n uint16) {
+	n = 104
+	return
+}
+
 func (s *PortStats) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, s)
@@ -844,6 +849,13 @@ type PortStatus struct {
 
 func (p *PortStatus) GetHeader() *Header {
 	return &p.Header
+}
+
+func (p *PortStatus) Len() (n uint16) {
+	n = p.Header.Len()
+	n += 8
+	n += p.Desc.Len()
+	return
 }
 
 func (s *PortStatus) Read(b []byte) (n int, err error) {

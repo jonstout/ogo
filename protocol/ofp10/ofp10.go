@@ -365,6 +365,12 @@ func (v *VendorHeader) GetHeader() *Header {
 	return &v.Header
 }
 
+func (v *VendorHeader) Len() (n uint16) {
+	n = v.Header.Len()
+	n += 4
+	return
+}
+
 func (v *VendorHeader) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, v)

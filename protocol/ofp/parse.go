@@ -1,9 +1,6 @@
 package ofp
 
 import (
-	"log"
-	"io"
-	
 	"github.com/jonstout/ogo/protocol/ofp10"
 	"github.com/jonstout/ogo/protocol/ofp13"
 	"github.com/jonstout/ogo/protocol/util"
