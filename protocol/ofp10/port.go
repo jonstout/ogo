@@ -22,6 +22,14 @@ type PhyPort struct {
 	Peer       uint32
 }
 
+func (e *PhyPort) Len() (n uint16) {
+	n += 2
+	n += uint16(len(p.HWAddr))
+	n += uint16(len(p.Name))
+	n += 24
+	return
+}
+
 func (p *PhyPort) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, p)

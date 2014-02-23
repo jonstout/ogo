@@ -43,7 +43,9 @@ func (s *SwitchFeatures) Len() (n uint16) {
 	n = s.Header.Len()
 	n += uint16(len(s.DPID))
 	n += 16
-	n += uint16(len(s.Ports))
+	for _, p := range s.Ports {
+	n += p.Len()
+	}
 	return
 }
 
