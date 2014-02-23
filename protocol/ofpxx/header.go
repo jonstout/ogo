@@ -1,4 +1,4 @@
-package ofp
+package ofpxx
 
 import (
 	"encoding/binary"
