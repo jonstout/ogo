@@ -18,6 +18,13 @@ func (e *ErrorMsg) GetHeader() *Header {
 	return &e.Header
 }
 
+func (e *ErrorMsg) Len() (n uint16) {
+	n = e.Header.Len()
+	n += 2
+	n += uint16(len(e.Data))
+	return
+}
+
 func (e *ErrorMsg) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, e)

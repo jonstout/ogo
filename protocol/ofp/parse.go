@@ -9,7 +9,7 @@ import (
 	"github.com/jonstout/ogo/protocol/util"
 )
 
-func Parse(b []byte) (message *util.Message, err error) {
+func Parse(b []byte) (message util.Message, err error) {
 	switch b[0] {
 	case 1:
 		message, err = ofp10.Parse(b)

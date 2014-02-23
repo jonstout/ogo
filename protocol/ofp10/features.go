@@ -39,6 +39,12 @@ func NewFeaturesReply() *SwitchFeatures {
 	return res
 }
 
+func (s *SwitchFeatures) Len() (n uint16) {
+	n = s.Header.Len()
+	n += uint16(len(s.DPID))
+	
+}
+
 func (f *SwitchFeatures) GetHeader() *Header {
 	return &f.Header
 }

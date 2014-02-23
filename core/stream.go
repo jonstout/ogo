@@ -2,7 +2,7 @@ package core
 
 import (
 	"encoding/binary"
-	"github.com/jonstout/ogo/protocol"
+	"github.com/jonstout/ogo/protocol/ofp"
 	"log"
 	"net"
 	"bytes"
@@ -127,7 +127,7 @@ func (m *MessageStream) inbound() {
 func (m *MessageStream) parse() {
 	for {
 		b := <- m.pool.Full
-		msg, err := protocol.Parse(b.Bytes())
+		msg, err := ofp.Parse(b.Bytes())
 		// Log all message parsing errors.
 		if err != nil {
 			log.Print(err)

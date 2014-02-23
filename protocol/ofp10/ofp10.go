@@ -296,6 +296,13 @@ func (p *PacketIn) GetHeader() *Header {
 	return &p.Header
 }
 
+func (p *PacketIn) Len() (n uint16) {
+	n += p.Header.Len()
+	n += 9
+	n += p.Data.Len()
+	return
+}
+
 func (p *PacketIn) Read(b []byte) (n int, err error) {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, p)

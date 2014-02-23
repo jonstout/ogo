@@ -6,7 +6,7 @@ import (
 	"github.com/jonstout/ogo/protocol/util"
 )
 
-func Parse(b []byte) (message *util.Message, err error) {
+func Parse(b []byte) (message util.Message, err error) {
 	switch b[1] {
 	case T_PACKET_IN:
 		message = new(PacketIn)

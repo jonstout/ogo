@@ -87,6 +87,13 @@ type StatsReply struct {
 	Body   []uint8
 }
 
+func (s *StatsReply) Len() (n uint16) {
+	n = s.Header.Len()
+	n += 4
+	n += uint16(len(s.Body))
+	return
+}
+
 func (s *StatsReply) GetHeader() *Header {
 	return &s.Header
 }
