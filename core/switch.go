@@ -196,7 +196,7 @@ func (s *OFSwitch) distributeMessages(dpid net.HardwareAddr, msg util.Message) {
 	switch t := msg.(type) {
 	case *ofp10.SwitchFeatures:
 		for _, app := range s.appInstance {
-			if actor, ok := app.(ofp10.SwitchFeaturesReactor); ok {
+			if actor, ok := app.(ofp10.SwitchFeaturesReplyReactor); ok {
 				actor.FeaturesReply(s.DPID(), t)
 			}
 		}
