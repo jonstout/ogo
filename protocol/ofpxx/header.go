@@ -7,16 +7,16 @@ import (
 )
 
 // Returns a new OpenFlow header with version field set to v1.0.
-var NewOfp10Header func() *Header = newHeaderGenerator(1)
+var NewOfp10Header func() Header = newHeaderGenerator(1)
 // Returns a new OpenFlow header with version field set to v1.3.
-var NewOfp13Header func() *Header = newHeaderGenerator(4)
+var NewOfp13Header func() Header = newHeaderGenerator(4)
 
 var messageXid uint32 = 1
 
-func newHeaderGenerator(ver int) func() *Header {
-	return func() *Header {
+func newHeaderGenerator(ver int) func() Header {
+	return func() Header {
 		messageXid += 1
-		p := &Header{uint8(ver), 0, 8, messageXid}
+		p := Header{uint8(ver), 0, 8, messageXid}
 		return p
 	}
 }
@@ -104,4 +104,16 @@ func (h *HelloElemHeader) UnmarshelBinary(data []byte) error {
 type Hello struct {
 	Header
 	Elements []HelloElemHeader
+}
+
+func NewHello(ver int) (h *Hello, err error) {
+	if ver == 1 {
+		h.Header = NewOfp10Header()
+	} else if ver == 4 {
+		h.Header = NewOfp13Header()
+	} else {
+		err = errors.New("New hello message with unsupported verion was attempted to be created.")
+	}
+	h.Elements = make([]HelloElemHeader, 0)
+	return
 }
