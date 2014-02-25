@@ -64,15 +64,21 @@ func (h *Header) UnmarshelBinary(data []byte) error {
 	return nil
 }
 
-// The OFPT_HELLO message consists of an OpenFlow header plus a set of variable size hello elements.
-// The version field part of the header field (see 7.1) must be set to the highest OpenFlow switch protocol
-// version supported by the sender (see 6.3.1).
-// The elements field is a set of hello elements, containing optional data to inform the initial handshake
-// of the connection. Implementations must ignore (skip) all elements of a Hello message that they do not
-// support.
+const (
+	HelloElemType_VersionBitmap = iota
+	)
+
+type HelloElem interface {
+	Header() *HelloElemHeader
+}
+
 type HelloElemHeader struct {
 	Type uint16
 	Length uint16
+}
+
+func (h *HelloElemHeader) Header() *HelloElemHeader {
+	return h
 }
 
 func (h *HelloElemHeader) Len() (n uint16) {
@@ -95,7 +101,63 @@ func (h *HelloElemHeader) UnmarshelBinary(data []byte) error {
 	return nil
 }
 
-// OpenFlow ofp_hello.
+type HelloElemVersionBitmap struct {
+	HelloElemHeader
+	Bitmaps []uint32
+}
+
+func NewHelloElemVersionBitmap() *HelloElemVersionBitmap {
+	h := new(HelloElemVersionBitmap)
+	h.Type = HelloElemType_VersionBitmap
+	h.Bitmaps = make([]uint32, 1)
+	// 1001
+	h.Bitmaps[0] = uint32(8) & uint32(1)
+	h.Length = h.HelloElemHeader.Len() + uint16(len(h.Bitmaps) * 4)
+	return h
+}
+
+func (h *HelloElemVersionBitmap) Len() (n uint16) {
+	n = h.HelloElemHeader.Len()
+	n += uint16(len(h.Bitmaps) * 4)
+	return
+}
+
+func (h *HelloElemVersionBitmap) MarshelBinary() (data []byte, err error) {
+	data, err = h.HelloElemHeader.MarshelBinary()
+	if err != nil {
+		return
+	}
+	
+	for i, _ := range h.Bitmaps {
+		bytes := make([]byte, 4)
+		binary.BigEndian.PutUint32(bytes, h.Bitmaps[i])
+		data = append(data, bytes...)
+	}
+	return
+}
+
+func (h *HelloElemVersionBitmap) UnmarshelBinary(data []byte) error {
+	length := len(data)
+	read := 0
+	if err := h.HelloElemHeader.UnmarshelBinary(data[:4]); err != nil {
+		return err
+	}
+	read += int(h.HelloElemHeader.Len())
+
+	h.Bitmaps = make([]uint32, 0)
+	for read < length {
+		h.Bitmaps = append(h.Bitmaps, binary.BigEndian.Uint32(data[read:read+4]))
+		read += 4
+	}
+	return nil
+}
+
+// The OFPT_HELLO message consists of an OpenFlow header plus a set of variable size hello elements.
+// The version field part of the header field (see 7.1) must be set to the highest OpenFlow switch protocol
+// version supported by the sender (see 6.3.1).
+// The elements field is a set of hello elements, containing optional data to inform the initial handshake
+// of the connection. Implementations must ignore (skip) all elements of a Hello message that they do not
+// support.
 // The version field part of the header field (see 7.1) must be set to the highest OpenFlow switch protocol
 // version supported by the sender (see 6.3.1).
 // The elements field is a set of hello elements, containing optional data to inform the initial handshake
@@ -103,7 +165,7 @@ func (h *HelloElemHeader) UnmarshelBinary(data []byte) error {
 // support.
 type Hello struct {
 	Header
-	Elements []HelloElemHeader
+	Elements []HelloElem
 }
 
 func NewHello(ver int) (h *Hello, err error) {
@@ -114,6 +176,7 @@ func NewHello(ver int) (h *Hello, err error) {
 	} else {
 		err = errors.New("New hello message with unsupported verion was attempted to be created.")
 	}
-	h.Elements = make([]HelloElemHeader, 0)
+	h.Elements = make([]HelloElem, 1)
+	h.Elements[0] = NewHelloElemVersionBitmap()
 	return
 }
