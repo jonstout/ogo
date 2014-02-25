@@ -1,11 +1,25 @@
+// Package ofpxx defines OpenFlow message types that are version independent.
 package ofpxx
 
 import (
 	"encoding/binary"
-	"bytes"
-	"io"
 	"errors"
 )
+
+// Returns a new OpenFlow header with version field set to v1.0.
+var NewOfp10Header func() *Header = newHeaderGenerator(1)
+// Returns a new OpenFlow header with version field set to v1.3.
+var NewOfp13Header func() *Header = newHeaderGenerator(4)
+
+var messageXid uint32 = 1
+
+func newHeaderGenerator(ver int) func() *Header {
+	return func() *Header {
+		messageXid += 1
+		p := &Header{uint8(ver), 0, 8, messageXid}
+		return p
+	}
+}
 
 // The version specifies the OpenFlow protocol version being
 // used. During the current draft phase of the OpenFlow
@@ -19,34 +33,35 @@ type Header struct {
 	Version uint8
 	Type    uint8
 	Length  uint16
-	XID     uint32
+	Xid     uint32
 }
 
-var NewOfp10Header func() *Header = newHeaderGenerator(1)
-var NewOfp13Header func() *Header = newHeaderGenerator(4)
-
-var messageXid uint32 = 1
-
-func newHeaderGenerator(ver int) func() *Header {
-	return func() *Header {
-		messageXid += 1
-		p := &Header{uint8(ver), 0, 8, messageXid}
-		return p
-	}
+func (h *Header) Header() *Header {
+	return h
 }
 
 func (h *Header) Len() (n uint16) {
 	return 8
 }
 
-func (h *Header) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, h)
-	n, err = buf.Read(b)
-	if err != nil {
-		return
+func (h *Header) MarshelBinary() (data []byte, err error) {
+	data = make([]byte, 8)
+	h.Version = data[0]
+	h.Type = data[1]
+	binary.BigEndian.PutUint16(data[2:4], h.Length)
+	binary.BigEndian.PutUint32(data[4:8], h.Xid)
+	return
+}
+
+func (h *Header) UnmarshelBinary(data []byte) error {
+	if len(data) < 4 {
+		return errors.New("The []byte is too short to unmarshel a full HelloElemHeader.")
 	}
-	return n, io.EOF
+	data[0] = h.Version
+	data[1] = h.Type
+	h.Length = binary.BigEndian.Uint16(data[2:4])
+	h.Xid = binary.BigEndian.Uint32(data[4:8])
+	return nil
 }
 
 // The OFPT_HELLO message consists of an OpenFlow header plus a set of variable size hello elements.
@@ -60,22 +75,23 @@ type HelloElemHeader struct {
 	Length uint16
 }
 
+func (h *HelloElemHeader) Len() (n uint16) {
+	return 4
+}
+
 func (h *HelloElemHeader) MarshelBinary() (data []byte, err error) {
 	data = make([]byte, 4)
-	if len(data) < 4 {
-		err = errors.New("The []byte is too short to marshel a full HelloElemHeader.")
-	}
 	binary.BigEndian.PutUint16(data[:2], h.Type)
-	binary.BigEndian.PutUint16(data[2:], h.Length)
+	binary.BigEndian.PutUint16(data[2:4], h.Length)
 	return
 }
 
-func (h *HelloElemHeader) UnmarshelBinary(b []byte) error {
-	if len(b) < 4 {
+func (h *HelloElemHeader) UnmarshelBinary(data []byte) error {
+	if len(data) < 4 {
 		return errors.New("The []byte is too short to unmarshel a full HelloElemHeader.")
 	}
-	h.Type = binary.BigEndian.Uint16(b[:2])
-	h.Length = binary.BigEndian.Uint16(b[2:])
+	h.Type = binary.BigEndian.Uint16(data[:2])
+	h.Length = binary.BigEndian.Uint16(data[2:4])
 	return nil
 }
 
