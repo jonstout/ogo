@@ -1,9 +1,8 @@
 package icmp
 
 import (
-	"bytes"
 	"encoding/binary"
-	"io"
+	"errors"
 )
 
 type ICMP struct {
@@ -13,56 +12,35 @@ type ICMP struct {
 	Data     []byte
 }
 
+func New() *ICMP {
+	i := new(ICMP)
+	i.Data = make([]byte, 0)
+	return i
+}
+
 func (i *ICMP) Len() (n uint16) {
 	return uint16(4 + len(i.Data))
 }
 
-func (i *ICMP) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, i.Type)
-	binary.Write(buf, binary.BigEndian, i.Code)
-	binary.Write(buf, binary.BigEndian, i.Checksum)
-	binary.Write(buf, binary.BigEndian, i.Data)
-	if n, err = buf.Read(b); n == 0 {
-		return
-	}
-	return n, io.EOF
-}
-
-func (i *ICMP) ReadFrom(r io.Reader) (n int64, err error) {
-	if err = binary.Read(r, binary.BigEndian, &i.Type); err != nil {
-		return
-	}
-	n += 1
-	if err = binary.Read(r, binary.BigEndian, &i.Code); err != nil {
-		return
-	}
-	n += 1
-	if err = binary.Read(r, binary.BigEndian, &i.Checksum); err != nil {
-		return
-	}
-	n += 2
+func (i *ICMP) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, int(i.Len()))
+	data[0] = i.Type
+	data[1] = i.Code
+	binary.BigEndian.PutUint16(data[2:4], i.Checksum)
+	copy(data[4:], i.Data)
 	return
 }
 
-func (i *ICMP) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	if err = binary.Read(buf, binary.BigEndian, &i.Type); err != nil {
-		return
+func (i *ICMP) UnmarshalBinary(data []byte) error {
+	if len(data) < 4 {
+		return errors.New("The []byte is too short to unmarshal a full ARP message.")
 	}
-	n += 1
-	if err = binary.Read(buf, binary.BigEndian, &i.Code); err != nil {
-		return
+	i.Type = data[0]
+	i.Code = data[1]
+	i.Checksum = binary.BigEndian.Uint16(data[2:4])
+
+	for n, _ := range data[4:] {
+		i.Data = append(i.Data, data[n])
 	}
-	n += 1
-	if err = binary.Read(buf, binary.BigEndian, &i.Checksum); err != nil {
-		return
-	}
-	n += 2
-	i.Data = make([]byte, len(b)-n)
-	if err = binary.Read(buf, binary.BigEndian, &i.Data); err != nil {
-		return
-	}
-	n += len(i.Data)
-	return
+	return nil
 }

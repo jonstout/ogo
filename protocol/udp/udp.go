@@ -1,9 +1,8 @@
 package udp
 
 import (
-	"bytes"
 	"encoding/binary"
-	"io"
+	"errors"
 )
 
 type UDP struct {
@@ -14,6 +13,12 @@ type UDP struct {
 	Data     []byte
 }
 
+func New() *UDP {
+	u := new(UDP)
+	u.Data = make([]byte, 0)
+	return u
+}
+
 func (u *UDP) Len() (n uint16) {
 	if u.Data != nil {
 		return uint16(8 + len(u.Data))
@@ -21,69 +26,27 @@ func (u *UDP) Len() (n uint16) {
 	return uint16(8)
 }
 
-func (u *UDP) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, u.PortSrc)
-	binary.Write(buf, binary.BigEndian, u.PortDst)
-	binary.Write(buf, binary.BigEndian, u.Length)
-	binary.Write(buf, binary.BigEndian, u.Checksum)
-	binary.Write(buf, binary.BigEndian, u.Data)
-	if n, err = buf.Read(b); n == 0 {
-		return
-	}
-	return n, io.EOF
-}
-
-func (u *UDP) ReadFrom(r io.Reader) (n int64, err error) {
-	if err = binary.Read(r, binary.BigEndian, &u.PortSrc); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(r, binary.BigEndian, &u.PortDst); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(r, binary.BigEndian, &u.Length); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(r, binary.BigEndian, &u.Checksum); err != nil {
-		return
-	}
-	n += 2
-	if u.Length > uint16(8) {
-		u.Data = make([]byte, int(u.Length-uint16(8)))
-	}
-	m, err := io.ReadFull(r, u.Data)
-	n += int64(m)
+func (u *UDP) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, int(u.Len()))
+	binary.BigEndian.PutUint16(data[:2], u.PortSrc)
+	binary.BigEndian.PutUint16(data[2:4], u.PortDst)
+	binary.BigEndian.PutUint16(data[4:6], u.Length)
+	binary.BigEndian.PutUint16(data[6:8], u.Checksum)
+	copy(data[8:], u.Data)
 	return
 }
 
-func (u *UDP) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	if err = binary.Read(buf, binary.BigEndian, &u.PortSrc); err != nil {
-		return
+func (u *UDP) UnmarshalBinary(data []byte) error {
+	if len(data) < 8 {
+		return errors.New("The []byte is too short to unmarshal a full ARP message.")
 	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &u.PortDst); err != nil {
-		return
+	u.PortSrc = binary.BigEndian.Uint16(data[:2])
+	u.PortDst = binary.BigEndian.Uint16(data[2:4])
+	u.Length = binary.BigEndian.Uint16(data[4:6])
+	u.Checksum = binary.BigEndian.Uint16(data[6:8])
+
+	for n, _ := range data[8:] {
+		u.Data = append(u.Data, data[n])
 	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &u.Length); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &u.Checksum); err != nil {
-		return
-	}
-	n += 2
-	if u.Length > 8 {
-		u.Data = make([]byte, u.Length-8)
-	}
-	if u.Length == 0 {
-		u.Data = make([]byte, buf.Len())
-	}
-	m, err := io.ReadFull(buf, u.Data)
-	n += m
-	return
+	return nil
 }
