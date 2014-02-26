@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"io"
 	"net"
+
+	"github.com/jonstout/ogo/protocol/util"
 )
 
 // ofp_action_type 1.0
@@ -25,7 +27,7 @@ const (
 )
 
 type Action interface {
-	Packetish
+	util.Message
 	ActionType() uint16
 }
 

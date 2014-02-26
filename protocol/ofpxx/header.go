@@ -44,7 +44,7 @@ func (h *Header) Len() (n uint16) {
 	return 8
 }
 
-func (h *Header) MarshelBinary() (data []byte, err error) {
+func (h *Header) MarshalBinary() (data []byte, err error) {
 	data = make([]byte, 8)
 	h.Version = data[0]
 	h.Type = data[1]
@@ -53,7 +53,7 @@ func (h *Header) MarshelBinary() (data []byte, err error) {
 	return
 }
 
-func (h *Header) UnmarshelBinary(data []byte) error {
+func (h *Header) UnmarshalBinary(data []byte) error {
 	if len(data) < 4 {
 		return errors.New("The []byte is too short to unmarshel a full HelloElemHeader.")
 	}
@@ -85,16 +85,16 @@ func (h *HelloElemHeader) Len() (n uint16) {
 	return 4
 }
 
-func (h *HelloElemHeader) MarshelBinary() (data []byte, err error) {
+func (h *HelloElemHeader) MarshalBinary() (data []byte, err error) {
 	data = make([]byte, 4)
 	binary.BigEndian.PutUint16(data[:2], h.Type)
 	binary.BigEndian.PutUint16(data[2:4], h.Length)
 	return
 }
 
-func (h *HelloElemHeader) UnmarshelBinary(data []byte) error {
+func (h *HelloElemHeader) UnmarshalBinary(data []byte) error {
 	if len(data) < 4 {
-		return errors.New("The []byte is too short to unmarshel a full HelloElemHeader.")
+		return errors.New("The []byte is too short to unmarshal a full HelloElemHeader.")
 	}
 	h.Type = binary.BigEndian.Uint16(data[:2])
 	h.Length = binary.BigEndian.Uint16(data[2:4])
@@ -122,8 +122,8 @@ func (h *HelloElemVersionBitmap) Len() (n uint16) {
 	return
 }
 
-func (h *HelloElemVersionBitmap) MarshelBinary() (data []byte, err error) {
-	data, err = h.HelloElemHeader.MarshelBinary()
+func (h *HelloElemVersionBitmap) MarshalBinary() (data []byte, err error) {
+	data, err = h.HelloElemHeader.MarshalBinary()
 	if err != nil {
 		return
 	}
@@ -136,10 +136,10 @@ func (h *HelloElemVersionBitmap) MarshelBinary() (data []byte, err error) {
 	return
 }
 
-func (h *HelloElemVersionBitmap) UnmarshelBinary(data []byte) error {
+func (h *HelloElemVersionBitmap) UnmarshalBinary(data []byte) error {
 	length := len(data)
 	read := 0
-	if err := h.HelloElemHeader.UnmarshelBinary(data[:4]); err != nil {
+	if err := h.HelloElemHeader.UnmarshalBinary(data[:4]); err != nil {
 		return err
 	}
 	read += int(h.HelloElemHeader.Len())
@@ -152,17 +152,18 @@ func (h *HelloElemVersionBitmap) UnmarshelBinary(data []byte) error {
 	return nil
 }
 
-// The OFPT_HELLO message consists of an OpenFlow header plus a set of variable size hello elements.
-// The version field part of the header field (see 7.1) must be set to the highest OpenFlow switch protocol
-// version supported by the sender (see 6.3.1).
-// The elements field is a set of hello elements, containing optional data to inform the initial handshake
-// of the connection. Implementations must ignore (skip) all elements of a Hello message that they do not
-// support.
-// The version field part of the header field (see 7.1) must be set to the highest OpenFlow switch protocol
-// version supported by the sender (see 6.3.1).
-// The elements field is a set of hello elements, containing optional data to inform the initial handshake
-// of the connection. Implementations must ignore (skip) all elements of a Hello message that they do not
-// support.
+// The OFPT_HELLO message consists of an OpenFlow header plus a set of variable
+// size hello elements. The version field part of the header field (see 7.1)
+// must be set to the highest OpenFlow switch protocol version supported by the
+// sender (see 6.3.1).  The elements field is a set of hello elements,
+// containing optional data to inform the initial handshake of the connection.
+// Implementations must ignore (skip) all elements of a Hello message that they
+// do not support.
+// The version field part of the header field (see 7.1) must be set to the 
+// highest OpenFlow switch protocol version supported by the sender (see 6.3.1).
+// The elements field is a set of hello elements, containing optional data to
+// inform the initial handshake of the connection. Implementations must ignore
+// (skip) all elements of a Hello message that they do not support.
 type Hello struct {
 	Header
 	Elements []HelloElem

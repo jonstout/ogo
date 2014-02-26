@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
+
+	"github.com/jonstout/ogo/protocol/ofpxx"
 )
 
 // ofp_flow_mod
 type FlowMod struct {
-	Header Header
+	Header ofpxx.Header
 	Match  Match
 	Cookie uint64
 
@@ -24,7 +26,7 @@ type FlowMod struct {
 
 func NewFlowMod() *FlowMod {
 	f := new(FlowMod)
-	f.Header = *NewHeader()
+	f.Header = ofpxx.NewOfp10Header()
 	f.Header.Type = T_FLOW_MOD
 	f.Match = *NewMatch()
 	// Add a generator for f.Cookie here
@@ -46,7 +48,7 @@ func (f *FlowMod) AddAction(a Action) {
 	f.Actions = append(f.Actions, a)
 }
 
-func (f *FlowMod) GetHeader() *Header {
+func (f *FlowMod) GetHeader() *ofpxx.Header {
 	return &f.Header
 }
 
@@ -64,7 +66,8 @@ func (f *FlowMod) Len() (n uint16) {
 func (f *FlowMod) Read(b []byte) (n int, err error) {
 	f.Header.Length = f.Len()
 	buf := new(bytes.Buffer)
-	buf.ReadFrom(&f.Header)
+	data, _ := f.Header.MarshelBinary()
+	buf.Write(data)
 	buf.ReadFrom(&f.Match)
 	binary.Write(buf, binary.BigEndian, f.Cookie)
 	binary.Write(buf, binary.BigEndian, f.Command)
@@ -88,10 +91,8 @@ func (f *FlowMod) Read(b []byte) (n int, err error) {
 
 func (f *FlowMod) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
-	n, err = f.Header.Write(buf.Next(8))
-	if n == 0 {
-		return
-	}
+	err = f.Header.UnmarshelBinary(buf.Next(8))
+	n += 8
 	m := 0
 	m, err = f.Match.Write(buf.Next(40))
 	if m == 0 {
@@ -162,7 +163,7 @@ const (
 
 // BEGIN: ofp10 - 5.4.2
 type FlowRemoved struct {
-	Header   Header
+	Header   ofpxx.Header
 	Match    Match
 	Cookie   uint64
 	Priority uint16
@@ -178,7 +179,7 @@ type FlowRemoved struct {
 	ByteCount   uint64
 }
 
-func (f *FlowRemoved) GetHeader() *Header {
+func (f *FlowRemoved) GetHeader() *ofpxx.Header {
 	return &f.Header
 }
 
@@ -201,10 +202,8 @@ func (f *FlowRemoved) Read(b []byte) (n int, err error) {
 
 func (f *FlowRemoved) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
-	n, err = f.Header.Write(buf.Next(8))
-	if n == 0 {
-		return
-	}
+	err = f.Header.UnmarshelBinary(buf.Next(8))
+	n += 8
 	m := 0
 	m, err = f.Match.Write(buf.Next(40))
 	if m == 0 {

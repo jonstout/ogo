@@ -12,11 +12,11 @@ import (
 )
 
 const (
-	IP_ICMP     = 0x01
-	IP_TCP      = 0x06
-	IP_UDP      = 0x11
-	IP_IPv6     = 0x29
-	IP_IPv6ICMP = 0x3a
+	Type_ICMP     = 0x01
+	Type_TCP      = 0x06
+	Type_UDP      = 0x11
+	Type_IPv6     = 0x29
+	Type_IPv6ICMP = 0x3a
 )
 
 type IPv4 struct {

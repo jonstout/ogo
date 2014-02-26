@@ -1,13 +1,14 @@
 package util
 
 import (
-	//"errors"
 	"bytes"
-	"io"
 )
 
 type Message interface {
-	io.ReadWriter
+	//encoding.BinaryMarshaler
+	//encoding.BinaryUnmarshaler
+	MarshalBinary() (data []byte, err error)
+	UnmarshalBinary(data []byte) error
 	
 	Len() uint16
 }
@@ -24,19 +25,6 @@ func (b *Buffer) Len() uint16 {
 	return uint16(b.Len())
 }
 
-/*
-var ErrTruncated = errors.New("incomplete packet")
-
-type Packet struct {
-	Preamble   [7]uint8
-	Delimiter  uint8
-	HWDst      [6]uint8
-	HWSrc      [6]uint8
-	VLANHeader eth.VLAN
-	Ethertype  uint16
-	Payload    []uint8
-}*/
-
 func Checksum(b []byte) uint16 {
 	csumcv := len(b) - 1 // checksum coverage
 	s := uint32(0)
@@ -51,3 +39,16 @@ func Checksum(b []byte) uint16 {
 	s = ^s & 0xffff
 	return uint16(s<<8 | s>>(16-8))
 }
+
+/*
+var ErrTruncated = errors.New("incomplete packet")
+
+type Packet struct {
+	Preamble   [7]uint8
+	Delimiter  uint8
+	HWDst      [6]uint8
+	HWSrc      [6]uint8
+	VLANHeader eth.VLAN
+	Ethertype  uint16
+	Payload    []uint8
+}*/

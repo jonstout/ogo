@@ -4,17 +4,19 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
+	
+	"github.com/jonstout/ogo/protocol/ofpxx"
 )
 
 // BEGIN: ofp10 - 5.4.4
 // ofp_error_msg 1.0
 type ErrorMsg struct {
-	Header Header
+	Header ofpxx.Header
 	Code   uint16
 	Data   []uint8
 }
 
-func (e *ErrorMsg) GetHeader() *Header {
+func (e *ErrorMsg) GetHeader() *ofpxx.Header {
 	return &e.Header
 }
 
@@ -37,10 +39,8 @@ func (e *ErrorMsg) Read(b []byte) (n int, err error) {
 
 func (e *ErrorMsg) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
-	n, err = e.Header.Write(buf.Next(8))
-	if n == 0 {
-		return
-	}
+	err = e.Header.UnmarshelBinary(buf.Next(8))
+
 	if err = binary.Read(buf, binary.BigEndian, &e.Code); err != nil {
 		return
 	}

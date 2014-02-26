@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"io"
 	"net"
+
+	"github.com/jonstout/ogo/protocol/ofpxx"
 )
 
 type SwitchFeatures struct {
-	Header Header
+	Header ofpxx.Header
 	//DPID uint64
 	DPID net.HardwareAddr
 	//DPID [8]uint8
@@ -26,10 +27,10 @@ type SwitchFeatures struct {
 // OFP_ASSERT(len(SwitchFeatures) == 32)
 
 // FeaturesRequest constructor
-func NewFeaturesRequest() *Header {
-	req := NewHeader()
+func NewFeaturesRequest() *ofpxx.Header {
+	req := ofpxx.NewOfp10Header()
 	req.Type = T_FEATURES_REQUEST
-	return req
+	return &req
 }
 
 // FeaturesReply constructor
@@ -49,7 +50,7 @@ func (s *SwitchFeatures) Len() (n uint16) {
 	return
 }
 
-func (f *SwitchFeatures) GetHeader() *Header {
+func (f *SwitchFeatures) GetHeader() *ofpxx.Header {
 	return &f.Header
 }
 
@@ -60,53 +61,12 @@ func (f *SwitchFeatures) Read(b []byte) (n int, err error) {
 	return
 }
 
-func (f *SwitchFeatures) ReadFrom(r io.Reader) (n int64, err error) {
-	if n, err = f.Header.ReadFrom(r); n == 0 {
-		return
-	}
-	f.DPID = make([]byte, 8)
-	if err = binary.Read(r, binary.BigEndian, &f.DPID); err != nil {
-		return
-	}
-	n += 8
-	if err = binary.Read(r, binary.BigEndian, &f.Buffers); err != nil {
-		return
-	}
-	n += 4
-	if err = binary.Read(r, binary.BigEndian, &f.Tables); err != nil {
-		return
-	}
-	n += 1
-	if err = binary.Read(r, binary.BigEndian, &f.Pad); err != nil {
-		return
-	}
-	n += 3
-	if err = binary.Read(r, binary.BigEndian, &f.Capabilities); err != nil {
-		return
-	}
-	n += 4
-	if err = binary.Read(r, binary.BigEndian, &f.Actions); err != nil {
-		return
-	}
-	n += 4
-	f.Ports = make([]PhyPort, (int(f.Header.Length)-32)/48)
-	for i := 0; i < (int(f.Header.Length)-32)/48; i++ {
-		var p PhyPort
-		if m, err2 := p.ReadFrom(r); m == 0 {
-			return m, err2
-		}
-		f.Ports[i] = p
-		n += 48
-	}
-	return
-}
-
 func (f *SwitchFeatures) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
-	n, err = f.Header.Write(buf.Next(8))
-	if n == 0 {
-		return
+	if err := f.Header.UnmarshelBinary(buf.Next(8)); err != nil {
+		return 0, err
 	}
+	n += 8
 	dpid := make([]uint8, 8)
 	if err = binary.Read(buf, binary.BigEndian, &dpid); err != nil {
 		return
