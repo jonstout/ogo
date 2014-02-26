@@ -1,9 +1,8 @@
 package ipv4
 
 import (
-	"bytes"
 	"encoding/binary"
-	"io"
+	"errors"
 	"net"
 	
 	"github.com/jonstout/ogo/protocol/icmp"
@@ -25,7 +24,7 @@ type IPv4 struct {
 	DSCP           uint8 //6-bits
 	ECN            uint8 //2-bits
 	Length         uint16
-	ID             uint16
+	Id             uint16
 	Flags          uint16 //3-bits
 	FragmentOffset uint16 //13-bits
 	TTL            uint8
@@ -34,7 +33,7 @@ type IPv4 struct {
 	NWSrc          net.IP
 	NWDst          net.IP
 	Options        []byte
-	Data           util.Message // ReadWriteMeasurer
+	Data           util.Message
 }
 
 func (i *IPv4) Len() (n uint16) {
@@ -44,180 +43,73 @@ func (i *IPv4) Len() (n uint16) {
 	return uint16(i.IHL * 4)
 }
 
-func (i *IPv4) Read(b []byte) (n int, err error) {
-	hdr := new(bytes.Buffer)
-	buf := new(bytes.Buffer)
-	var verIhl uint8 = (i.Version << 4) + i.IHL
-	binary.Write(hdr, binary.BigEndian, verIhl)
-	var dscpEcn uint8 = (i.DSCP << 2) + i.ECN
-	binary.Write(hdr, binary.BigEndian, dscpEcn)
-	binary.Write(hdr, binary.BigEndian, i.Length)
-	binary.Write(hdr, binary.BigEndian, i.ID)
-	var flagsFrag uint16 = (i.Flags << 13) + i.FragmentOffset
-	binary.Write(hdr, binary.BigEndian, flagsFrag)
-	binary.Write(hdr, binary.BigEndian, i.TTL)
-	binary.Write(hdr, binary.BigEndian, i.Protocol)
-	binary.Write(hdr, binary.BigEndian, i.Checksum)
-	binary.Write(hdr, binary.BigEndian, i.NWSrc)
-	binary.Write(hdr, binary.BigEndian, i.NWDst)
-	binary.Write(hdr, binary.BigEndian, i.Options)
-	if i.Checksum == 0 {
-		i.Checksum = util.Checksum(hdr.Bytes())
-	}
-	io.CopyN(buf, hdr, 10)
-	binary.Write(buf, binary.BigEndian, i.Checksum)
-	binary.Write(buf, binary.BigEndian, i.NWSrc)
-	binary.Write(buf, binary.BigEndian, i.NWDst)
-	binary.Write(buf, binary.BigEndian, i.Options)
+func (i *IPv4) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, int(i.IHL * 4))
+	var ihl uint8 = (i.Version << 4) + i.IHL
+	data[0] = ihl
+	var ecn uint8 = (i.DSCP << 2) + i.ECN
+	data[1] = ecn
+	binary.BigEndian.PutUint16(data[2:4], i.Length)
+	binary.BigEndian.PutUint16(data[4:6], i.Id)
+	var flg uint16 = (i.Flags << 13) + i.FragmentOffset
+	binary.BigEndian.PutUint16(data[6:8], flg)
+	data[8] = i.TTL
+	data[9] = i.Protocol
+	binary.BigEndian.PutUint16(data[10:12], i.Checksum)
+	copy(data[12:16], i.NWSrc)
+	copy(data[16:20], i.NWDst)
+	n := 20 + len(i.Options)
+	copy(data[20:n], i.Options)
 
-	if i.Data != nil {
-		if n, err := buf.ReadFrom(i.Data); n == 0 {
-			return int(n), err
-		}
-	}
-	if n, err = buf.Read(b); n == 0 {
+	bytes, err := i.Data.MarshalBinary()
+	if err != nil {
 		return
 	}
-	return n, io.EOF
-}
-
-func (i *IPv4) ReadFrom(r io.Reader) (n int64, err error) {
-	var verIhl uint8 = 0
-	if err = binary.Read(r, binary.BigEndian, &verIhl); err != nil {
-		return
-	}
-	n += 1
-	i.Version = verIhl >> 4
-	i.IHL = verIhl & 0x0f
-	var dscpEcn uint8 = 0
-	if err = binary.Read(r, binary.BigEndian, &dscpEcn); err != nil {
-		return
-	}
-	n += 1
-	i.DSCP = dscpEcn >> 2
-	i.ECN = dscpEcn & 0x03
-	if err = binary.Read(r, binary.BigEndian, &i.Length); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(r, binary.BigEndian, &i.ID); err != nil {
-		return
-	}
-	n += 2
-	var flagsFrag uint16 = 0
-	if err = binary.Read(r, binary.BigEndian, &flagsFrag); err != nil {
-		return
-	}
-	n += 2
-	i.Flags = flagsFrag >> 13
-	i.FragmentOffset = flagsFrag & 0x1fff
-	if err = binary.Read(r, binary.BigEndian, &i.TTL); err != nil {
-		return
-	}
-	n += 1
-	if err = binary.Read(r, binary.BigEndian, &i.Protocol); err != nil {
-		return
-	}
-	n += 1
-	if err = binary.Read(r, binary.BigEndian, &i.Checksum); err != nil {
-		return
-	}
-	n += 2
-	i.NWSrc = make([]byte, 4)
-	if err = binary.Read(r, binary.BigEndian, &i.NWSrc); err != nil {
-		return
-	}
-	n += 4
-	i.NWDst = make([]byte, 4)
-	if err = binary.Read(r, binary.BigEndian, &i.NWDst); err != nil {
-		return
-	}
-	n += 4
-	if int(i.IHL) > 5 {
-		i.Options = make([]byte, 4*(int(i.IHL)-5))
-		if err = binary.Read(r, binary.BigEndian, &i.Options); err != nil {
-			return
-		}
-		n += int64(len(i.Options))
-	}
-	switch i.Protocol {
-	case IP_ICMP:
-		trash := make([]byte, int(i.Length-20))
-		binary.Read(r, binary.BigEndian, &trash)
-		i.Data = new(icmp.ICMP)
-		if n, err := i.Data.Read(trash); err != nil {
-			return int64(n), err
-		}
-	case IP_UDP:
-		i.Data = new(udp.UDP)
-		data := make([]byte, int(i.Length-20))
-		binary.Read(r, binary.BigEndian, &data)
-		if n, err := i.Data.Read(data); err != nil {
-			return int64(n), err
-		}
-	default:
-		trash := make([]byte, int(i.Length-20))
-		binary.Read(r, binary.BigEndian, &trash)
-	}
-	n = int64(i.Length)
+	data = append(data, bytes...)
 	return
 }
 
-func (i *IPv4) Write(b []byte) (n int, err error) {
-	verIhl := b[0]
-	n += 1
-	i.Version = verIhl >> 4
-	i.IHL = verIhl & 0x0f
-	dscpEcn := b[1]
-	n += 1
-	i.DSCP = dscpEcn >> 2
-	i.ECN = dscpEcn & 0x03
-	i.Length = binary.BigEndian.Uint16(b[2:4])
-	n += 2
-	i.ID = binary.BigEndian.Uint16(b[4:6])
-	n += 2
-	flagsFrag := binary.BigEndian.Uint16(b[6:8])
-	n += 2
-	i.Flags = flagsFrag >> 13
-	i.FragmentOffset = flagsFrag & 0x1fff
-	i.TTL = b[8]
-	n += 1
-	i.Protocol = b[9]
-	n += 1
-	i.Checksum = binary.BigEndian.Uint16(b[10:12])
-	n += 2
-	i.NWSrc = make([]byte, 4)
-	i.NWSrc = b[12:16]
-	n += 4
-	i.NWDst = make([]byte, 4)
-	i.NWDst = b[16:20]
-	n += 4
-	if int(i.IHL) > 5 {
-		optLen := 4 * (int(i.IHL) - 5)
-		i.Options = make([]byte, optLen)
-		i.Options = b[20 : 20+optLen]
-		n += optLen
+func (i *IPv4) UnmarshalBinary(data []byte) error {
+	if len(data) > 20 {
+		return errors.New("The []byte is too short to unmarshal a full IPv4 message.")
 	}
+	var ihl uint8
+	ihl = data[0]
+	i.Version = ihl >> 4
+	i.IHL = ihl & 0x0f
+
+	var ecn uint8
+	ecn = data[1]
+	i.DSCP = ecn >> 2
+	i.ECN = ecn & 0x03
+
+	i.Length = binary.BigEndian.Uint16(data[2:4])
+	i.Id = binary.BigEndian.Uint16(data[4:6])
+
+	var flg uint16
+	flg = binary.BigEndian.Uint16(data[6:8])
+	i.Flags = flg >> 13
+	i.FragmentOffset = flg & 0x1fff
+
+	i.TTL = data[8]
+	i.Protocol = data[9]
+	i.Checksum = binary.BigEndian.Uint16(data[10:12])
+	i.NWSrc = data[12:16]
+	i.NWDst = data[16:20]
+	n := 20
+
+	for n < int(i.IHL * 4) {
+		i.Options = append(i.Options, data[n])
+		n += 1
+	}
+
 	switch i.Protocol {
-	case IP_ICMP:
-		i.Data = new(icmp.ICMP)
-		m, err := i.Data.Write(b[n:])
-		if err != nil {
-			return m, err
-		}
-		n += m
-	case IP_UDP:
-		i.Data = new(udp.UDP)
-		m, err := i.Data.Write(b[n:])
-		if err != nil {
-			return m, err
-		}
-		n += m
+	case Type_ICMP:
+		i.Data = icmp.New()
+	case Type_UDP:
+		i.Data = udp.New()
 	default:
-		//panic(fmt.Sprintf("%0x\n", i.Protocol))
-		//		trash := make([]byte, int(i.Length-20))
-		//		binary.Read(buf, binary.BigEndian, &trash)
-		n = int(i.Length)
+		i.Data = util.NewBuffer()
 	}
-	return
+	i.Data.UnmarshalBinary(data[n:])
 }
