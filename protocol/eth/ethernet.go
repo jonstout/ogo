@@ -1,13 +1,13 @@
 package eth
 
 import (
-	"bytes"
 	"encoding/binary"
-	"io"
+	"errors"
 	"net"
 	
-	"github.com/jonstout/ogo/protocol/ipv4"
 	"github.com/jonstout/ogo/protocol/arp"
+	"github.com/jonstout/ogo/protocol/ipv4"
+	"github.com/jonstout/ogo/protocol/util"
 )
 
 // see http://en.wikipedia.org/wiki/EtherType
@@ -24,27 +24,16 @@ const (
 	STP_BPDU_MSG = 0xAAAA
 )
 
-type ReadWriterMeasurer interface {
-	io.Reader
-	io.ReaderFrom
-	Len() uint16
-}
-
-type ReadWriteMeasurer interface {
-	io.ReadWriter
-	Len() uint16
-}
-
 type Ethernet struct {
 	Delimiter uint8
 	HWDst     net.HardwareAddr
 	HWSrc     net.HardwareAddr
 	VLANID    VLAN
 	Ethertype uint16
-	Data      ReadWriteMeasurer
+	Data      util.Message
 }
 
-func NewEthernet() *Ethernet {
+func New() *Ethernet {
 	eth := new(Ethernet)
 	eth.HWDst = net.HardwareAddr(make([]byte, 6))
 	eth.HWSrc = net.HardwareAddr(make([]byte, 6))
@@ -65,73 +54,54 @@ func (e *Ethernet) Len() (n uint16) {
 	return
 }
 
-func (e *Ethernet) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	//If you send a packet with the delimiter to the wire
-	//packets are incorrectly interpreted.
-	binary.Write(buf, binary.BigEndian, e.HWDst)
-	binary.Write(buf, binary.BigEndian, e.HWSrc)
+func (e *Ethernet) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, e.Len() - e.Data.Len())
+	n := 0
+	copy(data[:n+len(e.HWDst)], e.HWDst)
+	n += len(e.HWDst)
+	copy(data[n:n+len(e.HWSrc)], e.HWSrc)
+	n += len(e.HWSrc)
 
-	if e.VLANID.VID != 0 {
-		c := []byte{0, 0}
-		e.VLANID.Read(c)
-		binary.Write(buf, binary.BigEndian, c)
-	}
-	binary.Write(buf, binary.BigEndian, e.Ethertype)
-	// In case the data type isn't known
-	if e.Data != nil {
-		if n, err := buf.ReadFrom(e.Data); n == 0 {
-			return int(n), err
-		}
-	}
-	n, err = buf.Read(b)
-	return n, io.EOF
-}
-
-type PacitBuffer struct{ *bytes.Buffer }
-
-func NewBuffer(buf []byte) *PacitBuffer {
-	b := &PacitBuffer{bytes.NewBuffer(buf)}
-	return b
-}
-
-func (b *PacitBuffer) Len() uint16 {
-	return uint16(b.Buffer.Len())
-}
-
-func (e *Ethernet) Write(b []byte) (n int, err error) {
-	// Delimiter comes in from the wire. Not sure why this is the case, ignore
-	buf := bytes.NewBuffer(b[1:])
-	e.HWDst = make([]byte, 6)
-	if err = binary.Read(buf, binary.BigEndian, &e.HWDst); err != nil {
+	bytes, err := e.VLANID.MarshalBinary()
+	if err != nil {
 		return
 	}
-	n += 6
-	e.HWSrc = make([]byte, 6)
-	if err = binary.Read(buf, binary.BigEndian, &e.HWSrc); err != nil {
-		return
-	}
-	n += 6
-	if err = binary.Read(buf, binary.BigEndian, &e.Ethertype); err != nil {
-		return
-	}
+	copy(data[n:n+len(bytes)], bytes)
+	n += len(bytes)
+
+	binary.BigEndian.PutUint16(data[n:n+2], e.Ethertype)
 	n += 2
 
-	// If tagged
+	bytes, err = e.Data.MarshalBinary()
+	if err != nil {
+		return
+	}
+	copy(data[n:n+len(bytes)], bytes)
+	return
+}
+
+func (e *Ethernet) UnmarshalBinary(data []byte) error {
+	if len(data) < 12 {
+		return errors.New("The []byte is too short to unmarshal a full Ethernet message.")
+	}
+	n := 0
+	e.HWDst = data[:n+len(e.HWDst)]
+	n += len(e.HWDst)
+
+	e.HWSrc = data[n:n+len(e.HWSrc)]
+	n += len(e.HWSrc)
+
+	e.Ethertype = binary.BigEndian.Uint16(data[n:n+2])
+	n += 2
 	if e.Ethertype == VLAN_MSG {
 		e.VLANID = *new(VLAN)
-		vbuf := make([]byte, 5)
-		if err = binary.Read(buf, binary.BigEndian, vbuf); err != nil {
-			return
+		err := e.VLANID.UnmarshalBinary(data[n:n+5])
+		if err != nil {
+			return err
 		}
-		if m, verr := e.VLANID.Write(vbuf); verr != nil {
-			return
-		} else {
-			n += m
-		}
-		if err = binary.Read(buf, binary.BigEndian, &e.Ethertype); err != nil {
-			return
-		}
+		n += 5
+
+		e.Ethertype = binary.BigEndian.Uint16(data[n:n+2])
 		n += 2
 	} else {
 		e.VLANID = *new(VLAN)
@@ -141,17 +111,13 @@ func (e *Ethernet) Write(b []byte) (n int, err error) {
 	switch e.Ethertype {
 	case IPv4_MSG:
 		e.Data = new(ipv4.IPv4)
-		m, _ := e.Data.Write(buf.Bytes())
-		n += m
 	case ARP_MSG:
 		e.Data = new(arp.ARP)
-		m, _ := e.Data.Write(buf.Bytes())
-		n += m
 	default:
-		e.Data = NewBuffer(buf.Bytes())
-		n += int(e.Data.Len())
+		e.Data = new(util.Buffer)
 	}
-	return
+	err := e.Data.UnmarshalBinary(data[n:])
+	return err
 }
 
 const (
@@ -174,41 +140,28 @@ func NewVLAN() *VLAN {
 	return v
 }
 
-func (v *VLAN) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, v.TPID)
-	var tci uint16 = 0
+func (v *VLAN) Len() (n uint16) {
+	return 4
+}
+
+func (v *VLAN) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, v.Len())
+	binary.BigEndian.PutUint16(data[:2], v.TPID)
+	var tci uint16
 	tci = (tci | uint16(v.PCP)<<13) + (tci | uint16(v.DEI)<<12) + (tci | uint16(v.VID))
-	binary.Write(buf, binary.BigEndian, tci)
-	n, err = buf.Read(b)
+	binary.BigEndian.PutUint16(data[2:], tci)
 	return
 }
 
-func (v *VLAN) ReadFrom(r io.Reader) (n int64, err error) {
-	var tci uint16 = 0
-	if err = binary.Read(r, binary.BigEndian, &tci); err != nil {
-		return
+func (v *VLAN) UnmarshalBinary(data []byte) error {
+	if len(data) < 4 {
+		return errors.New("The []byte is too short to unmarshal a full VLAN header.")
 	}
-	n += 2
+	v.TPID = binary.BigEndian.Uint16(data[:2])
+	var tci uint16
+	tci = binary.BigEndian.Uint16(data[2:])
 	v.PCP = uint8(PCP_MASK & tci >> 13)
 	v.DEI = uint8(DEI_MASK & tci >> 12)
 	v.VID = uint8(VID_MASK & tci)
-	return
-}
-
-func (v *VLAN) Write(b []byte) (n int, err error) {
-	var tci uint16 = 0
-	buf := bytes.NewBuffer(b)
-	if err = binary.Read(buf, binary.BigEndian, &v.TPID); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &tci); err != nil {
-		return
-	}
-	n += 2
-	v.PCP = uint8(PCP_MASK & tci >> 13)
-	v.DEI = uint8(DEI_MASK & tci >> 12)
-	v.VID = uint8(VID_MASK & tci)
-	return
+	return nil
 }

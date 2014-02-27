@@ -32,7 +32,7 @@ type IPv4 struct {
 	Checksum       uint16
 	NWSrc          net.IP
 	NWDst          net.IP
-	Options        []byte
+	Options        util.Buffer
 	Data           util.Message
 }
 
@@ -58,8 +58,8 @@ func (i *IPv4) MarshalBinary() (data []byte, err error) {
 	binary.BigEndian.PutUint16(data[10:12], i.Checksum)
 	copy(data[12:16], i.NWSrc)
 	copy(data[16:20], i.NWDst)
-	n := 20 + len(i.Options)
-	copy(data[20:n], i.Options)
+	n := 20 + i.Options.Len()
+	i.Options.Read(data[20:n])
 
 	bytes, err := i.Data.MarshalBinary()
 	if err != nil {
@@ -70,7 +70,7 @@ func (i *IPv4) MarshalBinary() (data []byte, err error) {
 }
 
 func (i *IPv4) UnmarshalBinary(data []byte) error {
-	if len(data) > 20 {
+	if len(data) < 20 {
 		return errors.New("The []byte is too short to unmarshal a full IPv4 message.")
 	}
 	var ihl uint8
@@ -98,10 +98,9 @@ func (i *IPv4) UnmarshalBinary(data []byte) error {
 	i.NWDst = data[16:20]
 	n := 20
 
-	for n < int(i.IHL * 4) {
-		i.Options = append(i.Options, data[n])
-		n += 1
-	}
+	i.Options = *new(util.Buffer)
+	i.Options.UnmarshalBinary(data[n:int(i.IHL * 4)])
+	n += int(i.IHL *4)
 
 	switch i.Protocol {
 	case Type_ICMP:
@@ -109,7 +108,8 @@ func (i *IPv4) UnmarshalBinary(data []byte) error {
 	case Type_UDP:
 		i.Data = udp.New()
 	default:
-		i.Data = util.NewBuffer()
+		i.Data = new(util.Buffer)
 	}
-	i.Data.UnmarshalBinary(data[n:])
+	err := i.Data.UnmarshalBinary(data[n:])
+	return err
 }
