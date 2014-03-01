@@ -4,87 +4,78 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
+
+	"github.com/jonstout/ogo/protocol/ofpxx"
+	"github.com/jonstout/ogo/protocol/util"
 )
 
 // ofp_stats_request 1.0
 type StatsRequest struct {
-	Header Header
+	ofpxx.Header
 	Type   uint16
 	Flags  uint16
-	Body   interface{}
+	Body   util.Message
 }
 
-func (s *StatsRequest) GetHeader() *Header {
-	return &s.Header
+func (s *StatsRequest) Len() (n uint16) {
+	return s.Header.Len() + 4 + s.Body.Len()
 }
 
-func (s *StatsRequest) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, s)
-	n, err = buf.Read(b)
-	if err != nil {
-		return
-	}
-	return n, io.EOF
-}
+func (s *StatsRequest) MarshalBinary() (data []byte, err error) {
+	data, err = s.Header.MarshalBinary()
 
-func (s *StatsRequest) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	n, err = s.Header.Write(buf.Next(8))
-	if n == 0 {
-		return
-	}
-	err = binary.Read(buf, binary.BigEndian, &s.Type)
+	b := make([]byte, 4)
+	n := 0
+	binary.BigEndian.PutUint16(b[n:], s.Type)
 	n += 2
-	err = binary.Read(buf, binary.BigEndian, &s.Flags)
+	binary.BigEndian.PutUint16(b[n:], s.Flags)
 	n += 2
-	m := 0
-	switch s.Type {
-	case ST_AGGREGATE:
-		// empty
-		break
-	case ST_DESC:
-		// empty
-		break
-	case ST_FLOW:
-		// _aggregate_stats_request
-		a := s.Body.(*AggregateStatsRequest)
-		m, err = a.Write(buf.Bytes())
-		if m == 0 {
-			return
-		}
-		n += m
-	case ST_PORT:
-		// _port_stats_request
-		p := s.Body.(*PortStatsRequest)
-		m, err = p.Write(buf.Bytes())
-		if m == 0 {
-			return
-		}
-		n += m
-	case ST_TABLE:
-		// empty
-		break
-	case ST_QUEUE:
-		// ofp_queue_stats_request
-		q := s.Body.(*QueueStatsRequest)
-		m, err = q.Write(buf.Bytes())
-		if m == 0 {
-			return
-		}
-		n += m
-	case ST_VENDOR:
-		break
-	}
+	data = append(data, b...)
+
+	b, err = s.Body.MarshalBinary()
+	data = append(data, b...)
 	return
+}
+
+func (s *StatsRequest) UnmarshalBinary(data []byte) error {
+	err := s.Header.UnmarshalBinary(data)
+	n := s.Header.Len()
+
+	s.Type = binary.BigEndian.Uint16(data[n:])
+	n += 2
+	s.Flags = binary.BigEndian.Uint16(data[n:])
+	n += 2
+
+	var req util.Message
+	switch s.Type {
+	case StatsType_Aggregate:
+		req = s.Body.(*AggregateStatsRequest)
+		err = req.UnmarshalBinary(data[n:])
+	case StatsType_Desc:
+		break
+	case StatsType_Flow:
+		req = s.Body.(*FlowStatsRequest)
+		err = req.UnmarshalBinary(data[n:])
+	case StatsType_Port:
+		req = s.Body.(*PortStatsRequest)
+		err = req.UnmarshalBinary(data[n:])
+	case StatsType_Table:
+		break
+	case StatsType_Queue:
+		req = s.Body.(*QueueStatsRequest)
+		err = req.UnmarshalBinary(data[n:])
+	case StatsType_Vendor:
+		break
+	}
+	return err
 }
 
 // _stats_reply 1.0
 type StatsReply struct {
-	Header Header
+	ofpxx.Header
 	Type   uint16
 	Flags  uint16
-	Body   []uint8
+	Body   util.Message
 }
 
 func (s *StatsReply) Len() (n uint16) {
@@ -94,85 +85,54 @@ func (s *StatsReply) Len() (n uint16) {
 	return
 }
 
-func (s *StatsReply) GetHeader() *Header {
-	return &s.Header
+func (s *StatsReply) MarshalBinary() (data []byte, err error) {
+	data, err = s.Header.MarshalBinary()
+
+	b := make([]byte, 4)
+	n := 0
+	binary.BigEndian.PutUint16(b[n:], s.Type)
+	n += 2
+	binary.BigEndian.PutUint16(b[n:], s.Flags)
+	n += 2
+	data = append(data, b...)
+
+	b, err = s.Body.MarshalBinary()
+	data = append(data, b...)
+	return
 }
 
-func (s *StatsReply) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, s)
-	n, err = buf.Read(b)
-	if n == 0 {
-		return
-	}
-	return n, io.EOF
-}
+func (s *StatsReply) UnmarshalBinary(data []byte) error {
+	err := s.Header.UnmarshalBinary(data)
+	n := s.Header.Len()
 
-func (s *StatsReply) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	n, err = s.Header.Write(buf.Next(8))
-	if n == 0 {
-		return
-	}
-	err = binary.Read(buf, binary.BigEndian, &s.Type)
+	s.Type = binary.BigEndian.Uint16(data[n:])
 	n += 2
-	err = binary.Read(buf, binary.BigEndian, &s.Flags)
+	s.Flags = binary.BigEndian.Uint16(data[n:])
 	n += 2
+
+	var req util.Message
 	switch s.Type {
-	case ST_AGGREGATE:
-		a := new(AggregateStatsReply)
-		m, aErr := a.Write(buf.Bytes())
-		if aErr != nil {
-			return
-		}
-		n += m
-	case ST_DESC:
-		d := new(DescStats)
-		m, dErr := d.Write(buf.Bytes())
-		if dErr != nil {
-			return
-		}
-		n += m
-	case ST_FLOW:
-		for flowCount := buf.Len() / 24; flowCount > 0; flowCount-- {
-			f := new(FlowStats)
-			m, fErr := f.Write(buf.Next(24))
-			if fErr != nil {
-				return
-			}
-			n += m
-		}
-	case ST_PORT:
-		for portCount := buf.Len() / 104; portCount > 0; portCount-- {
-			p := new(FlowStats)
-			m, pErr := p.Write(buf.Next(104))
-			if pErr != nil {
-				return
-			}
-			n += m
-		}
-	case ST_TABLE:
-		for tableCount := buf.Len() / 32; tableCount > 0; tableCount-- {
-			t := new(FlowStats)
-			m, tErr := t.Write(buf.Next(32))
-			if tErr != nil {
-				return
-			}
-			n += m
-		}
-	case ST_QUEUE:
-		for queueCount := buf.Len() / 32; queueCount > 0; queueCount-- {
-			q := new(QueueStats)
-			m, qErr := q.Write(buf.Next(32))
-			if qErr != nil {
-				return
-			}
-			n += m
-		}
-	case ST_VENDOR:
+	case StatsType_Aggregate:
+		req = s.Body.(*AggregateStats)
+	case StatsType_Desc:
+		req = s.Body.(*DescStats)
+	case StatsType_Flow:
+		// Array
+		req = s.Body.(*FlowStats)
+	case StatsType_Port:
+		req = s.Body.(*PortStats)
+	case StatsType_Table:
+		// Array
+		req = s.Body.(*TableStats)
+	case StatsType_Queue:
+		// Array
+		req = s.Body.(*QueueStats)
+	case StatsType_Vendor:
+		// Array of Group Stats
 		break
 	}
-	return n, nil
+	err = req.UnmarshalBinary(data[n:])
+	return err
 }
 
 // _stats_types
@@ -180,31 +140,31 @@ const (
 	/* Description of this OpenFlow switch.
 	* The request body is empty.
 	* The reply body is struct ofp_desc_stats. */
-	ST_DESC = iota
+	StatsType_Desc = iota
 	/* Individual flow statistics.
 	* The request body is struct ofp_flow_stats_request.
 	* The reply body is an array of struct ofp_flow_stats. */
-	ST_FLOW
+	StatsType_Flow
 	/* Aggregate flow statistics.
 	* The request body is struct ofp_aggregate_stats_request.
 	* The reply body is struct ofp_aggregate_stats_reply. */
-	ST_AGGREGATE
+	StatsType_Aggregate
 	/* Flow table statistics.
 	* The request body is empty.
 	* The reply body is an array of struct ofp_table_stats. */
-	ST_TABLE
+	StatsType_Table
 	/* Port statistics.
 	* The request body is struct ofp_port_stats_request.
 	* The reply body is an array of struct ofp_port_stats. */
-	ST_PORT
+	StatsType_Port
 	/* Queue statistics for a port
 	* The request body is struct _queue_stats_request.
 	* The reply body is an array of struct ofp_queue_stats */
-	ST_QUEUE
+	StatsType_Queue
 	/* Group counter statistics.
 	* The request body is struct ofp_group_stats_request.
 	* The reply is an array of struct ofp_group_stats. */
-	ST_VENDOR = 0xffff
+	StatsType_Vendor = 0xffff
 )
 
 // ofp_desc_stats 1.0
@@ -489,7 +449,7 @@ type AggregateStatsReply struct {
 	PacketCount uint64
 	ByteCount   uint64
 	FlowCount   uint32
-	Pad         [4]uint8
+	Pad         []uint8 // Size 4
 }
 
 func (s *AggregateStatsReply) Read(b []byte) (n int, err error) {
@@ -530,8 +490,8 @@ func (s *AggregateStatsReply) Write(b []byte) (n int, err error) {
 // ofp_table_stats 1.0
 type TableStats struct {
 	TableID      uint8
-	Pad          [3]uint8
-	Name         [MAX_TABLE_NAME_LEN]byte
+	Pad          []uint8 // Size 3
+	Name         []byte // Size MAX_TABLE_NAME_LEN
 	Wildcards    uint32
 	MaxEntries   uint32
 	ActiveCount  uint32
@@ -601,7 +561,7 @@ const (
 // ofp_port_stats_request 1.0
 type PortStatsRequest struct {
 	PortNo uint16
-	Pad    [6]uint8
+	Pad    []uint8 // Size 6
 }
 
 func (s *PortStatsRequest) Read(b []byte) (n int, err error) {
@@ -632,7 +592,7 @@ func (s *PortStatsRequest) Write(b []byte) (n int, err error) {
 // ofp_port_stats 1.0
 type PortStats struct {
 	PortNo     uint16
-	Pad        [6]uint8
+	Pad        []uint8 // Size 6
 	RxPackets  uint64
 	TxPackets  uint64
 	RxBytes    uint64
@@ -750,7 +710,7 @@ func (s *PortStats) Write(b []byte) (n int, err error) {
 // ofp_queue_stats_request 1.0
 type QueueStatsRequest struct {
 	PortNo  uint16
-	Pad     [2]uint8
+	Pad     []uint8 // Size 2
 	QueueID uint32
 }
 
@@ -787,7 +747,7 @@ func (s *QueueStatsRequest) Write(b []byte) (n int, err error) {
 // ofp_queue_stats 1.0
 type QueueStats struct {
 	PortNo    uint16
-	Pad       [2]uint8
+	Pad       []uint8 // Size 2
 	QueueID   uint32
 	TxBytes   uint64
 	TxPackets uint64
@@ -841,14 +801,10 @@ func (s *QueueStats) Write(b []byte) (n int, err error) {
 
 // ofp_port_status
 type PortStatus struct {
-	Header Header
+	ofpxx.Header
 	Reason uint8
-	Pad    [7]uint8
+	Pad    []uint8 // Size 7
 	Desc   PhyPort
-}
-
-func (p *PortStatus) GetHeader() *Header {
-	return &p.Header
 }
 
 func (p *PortStatus) Len() (n uint16) {

@@ -50,8 +50,8 @@ const (
 	Type_Vendor
 
 	/* Switch configuration messages. */
-	T_FEATURES_REQUEST
-	T_FEATURES_REPLY
+	Type_Features_Request
+	Type_Features_Reply
 	T_GET_CONFIG_REQUEST
 	T_GET_CONFIG_REPLY
 	T_SET_CONFIG
@@ -64,7 +64,7 @@ const (
 	/* Controller command messages. */
 	Type_Packet_Out
 	T_FLOW_MOD
-	T_PORT_MOD
+	Type_PortMod
 
 	/* Statistics messages. */
 	T_STATS_REQUEST

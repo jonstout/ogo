@@ -1,9 +1,7 @@
 package ofp10
 
 import (
-	"bytes"
 	"encoding/binary"
-	"io"
 	"net"
 
 	"github.com/jonstout/ogo/protocol/ofpxx"
@@ -13,7 +11,7 @@ import (
 type PhyPort struct {
 	PortNo uint16
 	HWAddr net.HardwareAddr
-	Name   []byte
+	Name   []byte // Size 16
 
 	Config uint32
 	State  uint32
@@ -24,180 +22,135 @@ type PhyPort struct {
 	Peer       uint32
 }
 
+func NewPhyPort() *PhyPort {
+	p := new(PhyPort)
+	p.HWAddr = make([]byte, ETH_ALEN)
+	p.Name = make([]byte, 16)
+	return p
+}
+
 func (p *PhyPort) Len() (n uint16) {
 	n += 2
-	n += uint16(len(p.HWAddr))
-	n += uint16(len(p.Name))
+	n += uint16(len(p.HWAddr) + len(p.Name))
 	n += 24
 	return
 }
 
-func (p *PhyPort) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, p)
-	n, err = buf.Read(b)
-	if err != nil {
-		return
-	}
-	return n, io.EOF
-}
-
-func (p *PhyPort) ReadFrom(r io.Reader) (n int64, err error) {
-	if err = binary.Read(r, binary.BigEndian, &p.PortNo); err != nil {
-		return
-	}
-	n += 2
-	p.HWAddr = make([]byte, ETH_ALEN)
-	if err = binary.Read(r, binary.BigEndian, &p.HWAddr); err != nil {
-		return
-	}
-	n += int64(ETH_ALEN)
-	p.Name = make([]byte, MAX_PORT_NAME_LEN)
-	if err = binary.Read(r, binary.BigEndian, &p.Name); err != nil {
-		return
-	}
-	n += int64(MAX_PORT_NAME_LEN)
-	if err = binary.Read(r, binary.BigEndian, &p.Config); err != nil {
-		return
-	}
+func (p *PhyPort) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, int(p.Len()))
+	binary.BigEndian.PutUint16(data, p.PortNo)
+	n := 2
+	
+	copy(data[n:], p.HWAddr)
+	n += len(p.HWAddr)
+	copy(data[n:], p.Name)
+	n += len(p.Name)
+	
+	binary.BigEndian.PutUint32(data[n:], p.Config)
 	n += 4
-	if err = binary.Read(r, binary.BigEndian, &p.State); err != nil {
-		return
-	}
+	binary.BigEndian.PutUint32(data[n:], p.State)
 	n += 4
-	if err = binary.Read(r, binary.BigEndian, &p.Curr); err != nil {
-		return
-	}
+	binary.BigEndian.PutUint32(data[n:], p.Curr)
 	n += 4
-	if err = binary.Read(r, binary.BigEndian, &p.Advertised); err != nil {
-		return
-	}
+	binary.BigEndian.PutUint32(data[n:], p.Advertised)
 	n += 4
-	if err = binary.Read(r, binary.BigEndian, &p.Supported); err != nil {
-		return
-	}
+	binary.BigEndian.PutUint32(data[n:], p.Supported)
 	n += 4
-	if err = binary.Read(r, binary.BigEndian, &p.Peer); err != nil {
-		return
-	}
+	binary.BigEndian.PutUint32(data[n:], p.Peer)
 	n += 4
 	return
 }
 
-func (p *PhyPort) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	err = binary.Read(buf, binary.BigEndian, &p.PortNo)
-	if err != nil {
-		return
-	}
-	n += 2
-	err = binary.Read(buf, binary.BigEndian, &p.HWAddr)
-	if err != nil {
-		return
-	}
+func (p *PhyPort) UnmarshalBinary(data []byte) error {
+	p.PortNo = binary.BigEndian.Uint16(data)
+	n := 2
+
+	copy(p.HWAddr, data[n:n+6])
 	n += 6
-	err = binary.Read(buf, binary.BigEndian, &p.Name)
-	if err != nil {
-		return
-	}
+	copy(p.Name, data[n:n+16])
 	n += 16
-	err = binary.Read(buf, binary.BigEndian, &p.Config)
-	if err != nil {
-		return
-	}
+
+	p.Config = binary.BigEndian.Uint32(data[n:])
 	n += 4
-	err = binary.Read(buf, binary.BigEndian, &p.State)
-	if err != nil {
-		return
-	}
+	p.State = binary.BigEndian.Uint32(data[n:])
 	n += 4
-	err = binary.Read(buf, binary.BigEndian, &p.Curr)
-	if err != nil {
-		return
-	}
+	p.Curr = binary.BigEndian.Uint32(data[n:])
 	n += 4
-	err = binary.Read(buf, binary.BigEndian, &p.Advertised)
-	if err != nil {
-		return
-	}
+	p.Advertised = binary.BigEndian.Uint32(data[n:])
 	n += 4
-	err = binary.Read(buf, binary.BigEndian, &p.Supported)
-	if err != nil {
-		return
-	}
+	p.Supported = binary.BigEndian.Uint32(data[n:])
 	n += 4
-	err = binary.Read(buf, binary.BigEndian, &p.Peer)
-	if err != nil {
-		return
-	}
+	p.Peer = binary.BigEndian.Uint32(data[n:])
 	n += 4
-	return n, err
+	return nil
 }
 
 // ofp_port_mod 1.0
 type PortMod struct {
-	Header ofpxx.Header
+	ofpxx.Header
 	PortNo uint16
-	HWAddr [ETH_ALEN]uint8
+	HWAddr []uint8
 
 	Config    uint32
 	Mask      uint32
 	Advertise uint32
-	Pad       [4]uint8
+	pad       []uint8 // Size 4
 }
 
-func (p *PortMod) GetHeader() *ofpxx.Header {
-	return &p.Header
+func NewPortMod(port int) *PortMod {
+	p := new(PortMod)
+	p.Header.Type = Type_PortMod
+	p.PortNo = uint16(port)
+	p.HWAddr = make([]byte, ETH_ALEN)
+	p.pad = make([]byte, 4)
+	return p
 }
 
-func (p *PortMod) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, p)
-	n, err = buf.Read(b)
-	if err != nil {
-		return
-	}
-	return n, io.EOF
+func (p *PortMod) Len() (n uint16) {
+	return p.Header.Len() + 2 + ETH_ALEN + 16
 }
 
-func (p *PortMod) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	n, err = p.Header.Write(buf.Next(8))
-	if n == 0 {
-		return
-	}
-	err = binary.Read(buf, binary.BigEndian, &p.PortNo)
-	if err != nil {
-		return
-	}
+func (p *PortMod) MarshalBinary() (data []byte, err error) {
+	p.Header.Length = p.Len()
+	data, err = p.Header.MarshalBinary()
+
+	b := make([]byte, 24)
+	n := 0
+	binary.BigEndian.PutUint16(b[n:], p.PortNo)
 	n += 2
-	err = binary.Read(buf, binary.BigEndian, &p.HWAddr)
-	if err != nil {
-		return
-	}
-	n += 6
-	err = binary.Read(buf, binary.BigEndian, &p.Config)
-	if err != nil {
-		return
-	}
+	copy(b[n:], p.HWAddr)
+	n += ETH_ALEN
+	binary.BigEndian.PutUint32(b[n:], p.Config)
 	n += 4
-	err = binary.Read(buf, binary.BigEndian, &p.Mask)
-	if err != nil {
-		return
-	}
+	binary.BigEndian.PutUint32(b[n:], p.Mask)
 	n += 4
-	err = binary.Read(buf, binary.BigEndian, &p.Advertise)
-	if err != nil {
-		return
-	}
+	binary.BigEndian.PutUint32(b[n:], p.Advertise)
 	n += 4
-	err = binary.Read(buf, binary.BigEndian, &p.Pad)
-	if err != nil {
-		return
-	}
+	copy(b[n:], p.pad)
 	n += 4
-	return n, nil
+	data = append(data, b...)
+	return
 }
+
+func (p *PortMod) UnmarshalBinary(data []byte) error {
+	err := p.Header.UnmarshalBinary(data)
+	n := int(p.Header.Len())
+
+	p.PortNo = binary.BigEndian.Uint16(data[n:])
+	n += 4
+	copy(p.HWAddr, data[n:])
+	n += len(p.HWAddr)
+	p.Config = binary.BigEndian.Uint32(data[n:])
+	n += 4
+	p.Mask = binary.BigEndian.Uint32(data[n:])
+	n += 4
+	p.Advertise = binary.BigEndian.Uint32(data[n:])
+	n += 4
+	copy(p.pad, data[n:])
+	n += len(p.pad)
+	return nil
+}
+
 
 const (
 	ETH_ALEN          = 6

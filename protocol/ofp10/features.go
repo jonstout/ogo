@@ -3,7 +3,7 @@ package ofp10
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
+	//"errors"
 	"net"
 
 	"github.com/jonstout/ogo/protocol/ofpxx"
@@ -29,14 +29,14 @@ type SwitchFeatures struct {
 // FeaturesRequest constructor
 func NewFeaturesRequest() *ofpxx.Header {
 	req := ofpxx.NewOfp10Header()
-	req.Type = T_FEATURES_REQUEST
+	req.Type = Type_Features_Request
 	return &req
 }
 
 // FeaturesReply constructor
 func NewFeaturesReply() *SwitchFeatures {
 	res := new(SwitchFeatures)
-	res.Header.Type = T_FEATURES_REPLY
+	res.Header.Type = Type_Features_Reply
 	return res
 }
 
@@ -94,20 +94,11 @@ func (f *SwitchFeatures) Write(b []byte) (n int, err error) {
 	}
 	n += 4
 
-	// Verify port data structures are the correct size.
-	if buf.Len()%48 != 0 {
-		return n, errors.New("Ports recieved are malformed.")
-	}
-	portCount := buf.Len() / 48
-	f.Ports = make([]PhyPort, portCount)
-	for i := 0; i < portCount; i++ {
-		p := new(PhyPort)
-		m, portErr := p.Write(buf.Next(48))
-		if portErr != nil {
-			return n, portErr
-		}
-		n += m
-		f.Ports[i] = *p
+	f.Ports = make([]PhyPort, 0)
+	for n < len(b) {
+		p := NewPhyPort()
+		p.UnmarshalBinary(b[n:])
+		f.Ports = append(f.Ports, *p)
 	}
 	return
 }
