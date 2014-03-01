@@ -66,7 +66,7 @@ func (f *FlowMod) Len() (n uint16) {
 func (f *FlowMod) Read(b []byte) (n int, err error) {
 	f.Header.Length = f.Len()
 	buf := new(bytes.Buffer)
-	data, _ := f.Header.MarshelBinary()
+	data, _ := f.Header.MarshalBinary()
 	buf.Write(data)
 	buf.ReadFrom(&f.Match)
 	binary.Write(buf, binary.BigEndian, f.Cookie)
@@ -79,7 +79,8 @@ func (f *FlowMod) Read(b []byte) (n int, err error) {
 	binary.Write(buf, binary.BigEndian, f.Flags)
 	if f.Command != FC_DELETE && f.Command != FC_DELETE_STRICT {
 		for _, a := range f.Actions {
-			buf.ReadFrom(a)
+			bytes, _ := a.MarshalBinary()
+			buf.Write(bytes)
 		}
 	}
 	n, err = buf.Read(b)
@@ -91,7 +92,7 @@ func (f *FlowMod) Read(b []byte) (n int, err error) {
 
 func (f *FlowMod) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
-	err = f.Header.UnmarshelBinary(buf.Next(8))
+	err = f.Header.UnmarshalBinary(buf.Next(8))
 	n += 8
 	m := 0
 	m, err = f.Match.Write(buf.Next(40))
@@ -202,7 +203,7 @@ func (f *FlowRemoved) Read(b []byte) (n int, err error) {
 
 func (f *FlowRemoved) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
-	err = f.Header.UnmarshelBinary(buf.Next(8))
+	err = f.Header.UnmarshalBinary(buf.Next(8))
 	n += 8
 	m := 0
 	m, err = f.Match.Write(buf.Next(40))

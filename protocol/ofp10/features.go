@@ -63,7 +63,7 @@ func (f *SwitchFeatures) Read(b []byte) (n int, err error) {
 
 func (f *SwitchFeatures) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
-	if err := f.Header.UnmarshelBinary(buf.Next(8)); err != nil {
+	if err := f.Header.UnmarshalBinary(buf.Next(8)); err != nil {
 		return 0, err
 	}
 	n += 8

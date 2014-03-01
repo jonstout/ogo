@@ -1,9 +1,8 @@
 package ofp10
 
 import (
-	"bytes"
 	"encoding/binary"
-	"io"
+	"errors"
 	"net"
 
 	"github.com/jonstout/ogo/protocol/util"
@@ -11,24 +10,54 @@ import (
 
 // ofp_action_type 1.0
 const (
-	AT_OUTPUT = iota
-	AT_SET_VLAN_VID
-	AT_SET_VLAN_PCP
-	AT_STRIP_VLAN
-	AT_SET_DL_SRC
-	AT_SET_DL_DST
-	AT_SET_NW_SRC
-	AT_SET_NW_DST
-	AT_SET_NW_TOS
-	AT_SET_TP_SRC
-	AT_SET_TP_DST
-	AT_ENQUEUE
-	AT_VENDOR = 0xffff
+	ActionType_Output = iota
+	ActionType_SetVLAN_VID
+	ActionType_SetVLAN_PCP
+	ActionType_StripVLAN
+	ActionType_SetDLSrc
+	ActionType_SetDLDst
+	ActionType_SetNWSrc
+	ActionType_SetNWDst
+	ActionType_SetNWTOS
+	ActionType_SetTPSrc
+	ActionType_SetTPDst
+	ActionType_Enqueue
+	ActionType_Vendor = 0xffff
 )
 
 type Action interface {
+	Header() *ActionHeader
 	util.Message
-	ActionType() uint16
+}
+
+type ActionHeader struct {
+	Type uint16
+	Length uint16
+}
+
+func (a *ActionHeader) Header() *ActionHeader {
+	return a
+}
+
+func (a *ActionHeader) Len() (n uint16) {
+	return 4
+}
+
+func (a *ActionHeader) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, a.Len())
+	binary.BigEndian.PutUint16(data[:2], a.Type)
+	binary.BigEndian.PutUint16(data[2:4], a.Length)
+	return
+}
+
+func (a *ActionHeader) UnmarshalBinary(data []byte) error {
+	if len(data) != 4 {
+		return errors.New("The []byte the wrong size to unmarshal an " +
+			"ActionHeader message.")
+	}
+	a.Type = binary.BigEndian.Uint16(data[:2])
+	a.Length = binary.BigEndian.Uint16(data[2:4])
+	return nil
 }
 
 // Action structure for OFPAT_OUTPUT, which sends packets out ’port’.
@@ -36,8 +65,7 @@ type Action interface {
 // number of bytes to send. A ’max_len’ of zero means no bytes of the
 // packet should be sent.
 type ActionOutput struct {
-	Type   uint16
-	Length uint16
+	ActionHeader
 	Port   uint16
 	MaxLen uint16
 }
@@ -46,64 +74,37 @@ type ActionOutput struct {
 // port number.
 func NewActionOutput(number uint16) *ActionOutput {
 	act := new(ActionOutput)
-	act.Type = AT_OUTPUT
+	act.Type = ActionType_Output
 	act.Length = 8
 	act.Port = number
 	act.MaxLen = 256
 	return act
 }
 
-func (a *ActionOutput) ActionType() uint16 {
-	return a.Type
-}
-
 func (a *ActionOutput) Len() (n uint16) {
-	return a.Length
+	return a.ActionHeader.Len() + 4
 }
 
-func (a *ActionOutput) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	if err = binary.Write(buf, binary.BigEndian, a.Type); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Write(buf, binary.BigEndian, a.Length); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Write(buf, binary.BigEndian, a.Port); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Write(buf, binary.BigEndian, a.MaxLen); err != nil {
-		return
-	}
-	n += 2
-	if n, err = buf.Read(b); n == 0 {
-		return
-	}
-	return n, io.EOF
-}
+func (a *ActionOutput) MarshalBinary() (data []byte, err error) {
+	data, err = a.ActionHeader.MarshalBinary()
 
-func (a *ActionOutput) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	if err = binary.Read(buf, binary.BigEndian, &a.Type); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.Length); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.Port); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.MaxLen); err != nil {
-		return
-	}
-	n += 2
+	bytes := make([]byte, 4)
+	binary.BigEndian.PutUint16(data[:2], a.Port)
+	binary.BigEndian.PutUint16(data[2:4], a.MaxLen)
+
+	data = append(data, bytes...)
 	return
+}
+
+func (a *ActionOutput) UnmarshalBinary(data []byte) error {
+	if len(data) != int(a.Len()) {
+		return errors.New("The []byte the wrong size to unmarshal an " +
+			"ActionOutput message.")
+	}
+	a.ActionHeader.UnmarshalBinary(data[:4])
+	a.Port = binary.BigEndian.Uint16(data[4:6])
+	a.MaxLen = binary.BigEndian.Uint16(data[6:8])
+	return nil
 }
 
 // The enqueue action maps a flow to an already-configured queue, regardless of
@@ -115,89 +116,54 @@ func (a *ActionOutput) Write(b []byte) (n int, err error) {
 // action ENQUEUE is not supported. The user can still use these queues and
 // map flows to them by setting the relevant fields (TOS, VLAN PCP).
 type ActionEnqueue struct {
-	Type    uint16
-	Length  uint16
+	ActionHeader
 	Port    uint16
 	pad     []uint8
-	QueueID uint32
+	QueueId uint32
 }
 
 func NewActionEnqueue(number uint16, queue uint32) *ActionEnqueue {
 	a := new(ActionEnqueue)
-	a.Type = AT_ENQUEUE
+	a.Type = ActionType_Enqueue
 	a.Length = 16
 	a.Port = number
 	a.pad = make([]uint8, 6)
-	a.QueueID = queue
+	a.QueueId = queue
 	return a
 }
 
-func (a *ActionEnqueue) ActionType() uint16 {
-	return a.Type
-}
-
 func (a *ActionEnqueue) Len() (n uint16) {
-	return a.Length
+	return a.ActionHeader.Len() + 12
 }
 
-func (a *ActionEnqueue) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	if err = binary.Write(buf, binary.BigEndian, a.Type); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Write(buf, binary.BigEndian, a.Length); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Write(buf, binary.BigEndian, a.Port); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Write(buf, binary.BigEndian, a.pad); err != nil {
-		return
-	}
-	n += 6
-	if err = binary.Write(buf, binary.BigEndian, a.QueueID); err != nil {
-		return
-	}
-	n += 4
-	if n, err = buf.Read(b); n == 0 {
-		return
-	}
-	return n, io.EOF
-}
+func (a *ActionEnqueue) MarshalBinary() (data []byte, err error) {
+	data, err = a.ActionHeader.MarshalBinary()
 
-func (a *ActionEnqueue) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	if err = binary.Read(buf, binary.BigEndian, &a.Type); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.Length); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.Port); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.pad); err != nil {
-		return
-	}
-	n += 6
-	if err = binary.Read(buf, binary.BigEndian, &a.QueueID); err != nil {
-		return
-	}
-	n += 4
+	bytes := make([]byte, 12)
+	binary.BigEndian.PutUint16(data[:2], a.Port)
+	copy(bytes[2:8], a.pad)
+	binary.BigEndian.PutUint32(data[8:12], a.QueueId)
+
+	data = append(data, bytes...)
 	return
+}
+
+func (a *ActionEnqueue) UnmarshalBinary(data []byte) error {
+	if len(data) != int(a.Len()) {
+		return errors.New("The []byte the wrong size to unmarshal an " +
+			"ActionEnqueue message.")
+	}
+	a.ActionHeader.UnmarshalBinary(data[:4])
+	a.Port = binary.BigEndian.Uint16(data[4:6])
+	copy(a.pad, data[6:12])
+	a.QueueId = binary.BigEndian.Uint32(data[12:16])
+	return nil
 }
 
 // The vlan_vid field is 16 bits long, when an actual VLAN id is only 12 bits.
 // The value 0xffff is used to indicate that no VLAN id was set.
 type ActionVLANVID struct {
-	Type    uint16
-	Length  uint16
+	ActionHeader
 	VLANVID uint16
 	pad     []uint8
 }
@@ -206,70 +172,42 @@ type ActionVLANVID struct {
 // untagged packets on some switches.
 func NewActionVLANVID(vid uint16) *ActionVLANVID {
 	a := new(ActionVLANVID)
-	a.Type = AT_SET_VLAN_VID
+	a.Type = ActionType_SetVLAN_VID
 	a.Length = 8
 	a.VLANVID = vid
 	a.pad = make([]byte, 2)
 	return a
 }
 
-func (a *ActionVLANVID) ActionType() uint16 {
-	return a.Type
-}
-
 func (a *ActionVLANVID) Len() (n uint16) {
-	return a.Length
+	return a.ActionHeader.Len() + 4
 }
 
-func (a *ActionVLANVID) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	if err = binary.Write(buf, binary.BigEndian, a.Type); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Write(buf, binary.BigEndian, a.Length); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Write(buf, binary.BigEndian, a.VLANVID); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Write(buf, binary.BigEndian, a.pad); err != nil {
-		return
-	}
-	n += 2
-	if n, err = buf.Read(b); n == 0 {
-		return
-	}
-	return n, io.EOF
-}
+func (a *ActionVLANVID) MarshalBinary() (data []byte, err error) {
+	data, err = a.ActionHeader.MarshalBinary()
 
-func (a *ActionVLANVID) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	if err = binary.Read(buf, binary.BigEndian, &a.Type); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.Length); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.VLANVID); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.pad); err != nil {
-		return
-	}
-	n += 2
+	bytes := make([]byte, 4)
+	binary.BigEndian.PutUint16(data[:2], a.VLANVID)
+	copy(bytes[2:4], a.pad)
+
+	data = append(data, bytes...)
 	return
+}
+
+func (a *ActionVLANVID) UnmarshalBinary(data []byte) error {
+	if len(data) != int(a.Len()) {
+		return errors.New("The []byte the wrong size to unmarshal an " +
+			"ActionVLANVID message.")
+	}
+	a.ActionHeader.UnmarshalBinary(data[:4])
+	a.VLANVID = binary.BigEndian.Uint16(data[4:6])
+	copy(a.pad, data[6:8])
+	return nil
 }
 
 // The vlan_pcp field is 8 bits long, but only the lower 3 bits have meaning.
 type ActionVLANPCP struct {
-	Type    uint16
-	Length  uint16
+	ActionHeader
 	VLANPCP uint8
 	pad     []uint8
 }
@@ -277,132 +215,82 @@ type ActionVLANPCP struct {
 // Modifies PCP on VLAN tagged packets.
 func NewActionVLANPCP(pcp uint8) *ActionVLANPCP {
 	a := new(ActionVLANPCP)
-	a.Type = AT_SET_VLAN_PCP
+	a.Type = ActionType_SetVLAN_PCP
 	a.Length = 8
 	a.VLANPCP = pcp
 	a.pad = make([]byte, 3)
 	return a
 }
 
-func (a *ActionVLANPCP) ActionType() uint16 {
-	return a.Type
-}
-
 func (a *ActionVLANPCP) Len() (n uint16) {
-	return 8
+	return a.ActionHeader.Len() + 4
 }
 
-func (a *ActionVLANPCP) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	if err = binary.Write(buf, binary.BigEndian, a.Type); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Write(buf, binary.BigEndian, a.Length); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Write(buf, binary.BigEndian, a.VLANPCP); err != nil {
-		return
-	}
-	n += 1
-	if err = binary.Write(buf, binary.BigEndian, a.pad); err != nil {
-		return
-	}
-	n += 3
-	if n, err = buf.Read(b); n == 0 {
-		return
-	}
-	return n, io.EOF
-}
+func (a *ActionVLANPCP) MarshalBinary() (data []byte, err error) {
+	data, err = a.ActionHeader.MarshalBinary()
 
-func (a *ActionVLANPCP) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	if err = binary.Read(buf, binary.BigEndian, &a.Type); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.Length); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.VLANPCP); err != nil {
-		return
-	}
-	n += 1
-	if err = binary.Read(buf, binary.BigEndian, &a.pad); err != nil {
-		return
-	}
-	n += 3
+	bytes := make([]byte, 4)
+	bytes[0] = a.VLANPCP
+	copy(bytes[1:4], a.pad)
+
+	data = append(data, bytes...)
 	return
+}
+
+func (a *ActionVLANPCP) UnmarshalBinary(data []byte) error {
+	if len(data) != int(a.Len()) {
+		return errors.New("The []byte the wrong size to unmarshal an " +
+			"ActionVLANPCP message.")
+	}
+	a.ActionHeader.UnmarshalBinary(data[:4])
+	a.VLANPCP = data[4]
+	copy(a.pad, data[5:8])
+	return nil
 }
 
 // An action_strip_vlan takes no arguments and consists only of a generic
 // ofp_action_header. This action strips the VLAN tag if one is present.
 type ActionStripVLAN struct {
-	Type   uint16
-	Length uint16
+	ActionHeader
 	pad    []uint8
 }
 
 // Action to strip VLAN IDs from tagged packets.
 func NewActionStripVLAN() *ActionStripVLAN {
 	a := new(ActionStripVLAN)
-	a.Type = AT_STRIP_VLAN
+	a.Type = ActionType_StripVLAN
 	a.Length = 8
 	a.pad = make([]byte, 4)
 	return a
 }
 
-func (a *ActionStripVLAN) ActionType() uint16 {
-	return a.Type
-}
-
 func (a *ActionStripVLAN) Len() (n uint16) {
-	return 8
+	return a.ActionHeader.Len() + 4
 }
 
-func (a *ActionStripVLAN) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	if err = binary.Write(buf, binary.BigEndian, a.Type); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Write(buf, binary.BigEndian, a.Length); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Write(buf, binary.BigEndian, a.pad); err != nil {
-		return
-	}
-	n += 4
-	if n, err = buf.Read(b); n == 0 {
-		return
-	}
-	return n, io.EOF
-}
+func (a *ActionStripVLAN) MarshalBinary() (data []byte, err error) {
+	data, err = a.ActionHeader.MarshalBinary()
 
-func (a *ActionStripVLAN) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	if err = binary.Read(buf, binary.BigEndian, &a.Type); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.Length); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.pad); err != nil {
-		return
-	}
-	n += 4
+	bytes := make([]byte, 4)
+	copy(bytes[0:4], a.pad)
+
+	data = append(data, bytes...)
 	return
+}
+
+func (a *ActionStripVLAN) UnmarshalBinary(data []byte) error {
+	if len(data) != int(a.Len()) {
+		return errors.New("The []byte the wrong size to unmarshal an " +
+			"ActionStripVLAN message.")
+	}
+	a.ActionHeader.UnmarshalBinary(data[:4])
+	copy(a.pad, data[4:8])
+	return nil
 }
 
 // The dl_addr field is the MAC address to set.
 type ActionDLAddr struct {
-	Type   uint16
-	Length uint16
+	ActionHeader
 	DLAddr net.HardwareAddr
 	pad    []uint8
 }
@@ -410,7 +298,7 @@ type ActionDLAddr struct {
 // Sets the source MAC adddress to dlAddr
 func NewActionDLSrc(dlAddr net.HardwareAddr) *ActionDLAddr {
 	a := new(ActionDLAddr)
-	a.Type = AT_SET_DL_SRC
+	a.Type = ActionType_SetDLSrc
 	a.Length = 16
 	a.DLAddr = dlAddr
 	a.pad = make([]byte, 6)
@@ -420,77 +308,49 @@ func NewActionDLSrc(dlAddr net.HardwareAddr) *ActionDLAddr {
 // Sets the destination MAC adddress to dlAddr
 func NewActionDLDst(dlAddr net.HardwareAddr) *ActionDLAddr {
 	a := new(ActionDLAddr)
-	a.Type = AT_SET_DL_DST
+	a.Type = ActionType_SetDLDst
 	a.Length = 16
 	a.DLAddr = dlAddr
 	a.pad = make([]byte, 6)
 	return a
 }
 
-func (a *ActionDLAddr) ActionType() uint16 {
-	return a.Type
-}
-
 func (a *ActionDLAddr) Len() (n uint16) {
-	return a.Length
+	return a.ActionHeader.Len() + 12
 }
 
-func (a *ActionDLAddr) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	if err = binary.Write(buf, binary.BigEndian, a.Type); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Write(buf, binary.BigEndian, a.Length); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Write(buf, binary.BigEndian, a.DLAddr); err != nil {
-		return
-	}
-	n += len(a.DLAddr)
-	if err = binary.Write(buf, binary.BigEndian, a.pad); err != nil {
-		return
-	}
-	n += len(a.pad)
-	if n, err = buf.Read(b); n == 0 {
-		return
-	}
-	return n, io.EOF
-}
+func (a *ActionDLAddr) MarshalBinary() (data []byte, err error) {
+	data, err = a.ActionHeader.MarshalBinary()
 
-func (a *ActionDLAddr) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	if err = binary.Read(buf, binary.BigEndian, &a.Type); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.Length); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.DLAddr); err != nil {
-		return
-	}
-	n += len(a.DLAddr)
-	if err = binary.Read(buf, binary.BigEndian, &a.pad); err != nil {
-		return
-	}
-	n += len(a.pad)
+	bytes := make([]byte, 12)
+	copy(bytes[0:6], a.DLAddr)
+	copy(bytes[6:12], a.pad)
+
+	data = append(data, bytes...)
 	return
+}
+
+func (a *ActionDLAddr) UnmarshalBinary(data []byte) error {
+	if len(data) != int(a.Len()) {
+		return errors.New("The []byte the wrong size to unmarshal an " +
+			"ActionDLAddr message.")
+	}
+	a.ActionHeader.UnmarshalBinary(data[:4])
+	copy(a.DLAddr, data[4:10])
+	copy(a.pad, data[10:16])
+	return nil
 }
 
 // The nw_addr field is the IP address to set.
 type ActionNWAddr struct {
-	Type   uint16
-	Length uint16
+	ActionHeader
 	NWAddr net.IP
 }
 
 // Sets the source IP adddress to nwAddr
 func NewActionNWSrc(nwAddr net.IP) *ActionNWAddr {
 	a := new(ActionNWAddr)
-	a.Type = AT_SET_NW_SRC
+	a.Type = ActionType_SetNWSrc
 	a.Length = 8
 	a.NWAddr = nwAddr
 	return a
@@ -499,62 +359,40 @@ func NewActionNWSrc(nwAddr net.IP) *ActionNWAddr {
 // Sets the destination IP adddress to nwAddr
 func NewActionNWDst(nwAddr net.IP) *ActionNWAddr {
 	a := new(ActionNWAddr)
-	a.Type = AT_SET_NW_DST
+	a.Type = ActionType_SetNWDst
 	a.Length = 8
 	a.NWAddr = nwAddr
 	return a
 }
 
-func (a *ActionNWAddr) ActionType() uint16 {
-	return a.Type
-}
-
 func (a *ActionNWAddr) Len() (n uint16) {
-	return a.Length
+	return a.ActionHeader.Len() + 4
 }
 
-func (a *ActionNWAddr) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	if err = binary.Write(buf, binary.BigEndian, a.Type); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Write(buf, binary.BigEndian, a.Length); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Write(buf, binary.BigEndian, a.NWAddr); err != nil {
-		return
-	}
-	n += len(a.NWAddr)
-	if n, err = buf.Read(b); n == 0 {
-		return
-	}
-	return n, io.EOF
-}
+func (a *ActionNWAddr) MarshalBinary() (data []byte, err error) {
+	data, err = a.ActionHeader.MarshalBinary()
 
-func (a *ActionNWAddr) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	if err = binary.Read(buf, binary.BigEndian, &a.Type); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.Length); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.NWAddr); err != nil {
-		return
-	}
-	n += len(a.NWAddr)
+	bytes := make([]byte, 4)
+	copy(bytes[:4], a.NWAddr)
+
+	data = append(data, bytes...)
 	return
+}
+
+func (a *ActionNWAddr) UnmarshalBinary(data []byte) error {
+	if len(data) != int(a.Len()) {
+		return errors.New("The []byte the wrong size to unmarshal an " +
+			"ActionDLAddr message.")
+	}
+	a.ActionHeader.UnmarshalBinary(data[:4])
+	copy(a.NWAddr, data[4:8])
+	return nil
 }
 
 // The nw_tos field is the 6 upper bits of the ToS field to set, in the original bit
 // positions (shifted to the left by 2).
 type ActionNWTOS struct {
-	Type   uint16
-	Length uint16
+	ActionHeader
 	NWTOS  uint8
 	pad    []uint8
 }
@@ -562,70 +400,42 @@ type ActionNWTOS struct {
 // Set ToS field in IP packets.
 func NewActionNWTOS(tos uint8) *ActionNWTOS {
 	a := new(ActionNWTOS)
-	a.Type = AT_SET_NW_TOS
+	a.Type = ActionType_SetNWTOS
 	a.Length = 8
 	a.NWTOS = tos
 	a.pad = make([]byte, 3)
 	return a
 }
 
-func (a *ActionNWTOS) ActionType() uint16 {
-	return a.Type
-}
-
 func (a *ActionNWTOS) Len() (n uint16) {
-	return a.Length
+	return a.ActionHeader.Len() + 4
 }
 
-func (a *ActionNWTOS) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	if err = binary.Write(buf, binary.BigEndian, a.Type); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Write(buf, binary.BigEndian, a.Length); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Write(buf, binary.BigEndian, a.NWTOS); err != nil {
-		return
-	}
-	n += 1
-	if err = binary.Write(buf, binary.BigEndian, a.pad); err != nil {
-		return
-	}
-	n += len(a.pad)
-	if n, err = buf.Read(b); n == 0 {
-		return
-	}
-	return n, io.EOF
-}
+func (a *ActionNWTOS) MarshalBinary() (data []byte, err error) {
+	data, err = a.ActionHeader.MarshalBinary()
 
-func (a *ActionNWTOS) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	if err = binary.Read(buf, binary.BigEndian, &a.Type); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.Length); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.NWTOS); err != nil {
-		return
-	}
-	n += 1
-	if err = binary.Read(buf, binary.BigEndian, &a.pad); err != nil {
-		return
-	}
-	n += len(a.pad)
+	bytes := make([]byte, 4)
+	data[0] = a.NWTOS
+	copy(bytes[1:4], a.pad)
+
+	data = append(data, bytes...)
 	return
+}
+
+func (a *ActionNWTOS) UnmarshalBinary(data []byte) error {
+	if len(data) != int(a.Len()) {
+		return errors.New("The []byte the wrong size to unmarshal an " +
+			"ActionDLAddr message.")
+	}
+	a.ActionHeader.UnmarshalBinary(data[:4])
+	a.NWTOS = data[4]
+	copy(a.pad, data[5:8])
+	return nil
 }
 
 // The tp_port field is the TCP/UDP/other port to set.
 type ActionTPPort struct {
-	Type   uint16
-	Length uint16
+	ActionHeader
 	TPPort uint16
 	pad    []uint8
 }
@@ -633,7 +443,7 @@ type ActionTPPort struct {
 // Returns an action that sets the transport layer source port.
 func NewActionTPSrc(port uint16) *ActionTPPort {
 	a := new(ActionTPPort)
-	a.Type = AT_SET_TP_SRC
+	a.Type = ActionType_SetTPSrc
 	a.Length = 8
 	a.TPPort = port
 	a.pad = make([]byte, 2)
@@ -644,123 +454,74 @@ func NewActionTPSrc(port uint16) *ActionTPPort {
 // port.
 func NewActionTPDst(port uint16) *ActionTPPort {
 	a := new(ActionTPPort)
-	a.Type = AT_SET_TP_DST
+	a.Type = ActionType_SetTPDst
 	a.Length = 8
 	a.TPPort = port
 	a.pad = make([]byte, 2)
 	return a
 }
 
-func (a *ActionTPPort) ActionType() uint16 {
-	return a.Type
-}
-
 func (a *ActionTPPort) Len() (n uint16) {
-	return a.Length
+	return a.ActionHeader.Len() + 4
 }
 
-func (a *ActionTPPort) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	if err = binary.Write(buf, binary.BigEndian, a.Type); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Write(buf, binary.BigEndian, a.Length); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Write(buf, binary.BigEndian, a.TPPort); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Write(buf, binary.BigEndian, a.pad); err != nil {
-		return
-	}
-	n += len(a.pad)
-	if n, err = buf.Read(b); n == 0 {
-		return
-	}
-	return n, io.EOF
-}
+func (a *ActionTPPort) MarshalBinary() (data []byte, err error) {
+	data, err = a.ActionHeader.MarshalBinary()
 
-func (a *ActionTPPort) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	if err = binary.Read(buf, binary.BigEndian, &a.Type); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.Length); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.TPPort); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.pad); err != nil {
-		return
-	}
-	n += len(a.pad)
+	bytes := make([]byte, 4)
+	binary.BigEndian.PutUint16(data[:2], a.TPPort)
+	copy(bytes[2:4], a.pad)
+
+	data = append(data, bytes...)
 	return
+}
+
+func (a *ActionTPPort) UnmarshalBinary(data []byte) error {
+	if len(data) != int(a.Len()) {
+		return errors.New("The []byte the wrong size to unmarshal an " +
+			"ActionNWTOS message.")
+	}
+	a.ActionHeader.UnmarshalBinary(data[:4])
+	a.TPPort = binary.BigEndian.Uint16(data[4:6])
+	copy(a.pad, data[6:8])
+	return nil
 }
 
 // The Vendor field is the Vendor ID, which takes the same form as in struct
 // ofp_vendor.
 type ActionVendor struct {
-	Type   uint16
-	Length uint16
+	ActionHeader
 	Vendor uint32
 }
 
 func NewActionVendor(vendor uint32) *ActionVendor {
 	a := new(ActionVendor)
-	a.Type = AT_VENDOR
+	a.Type = ActionType_Vendor
 	a.Length = 8
 	a.Vendor = vendor
 	return a
 }
 
-func (a *ActionVendor) ActionType() uint16 {
-	return a.Type
-}
-
 func (a *ActionVendor) Len() (n uint16) {
-	return a.Length
+	return a.ActionHeader.Len() + 4
 }
 
-func (a *ActionVendor) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	if err = binary.Write(buf, binary.BigEndian, a.Type); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Write(buf, binary.BigEndian, a.Length); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Write(buf, binary.BigEndian, a.Vendor); err != nil {
-		return
-	}
-	n += 4
-	if n, err = buf.Read(b); n == 0 {
-		return
-	}
-	return n, io.EOF
-}
+func (a *ActionVendor) MarshalBinary() (data []byte, err error) {
+	data, err = a.ActionHeader.MarshalBinary()
 
-func (a *ActionVendor) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	if err = binary.Read(buf, binary.BigEndian, &a.Type); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.Length); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &a.Vendor); err != nil {
-		return
-	}
-	n += 4
+	bytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(data[:4], a.Vendor)
+
+	data = append(data, bytes...)
 	return
+}
+
+func (a *ActionVendor) UnmarshalBinary(data []byte) error {
+	if len(data) != int(a.Len()) {
+		return errors.New("The []byte the wrong size to unmarshal an " +
+			"ActionVendor message.")
+	}
+	a.ActionHeader.UnmarshalBinary(data[:4])
+	a.Vendor = binary.BigEndian.Uint32(data[4:8])
+	return nil
 }

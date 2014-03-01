@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"io"
 	"net"
+
+	"github.com/jonstout/ogo/protocol/ofpxx"
 )
 
 // ofp_phy_port 1.0
@@ -134,7 +136,7 @@ func (p *PhyPort) Write(b []byte) (n int, err error) {
 
 // ofp_port_mod 1.0
 type PortMod struct {
-	Header Header
+	Header ofpxx.Header
 	PortNo uint16
 	HWAddr [ETH_ALEN]uint8
 
@@ -144,7 +146,7 @@ type PortMod struct {
 	Pad       [4]uint8
 }
 
-func (p *PortMod) GetHeader() *Header {
+func (p *PortMod) GetHeader() *ofpxx.Header {
 	return &p.Header
 }
 

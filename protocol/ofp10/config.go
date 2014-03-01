@@ -61,7 +61,7 @@ func (c *SwitchConfig) Read(b []byte) (n int, err error) {
 
 func (c *SwitchConfig) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
-	err = c.Header.UnmarshelBinary(buf.Next(8))
+	err = c.Header.UnmarshalBinary(buf.Next(8))
 
 	if err = binary.Read(buf, binary.BigEndian, &c.Flags); err != nil {
 		return

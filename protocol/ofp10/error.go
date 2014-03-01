@@ -39,7 +39,7 @@ func (e *ErrorMsg) Read(b []byte) (n int, err error) {
 
 func (e *ErrorMsg) Write(b []byte) (n int, err error) {
 	buf := bytes.NewBuffer(b)
-	err = e.Header.UnmarshelBinary(buf.Next(8))
+	err = e.Header.UnmarshalBinary(buf.Next(8))
 
 	if err = binary.Read(buf, binary.BigEndian, &e.Code); err != nil {
 		return
