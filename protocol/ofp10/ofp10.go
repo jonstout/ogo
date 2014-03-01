@@ -8,9 +8,8 @@
 package ofp10
 
 import (
-	"bytes"
 	"encoding/binary"
-	"io"
+	"errors"
 
 	"github.com/jonstout/ogo/protocol/eth"
 	"github.com/jonstout/ogo/protocol/ofpxx"
@@ -58,12 +57,12 @@ const (
 	T_SET_CONFIG
 
 	/* Asynchronous messages. */
-	T_PACKET_IN
+	Type_Packet_In
 	T_FLOW_REMOVED
 	T_PORT_STATUS
 
 	/* Controller command messages. */
-	T_PACKET_OUT
+	Type_Packet_Out
 	T_FLOW_MOD
 	T_PORT_MOD
 
@@ -88,8 +87,8 @@ const (
 // action, the in_port in the packet_out message is used in the
 // flow table lookup.
 type PacketOut struct {
-	Header     ofpxx.Header
-	BufferID   uint32
+	ofpxx.Header
+	BufferId   uint32
 	InPort     uint16
 	ActionsLen uint16
 	Actions    []Action
@@ -99,8 +98,8 @@ type PacketOut struct {
 func NewPacketOut() *PacketOut {
 	p := new(PacketOut)
 	p.Header = ofpxx.NewOfp10Header()
-	p.Header.Type = T_PACKET_OUT
-	p.BufferID = 0xffffffff
+	p.Header.Type = Type_Packet_Out
+	p.BufferId = 0xffffffff
 	p.InPort = P_NONE
 	p.ActionsLen = 0
 	p.Actions = make([]Action, 0)
@@ -112,83 +111,78 @@ func (p *PacketOut) AddAction(act Action) {
 	p.ActionsLen += act.Len()
 }
 
-func (p *PacketOut) GetHeader() *ofpxx.Header {
-	return &p.Header
-}
-
 func (p *PacketOut) Len() (n uint16) {
 	n += p.Header.Len()
-	n += p.ActionsLen
 	n += 8
+	n += p.ActionsLen
 	n += p.Data.Len()
 	//if n < 72 { return 72 }
 	return
 }
 
-func (p *PacketOut) Read(b []byte) (n int, err error) {
+func (p *PacketOut) MarshalBinary() (data []byte, err error) {
 	p.Header.Length = p.Len()
 
-	buf := new(bytes.Buffer)
-	data, _ := p.Header.MarshelBinary()
-	buf.Write(data)
-	binary.Write(buf, binary.BigEndian, p.BufferID)
-	binary.Write(buf, binary.BigEndian, p.InPort)
-	binary.Write(buf, binary.BigEndian, p.ActionsLen)
-	for _, e := range p.Actions {
-		_, err = buf.ReadFrom(e)
-	}
-	_, err = buf.ReadFrom(p.Data)
+	data, err = p.Header.MarshalBinary()
 
-	n, err = buf.Read(b)
-	if n == 0 {
-		return
+	b := make([]byte, 4)
+	n := 0
+	binary.BigEndian.PutUint32(b, p.BufferId)
+	n += 4
+	binary.BigEndian.PutUint16(b[n:], p.InPort)
+	n += 2
+	binary.BigEndian.PutUint16(b[n:], p.ActionsLen)
+	data = append(data, b...)
+
+	for _, a := range p.Actions {
+		b, err = a.MarshalBinary()
+		data = append(data, b...)
 	}
-	return n, io.EOF
+
+	b, err = p.Data.MarshalBinary()
+	data = append(data, b...)
+	return
 }
 
-func (p *PacketOut) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	err = p.Header.UnmarshelBinary(buf.Next(8))
-	n += 8
-	if err = binary.Read(buf, binary.BigEndian, &p.BufferID); err != nil {
-		return
-	}
+func (p *PacketOut) UnmarshalBinary(data []byte) error {
+	err := p.Header.UnmarshalBinary(data)
+	n := p.Header.Len()
+
+	p.BufferId = binary.BigEndian.Uint32(data[n:])
 	n += 4
-	if err = binary.Read(buf, binary.BigEndian, &p.InPort); err != nil {
-		return
-	}
+	p.InPort = binary.BigEndian.Uint16(data[n:])
 	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &p.ActionsLen); err != nil {
-		return
-	}
+	p.ActionsLen = binary.BigEndian.Uint16(data[n:])
 	n += 2
-	/*actionCount := buf.Len() / 8
-	//p.Actions = make([]Action, actionCount)
-	for i := 0; i < actionCount; i++ {
-		a := new(ActionOutput)//Header)
-		m := 0
-		m, err = a.Write(buf.Next(8))
-		if m == 0 {
-			return
-		}
-		n += m
-		p.Actions[i] = a
-	}*/
-	return
+
+	for n < (n + p.ActionsLen) {
+		a := DecodeAction(data[n:])
+		p.Actions = append(p.Actions, a)
+		n += a.Len()
+	}
+
+	err = p.Data.UnmarshalBinary(data[n:])
+	return err
 }
 
 // ofp_packet_in 1.0
 type PacketIn struct {
-	Header   ofpxx.Header
-	BufferID uint32
+	ofpxx.Header
+	BufferId uint32
 	TotalLen uint16
 	InPort   uint16
 	Reason   uint8
 	Data     eth.Ethernet
 }
 
-func (p *PacketIn) GetHeader() *ofpxx.Header {
-	return &p.Header
+func NewPacketIn() *PacketIn {
+	p := new(PacketIn)
+	p.Header = ofpxx.NewOfp10Header()
+	p.Header.Type = Type_Packet_In
+	p.BufferId = 0xffffffff
+	p.InPort = P_NONE
+	p.Reason = 0
+	return p
 }
 
 func (p *PacketIn) Len() (n uint16) {
@@ -198,39 +192,41 @@ func (p *PacketIn) Len() (n uint16) {
 	return
 }
 
-func (p *PacketIn) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, p)
-	n, err = buf.Read(b)
-	if n == 0 {
-		return
-	}
-	return n, io.EOF
+func (p *PacketIn) MarshalBinary() (data []byte, err error) {
+	data, err = p.Header.MarshalBinary()
+
+	b := make([]byte, 9)
+	n := 0
+	binary.BigEndian.PutUint32(b, p.BufferId)
+	n += 4
+	binary.BigEndian.PutUint16(b[n:], p.TotalLen)
+	n += 2
+	binary.BigEndian.PutUint16(b[n:], p.InPort)
+	n += 2
+	b[n] = p.Reason
+	n += 1
+	data = append(data, b...)
+
+	b, err = p.Data.MarshalBinary()
+	data = append(data, b...)
+	return
 }
 
-func (p *PacketIn) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	err = p.Header.UnmarshelBinary(buf.Next(8))
-	n += 8
-	if err = binary.Read(buf, binary.BigEndian, &p.TotalLen); err != nil {
-		return
-	}
-	if err = binary.Read(buf, binary.BigEndian, &p.InPort); err != nil {
-		return
-	}
-	if err = binary.Read(buf, binary.BigEndian, &p.Reason); err != nil {
-		return
-	}
-	p.Reason = b[16]
+func (p *PacketIn) UnmarshalBinary(data []byte) error {
+	err := p.Header.UnmarshalBinary(data)
+	n := p.Header.Len()
+
+	p.BufferId = binary.BigEndian.Uint32(data[n:])
+	n += 4
+	p.TotalLen = binary.BigEndian.Uint16(data[n:])
+	n += 2
+	p.InPort = binary.BigEndian.Uint16(data[n:])
+	n += 2
+	p.Reason = data[n]
 	n += 1
-	//TODO::Parse Data
-	p.Data = eth.Ethernet{}
-	if m, err := p.Data.Write(b[n:]); m == 0 {
-		return m, err
-	} else {
-		n += m
-	}
-	return
+
+	err = p.Data.UnmarshalBinary(data[n:])
+	return err
 }
 
 // ofp_packet_in_reason 1.0
@@ -245,33 +241,27 @@ type VendorHeader struct {
 	Vendor uint32
 }
 
-func (v *VendorHeader) GetHeader() *ofpxx.Header {
-	return &v.Header
-}
-
 func (v *VendorHeader) Len() (n uint16) {
-	n = v.Header.Len()
-	n += 4
+	return v.Header.Len() + 4
+}
+
+func (v *VendorHeader) MarshalBinary() (data []byte, err error) {
+	data, err = v.Header.MarshalBinary()
+
+	b := make([]byte, 4)
+	binary.BigEndian.PutUint32(data[:4], v.Vendor)
+
+	data = append(data, b...)
 	return
 }
 
-func (v *VendorHeader) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, v)
-	n, err = buf.Read(b)
-	if n == 0 {
-		return
+func (v *VendorHeader) UnmarshalBinary(data []byte) error {
+	if len(data) < int(v.Len()) {
+		return errors.New("The []byte the wrong size to unmarshal an " +
+			"VendorHeader message.")
 	}
-	return n, io.EOF
-}
-
-func (v *VendorHeader) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	err = v.Header.UnmarshelBinary(buf.Next(8))
-	n += 8
-	if err = binary.Read(buf, binary.BigEndian, &v.Vendor); err != nil {
-		return
-	}
-	n += 4
-	return
+	v.Header.UnmarshalBinary(data)
+	n := int(v.Header.Len())
+	v.Vendor = binary.BigEndian.Uint32(data[n:])
+	return nil
 }

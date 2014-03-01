@@ -9,7 +9,7 @@ import (
 
 func Parse(b []byte) (message util.Message, err error) {
 	switch b[1] {
-	/*case T_PACKET_IN:
+	/*case Type_Packet_In:
 		message = new(PacketIn)
 		message.Write(b)*/
 	case Type_Hello:
@@ -20,29 +20,35 @@ func Parse(b []byte) (message util.Message, err error) {
 		message.UnmarshalBinary(b)
 	case Type_Echo_Request:
 		message = new(ofpxx.Header)
-		message.UnmarshalBianry(b)
-	/*case T_ERROR:
+		message.UnmarshalBinary(b)
+	/*case Type_Error:
 		message = new(ErrorMsg)
 		message.Write(b)
-	case T_VENDOR:
+	case Type_Vendor:
 		message = new(VendorHeader)
 		message.Write(b)
-	case T_FEATURES_REPLY:
+	 case Type_Features_Reply:
 		message = new(SwitchFeatures)
 		message.Write(b)
-	case T_GET_CONFIG_REPLY:
+	case Type_Get_Config_Reply:
 		message = new(SwitchConfig)
 		message.Write(b)
-	case T_FLOW_REMOVED:
+	case Type_Flow_Removed:
 		message = new(FlowRemoved)
 		message.Write(b)
-	case T_PORT_STATUS:
+	case Type_Port_Status:
 		message = new(PortStatus)
 		message.Write(b)
-	case T_STATS_REPLY:
+	case Type_Stats_Reply:
 		message = new(StatsReply)
 		message.Write(b)
-	case T_BARRIER_REPLY:
+	case Type_Stats_Request:
+		message = new(StatsRequest)
+		message.Write(b)
+	 case Type_Barrier_Reply:
+		message = new(ofpxx.Header)
+		message.UnmarshelBinary(b)
+	 case Type_Barrier_Request:
 		message = new(ofpxx.Header)
 		message.UnmarshelBinary(b)*/
 	default:

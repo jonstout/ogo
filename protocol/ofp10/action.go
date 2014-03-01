@@ -60,6 +60,18 @@ func (a *ActionHeader) UnmarshalBinary(data []byte) error {
 	return nil
 }
 
+// TODO: Decode other Action types.
+func DecodeAction(data []byte) Action {
+	t := binary.BigEndian.Uint16(data[:2])
+	var a Action
+	switch t {
+	case ActionType_Output:
+		a = new(ActionOutput)
+	}
+	a.UnmarshalBinary(data)
+	return a
+}
+
 // Action structure for OFPAT_OUTPUT, which sends packets out ’port’.
 // When the ’port’ is the OFPP_CONTROLLER, ’max_len’ indicates the max
 // number of bytes to send. A ’max_len’ of zero means no bytes of the

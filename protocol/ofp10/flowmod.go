@@ -132,16 +132,19 @@ func (f *FlowMod) Write(b []byte) (n int, err error) {
 		return
 	}
 	n += 2
-	actionCount := buf.Len() / 8
-	f.Actions = make([]Action, actionCount)
-	for i := 0; i < actionCount; i++ {
-		a := new(ActionOutput)
-		m, err = a.Write(buf.Next(8))
-		if m == 0 {
-			return
+
+	f.Actions = make([]Action, 0)
+	for n < len(b) {
+		h := binary.BigEndian.Uint16(b[n:n+2])
+		var a Action
+		switch h {
+		case ActionType_Output:
+			a = new(ActionOutput)
+
 		}
-		n += m
-		f.Actions[i] = a
+		a.UnmarshalBinary(b[n:])
+		f.Actions = append(f.Actions, a)
+		n += int(a.Len())
 	}
 	return
 }
