@@ -445,52 +445,52 @@ func (s *AggregateStatsRequest) Write(b []byte) (n int, err error) {
 }
 
 // ofp_aggregate_stats_reply 1.0
-type AggregateStatsReply struct {
+type AggregateStats struct {
 	PacketCount uint64
 	ByteCount   uint64
 	FlowCount   uint32
-	Pad         []uint8 // Size 4
+	pad         []uint8 // Size 4
 }
 
-func (s *AggregateStatsReply) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, s)
-	n, err = buf.Read(b)
-	if n == 0 {
-		return
-	}
-	return n, io.EOF
+func NewAggregateStats() *AggregateStatsReply {
+	s := new(AggregateStatsReply)
+	s.pad = make([]byte, 4)
 }
 
-func (s *AggregateStatsReply) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	err = binary.Read(buf, binary.BigEndian, &s.PacketCount)
-	if err != nil {
-		return
-	}
+func (s *AggregateStats) Len() (n uint16) {
+	return 24
+}
+
+func (s *AggregateStats) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, int(s.Len()))
+	n := 0
+	binary.BigEndian.PutUint64(data[n:], s.PacketCount)
 	n += 8
-	err = binary.Read(buf, binary.BigEndian, &s.ByteCount)
-	if err != nil {
-		return
-	}
+	binary.BigEndian.PutUint64(data[n:], s.ByteCount)
 	n += 8
-	err = binary.Read(buf, binary.BigEndian, &s.FlowCount)
-	if err != nil {
-		return
-	}
+	binary.BigEndian.PutUint32(data[n:], s.FlowCount)
 	n += 4
-	err = binary.Read(buf, binary.BigEndian, &s.Pad)
-	if err != nil {
-		return
-	}
+	copy(data[n:], s.pad)
 	n += 4
 	return
 }
 
+func (s *AggregateStats) UnmarshalBinary(data []byte) error {
+	n := 0
+	s.PacketCount = binary.BigEndian.Uint64(data[n:])
+	n += 8
+	s.ByteCount = binary.BigEndian.Uint64(data[n:])
+	n += 8
+	s.FlowCount = binary.BigEndian.Uint32(data[n:])
+	n += 4
+	copy(s.pad, data[n:])
+	return nil
+}
+
 // ofp_table_stats 1.0
 type TableStats struct {
-	TableID      uint8
-	Pad          []uint8 // Size 3
+	TableId      uint8
+	pad          []uint8 // Size 3
 	Name         []byte // Size MAX_TABLE_NAME_LEN
 	Wildcards    uint32
 	MaxEntries   uint32
@@ -499,59 +499,58 @@ type TableStats struct {
 	MatchedCount uint64
 }
 
-func (s *TableStats) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, s)
-	n, err = buf.Read(b)
-	if n == 0 {
-		return
-	}
-	return n, io.EOF
+func NewTableStats() *TableStats {
+	s := new(TableStats)
+	s.pad = make([]byte, 3)
+	s.Name = make([]byte, MAX_TABLE_NAME_LEN)
+	return s
 }
 
-func (s *TableStats) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	err = binary.Read(buf, binary.BigEndian, &s.TableID)
-	if err != nil {
-		return
-	}
+func (s *TableStats) Len() (n uint16) {
+	return 4 + MAX_TABLE_NAME_LEN + 28
+}
+
+func (s *TableStats) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, int(s.Len()))
+	n := 0
+	data[n] = s.TableId
 	n += 1
-	err = binary.Read(buf, binary.BigEndian, &s.Pad)
-	if err != nil {
-		return
-	}
-	n += 3
-	err = binary.Read(buf, binary.BigEndian, &s.Name)
-	if err != nil {
-		return
-	}
-	n += 32
-	err = binary.Read(buf, binary.BigEndian, &s.Wildcards)
-	if err != nil {
-		return
-	}
+	copy(data[n:], s.pad)
+	n += len(s.pad)
+	copy(data[n:], s.Name)
+	n += len(s.Name)
+	binary.BigEndian.PutUint32(data[n:], s.Wildcards)
 	n += 4
-	err = binary.Read(buf, binary.BigEndian, &s.MaxEntries)
-	if err != nil {
-		return
-	}
+	binary.BigEndian.PutUint32(data[n:], s.MaxEntries)
 	n += 4
-	err = binary.Read(buf, binary.BigEndian, &s.ActiveCount)
-	if err != nil {
-		return
-	}
+	binary.BigEndian.PutUint32(data[n:], s.ActionCount)
 	n += 4
-	err = binary.Read(buf, binary.BigEndian, &s.LookupCount)
-	if err != nil {
-		return
-	}
+	binary.BigEndian.PutUint32(data[n:], s.LookupCount)
+	n += 4
+	binary.BigEndian.PutUint32(data[n:], s.MatchedCount)
+	n += 4
+	return nil
+}
+
+func (s *TableStats) UnmarshalBinary(data []byte) error {
+	n := 0
+	s.TableId = data[0]
+	n += 1
+	copy(s.pad, data[n:])
+	n += len(s.pad)
+	copy(s.Name, data[n:])
+	n += len(s.Name)
+	s.Wildcards = binary.BigEndian.Uint32(data[n:])
+	n += 4
+	s.MaxEntries = binary.BigEndian.Uint32(data[n:])
+	n += 4
+	s.ActiveCount = binary.BigEndian.Uint32(data[n:])
+	n += 4
+	s.LookupCount = binary.BigEndian.Uint32(data[n:])
 	n += 8
-	err = binary.Read(buf, binary.BigEndian, &s.MatchedCount)
-	if err != nil {
-		return
-	}
+	s.MatchedCount = binary.BigEndian.Uint32(data[n:])
 	n += 8
-	return
+	return nil
 }
 
 const (
@@ -561,38 +560,41 @@ const (
 // ofp_port_stats_request 1.0
 type PortStatsRequest struct {
 	PortNo uint16
-	Pad    []uint8 // Size 6
+	pad    []uint8 // Size 6
 }
 
-func (s *PortStatsRequest) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, s)
-	n, err = buf.Read(b)
-	if n == 0 {
-		return
-	}
-	return n, io.EOF
+func NewPortStatsRequest() *PortStatsRequest {
+	p := new(PortStatsRequest)
+	p.pad = make([]byte, 6)
 }
 
-func (s *PortStatsRequest) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	err = binary.Read(buf, binary.BigEndian, &s.PortNo)
-	if err != nil {
-		return
-	}
+func (s *PortStatsRequest) Len() (n uint16) {
+	return 8
+}
+
+func (s *PortStatsRequest) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, int(s.Len()))
+	n := 0
+	binary.BigEndian.PutUint16(data[n:], s.PortNo)
 	n += 2
-	err = binary.Read(buf, binary.BigEndian, &s.Pad)
-	if err != nil {
-		return
-	}
-	n += 6
+	copy(data[n:], s.pad)
+	n += len(s.pad)
 	return
+}
+
+func (s *PortStatsRequest) UnmarshalBinary(data []byte) error {
+	n := 0
+	s.PortNo = binary.BigEndian.Uint16(data[n:])
+	n += 2
+	copy(s.pad, data[n:])
+	n += len(s.pad)
+	return nil
 }
 
 // ofp_port_stats 1.0
 type PortStats struct {
 	PortNo     uint16
-	Pad        []uint8 // Size 6
+	pad        []uint8 // Size 6
 	RxPackets  uint64
 	TxPackets  uint64
 	RxBytes    uint64
@@ -607,104 +609,81 @@ type PortStats struct {
 	Collisions uint64
 }
 
-func (p *PortStats) Len() (n uint16) {
-	n = 104
-	return
+func NewPortStats() *PortStats {
+	p := new(PortStats)
+	p.pad = make([]byte, 6)
+	return p
 }
 
-func (s *PortStats) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, s)
-	n, err = buf.Read(b)
-	if n == 0 {
-		return
-	}
-	return n, io.EOF
+func (s *PortStats) Len() (n uint16) {
+	return 104
 }
 
-func (s *PortStats) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	err = binary.Read(buf, binary.BigEndian, &s.PortNo)
-	if err != nil {
-		return
-	}
+func (s *PortStats) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, int(s.Len()))
+	n := 0
+	binary.BigEndian.PutUint16(data[n:], s.PortNo)
 	n += 2
-	err = binary.Read(buf, binary.BigEndian, &s.Pad)
-	if err != nil {
-		return
-	}
-	n += 1
-	err = binary.Read(buf, binary.BigEndian, &s.RxPackets)
-	if err != nil {
-		return
-	}
+	copy(data[n:], s.pad)
+	n += len(s.pad)
+	binary.BigEndian.PutUint64(data[n:], s.RxPackets)
 	n += 8
-	err = binary.Read(buf, binary.BigEndian, &s.TxPackets)
-	if err != nil {
-		return
-	}
+	binary.BigEndian.PutUint64(data[n:], s.TxPackets)
 	n += 8
-	err = binary.Read(buf, binary.BigEndian, &s.RxBytes)
-	if err != nil {
-		return
-	}
+	binary.BigEndian.PutUint64(data[n:], s.RxBytes)
 	n += 8
-	err = binary.Read(buf, binary.BigEndian, &s.TxBytes)
-	if err != nil {
-		return
-	}
+	binary.BigEndian.PutUint64(data[n:], s.TxBytes)
 	n += 8
-	err = binary.Read(buf, binary.BigEndian, &s.RxPackets)
-	if err != nil {
-		return
-	}
+	binary.BigEndian.PutUint64(data[n:], s.RxDropped)
 	n += 8
-	err = binary.Read(buf, binary.BigEndian, &s.RxPackets)
-	if err != nil {
-		return
-	}
+	binary.BigEndian.PutUint64(data[n:], s.TxDropped)
 	n += 8
-	err = binary.Read(buf, binary.BigEndian, &s.RxDropped)
-	if err != nil {
-		return
-	}
+	binary.BigEndian.PutUint64(data[n:], s.RxErrors)
 	n += 8
-	err = binary.Read(buf, binary.BigEndian, &s.TxDropped)
-	if err != nil {
-		return
-	}
+	binary.BigEndian.PutUint64(data[n:], s.TxErrors)
 	n += 8
-	err = binary.Read(buf, binary.BigEndian, &s.RxErrors)
-	if err != nil {
-		return
-	}
+	binary.BigEndian.PutUint64(data[n:], s.RxFrameErr)
 	n += 8
-	err = binary.Read(buf, binary.BigEndian, &s.TxErrors)
-	if err != nil {
-		return
-	}
+	binary.BigEndian.PutUint64(data[n:], s.RxOverErr)
 	n += 8
-	err = binary.Read(buf, binary.BigEndian, &s.RxFrameErr)
-	if err != nil {
-		return
-	}
+	binary.BigEndian.PutUint64(data[n:], s.RxCRCErr)
 	n += 8
-	err = binary.Read(buf, binary.BigEndian, &s.RxOverErr)
-	if err != nil {
-		return
-	}
-	n += 8
-	err = binary.Read(buf, binary.BigEndian, &s.RxCRCErr)
-	if err != nil {
-		return
-	}
-	n += 8
-	err = binary.Read(buf, binary.BigEndian, &s.Collisions)
-	if err != nil {
-		return
-	}
+	binary.BigEndian.PutUint64(data[n:], s.Collisions)
 	n += 8
 	return
+}
+
+func (s *PortStats) UnmarshalBinary(data []byte) error {
+	n := 0
+	s.PortNo = binary.BigEndian.Uint16(data[n:])
+	n += 2
+	copy(s.pad, data[n:])
+	n += len(s.pad)
+	s.RxPackets = binary.BigEndian.Uint64(data[n:])
+	n += 8
+	s.TxPackets = binary.BigEndian.Uint64(data[n:])
+	n += 8
+	s.RxBytes = binary.BigEndian.Uint64(data[n:])
+	n += 8
+	s.TxBytes = binary.BigEndian.Uint64(data[n:])
+	n += 8
+	s.RxDropped = binary.BigEndian.Uint64(data[n:])
+	n += 8
+	s.TxDropped = binary.BigEndian.Uint64(data[n:])
+	n += 8
+	s.RxErrors = binary.BigEndian.Uint64(data[n:])
+	n += 8
+	s.TxErrors = binary.BigEndian.Uint64(data[n:])
+	n += 8
+	s.RxFrameErr = binary.BigEndian.Uint64(data[n:])
+	n += 8
+	s.RxOverErr = binary.BigEndian.Uint64(data[n:])
+	n += 8
+	s.RxCRCErr = binary.BigEndian.Uint64(data[n:])
+	n += 8
+	s.Collisions = binary.BigEndian.Uint64(data[n:])
+	n += 8
+	return nil
 }
 
 // ofp_queue_stats_request 1.0
