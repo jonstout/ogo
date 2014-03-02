@@ -1,9 +1,7 @@
 package ofp10
 
 import (
-	"bytes"
 	"encoding/binary"
-	"io"
 
 	"github.com/jonstout/ogo/protocol/ofpxx"
 	"github.com/jonstout/ogo/protocol/util"
@@ -81,7 +79,7 @@ type StatsReply struct {
 func (s *StatsReply) Len() (n uint16) {
 	n = s.Header.Len()
 	n += 4
-	n += uint16(len(s.Body))
+	n += uint16(s.Body.Len())
 	return
 }
 
@@ -169,51 +167,56 @@ const (
 
 // ofp_desc_stats 1.0
 type DescStats struct {
-	MfrDesc   [DESC_STR_LEN]byte
-	HWDesc    [DESC_STR_LEN]byte
-	SWDesc    [DESC_STR_LEN]byte
-	SerialNum [SERIAL_NUM_LEN]byte
-	DPDesc    [DESC_STR_LEN]byte
+	MfrDesc   []byte // Size DESC_STR_LEN
+	HWDesc    []byte // Size DESC_STR_LEN
+	SWDesc    []byte // Size DESC_STR_LEN
+	SerialNum []byte // Size SERIAL_NUM_LEN
+	DPDesc    []byte // Size DESC_STR_LEN
 }
 
-func (s *DescStats) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, s)
-	n, err = buf.Read(b)
-	if n == 0 {
-		return
-	}
-	return n, io.EOF
+func NewDescStats() *DescStats {
+	s := new(DescStats)
+	s.MfrDesc = make([]byte, DESC_STR_LEN)
+	s.HWDesc = make([]byte, DESC_STR_LEN)
+	s.SWDesc = make([]byte, DESC_STR_LEN)
+	s.SerialNum = make([]byte, SERIAL_NUM_LEN)
+	s.DPDesc = make([]byte, DESC_STR_LEN)
+	return s
 }
 
-func (s *DescStats) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	err = binary.Read(buf, binary.BigEndian, &s.MfrDesc)
-	if err != nil {
-		return
-	}
-	n += 256
-	err = binary.Read(buf, binary.BigEndian, &s.HWDesc)
-	if err != nil {
-		return
-	}
-	n += 256
-	err = binary.Read(buf, binary.BigEndian, &s.SWDesc)
-	if err != nil {
-		return
-	}
-	n += 256
-	err = binary.Read(buf, binary.BigEndian, &s.SerialNum)
-	if err != nil {
-		return
-	}
-	n += 32
-	err = binary.Read(buf, binary.BigEndian, &s.DPDesc)
-	if err != nil {
-		return
-	}
-	n += 256
+func (s *DescStats) Len() (n uint16) {
+	return uint16(DESC_STR_LEN * 4 + SERIAL_NUM_LEN)
+}
+
+func (s *DescStats) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, int(s.Len()))
+	n := 0
+	copy(data[n:], s.MfrDesc)
+	n += len(s.MfrDesc)
+	copy(data[n:], s.HWDesc)
+	n += len(s.HWDesc)
+	copy(data[n:], s.SWDesc)
+	n += len(s.SWDesc)
+	copy(data[n:], s.SerialNum)
+	n += len(s.SerialNum)
+	copy(data[n:], s.DPDesc)
+	n += len(s.DPDesc)
 	return
+}
+
+func (s *DescStats) UnmarshalBinary(data []byte) error {
+	n := 0
+	copy(s.MfrDesc, data[n:])
+	n += len(s.MfrDesc)
+	copy(s.HWDesc, data[n:])
+	n += len(s.HWDesc)
+	copy(s.SWDesc, data[n:])
+	n += len(s.SWDesc)
+	copy(s.SerialNum, data[n:])
+	n += len(s.SerialNum)
+	copy(s.DPDesc, data[n:])
+	n += len(s.DPDesc)
+	return nil
 }
 
 const (
@@ -223,225 +226,231 @@ const (
 
 // ofp_flow_stats_request 1.0
 type FlowStatsRequest struct {
-	Match   Match
-	TableID uint8
-	Pad     uint8
+	Match
+	TableId uint8
+	pad     uint8
 	OutPort uint16
 }
 
-func (s *FlowStatsRequest) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, s)
-	n, err = buf.Read(b)
-	if n == 0 {
-		return
-	}
-	return n, io.EOF
+func NewFlowStatsRequest() *FlowStatsRequest {
+	s := new(FlowStatsRequest)
+	s.Match = *NewMatch()
+	return s
 }
 
-func (s *FlowStatsRequest) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	n, err = s.Match.Write(buf.Bytes())
-	if n == 0 {
-		return
-	}
-	err = binary.Read(buf, binary.BigEndian, &s.TableID)
-	if err != nil {
-		return
-	}
+func (s *FlowStatsRequest) Len() (n uint16) {
+	return s.Match.Len() + 4
+}
+
+func (s *FlowStatsRequest) MarshalBinary() (data []byte, err error) {
+	data, err = s.Match.MarshalBinary()
+	
+	b := make([]byte, 4)
+	n := 0
+	b[n] = s.TableId
 	n += 1
-	err = binary.Read(buf, binary.BigEndian, &s.Pad)
-	if err != nil {
-		return
-	}
+	b[n] = s.pad
 	n += 1
-	err = binary.Read(buf, binary.BigEndian, &s.OutPort)
-	if err != nil {
-		return
-	}
+	binary.BigEndian.PutUint16(data[n:], s.OutPort)
 	n += 2
+	data = append(data, b...)
 	return
+}
+
+func (s *FlowStatsRequest) UnmarshalBinary(data []byte) error {
+	err := s.Match.UnmarshalBinary(data)
+	n := s.Match.Len()
+
+	s.TableId = data[n]
+	n += 1
+	s.pad = data[n]
+	n += 1
+	s.OutPort = binary.BigEndian.Uint16(data[n:])
+	n += 2
+	return err
 }
 
 // ofp_flow_stats 1.0
 type FlowStats struct {
 	Length       uint16
-	TableID      uint8
-	Pad          uint8
-	Match        Match
+	TableId      uint8
+	pad          uint8
+	Match
 	DurationSec  uint32
 	DurationNSec uint32
 	Priority     uint16
 	IdleTimeout  uint16
 	HardTimeout  uint16
-	Pad2         [6]uint8
+	pad2         []uint8 // Size 6
 	Cookie       uint64
 	PacketCount  uint64
 	ByteCount    uint64
 	Actions      []Action
 }
 
-func (s *FlowStats) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, s)
-	n, err = buf.Read(b)
-	if n == 0 {
-		return
-	}
-	return n, io.EOF
+func NewFlowStats() *FlowStats {
+	f := new(FlowStats)
+	f.Match = *NewMatch()
+	f.pad2 = make([]byte, 6)
+	return f
 }
 
-func (s *FlowStats) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	err = binary.Read(buf, binary.BigEndian, &s.Length)
-	if err != nil {
-		return
-	}
-	n += 2
-	err = binary.Read(buf, binary.BigEndian, &s.TableID)
-	if err != nil {
-		return
-	}
-	n += 1
-	err = binary.Read(buf, binary.BigEndian, &s.Pad)
-	if err != nil {
-		return
-	}
-	n += 1
-	m := 0
-	m, err = s.Match.Write(buf.Next(40))
-	if m == 0 {
-		return
-	}
-	n += m
-	err = binary.Read(buf, binary.BigEndian, &s.DurationSec)
-	if err != nil {
-		return
-	}
-	n += 4
-	err = binary.Read(buf, binary.BigEndian, &s.DurationNSec)
-	if err != nil {
-		return
-	}
-	n += 4
-	err = binary.Read(buf, binary.BigEndian, &s.Priority)
-	if err != nil {
-		return
-	}
-	n += 2
-	err = binary.Read(buf, binary.BigEndian, &s.IdleTimeout)
-	if err != nil {
-		return
-	}
-	n += 2
-	err = binary.Read(buf, binary.BigEndian, &s.HardTimeout)
-	if err != nil {
-		return
-	}
-	n += 2
-	err = binary.Read(buf, binary.BigEndian, &s.Pad2)
-	if err != nil {
-		return
-	}
-	n += 6
-	err = binary.Read(buf, binary.BigEndian, &s.Cookie)
-	if err != nil {
-		return
-	}
-	n += 8
-	err = binary.Read(buf, binary.BigEndian, &s.PacketCount)
-	if err != nil {
-		return
-	}
-	n += 8
-	err = binary.Read(buf, binary.BigEndian, &s.ByteCount)
-	if err != nil {
-		return
-	}
-	n += 8
-
-	for buf.Len() > 2 {
-		t := binary.BigEndian.Uint16(buf.Bytes()[:2])
-		l := binary.BigEndian.Uint16(buf.Bytes()[2:4])
-		var a Action
-		m := 0
-
-		switch t {
-		case AT_OUTPUT:
-			a = NewActionOutput(0)
-		case AT_SET_VLAN_VID:
-			a = NewActionVLANVID(0xffff)
-		case AT_SET_VLAN_PCP:
-			a = NewActionVLANPCP(0)
-		case AT_STRIP_VLAN:
-			a = NewActionStripVLAN()
-		case AT_SET_DL_SRC:
-			a = NewActionDLSrc(make([]byte, 6))
-		case AT_SET_DL_DST:
-			a = NewActionDLDst(make([]byte, 6))
-		case AT_SET_NW_SRC:
-			a = NewActionNWSrc(make([]byte, 4))
-		case AT_SET_NW_DST:
-			a = NewActionNWDst(make([]byte, 4))
-		case AT_SET_NW_TOS:
-			a = NewActionNWTOS(0)
-		case AT_SET_TP_SRC:
-			a = NewActionTPSrc(0)
-		case AT_SET_TP_DST:
-			a = NewActionTPDst(0)
-		case AT_ENQUEUE:
-			a = NewActionEnqueue(0, 0)
-		case AT_VENDOR:
-			a = NewActionVendor(0)
-		}
-
-		if m, err = a.Write(buf.Next(int(l))); m == 0 {
-			return
-		} else {
-			n += m
-		}
-		s.Actions = append(s.Actions, a)
+func (s *FlowStats) Len() (n uint16) {
+	n = 24 + s.Match.Len() + 24
+	for _, a := range s.Actions {
+		n += a.Len()
 	}
 	return
+}
+
+func (s *FlowStats) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, int(s.Len()))
+	n := 0
+
+	binary.BigEndian.PutUint16(data[n:], s.Length)
+	n += 2
+	data[n] = s.TableId
+	n += 1
+	data[n] = s.pad
+	n += 1
+	b, err := s.Match.MarshalBinary()
+	data = append(data, b...)
+	n += len(b)
+	binary.BigEndian.PutUint32(data[n:], s.DurationSec)
+	n += 4
+	binary.BigEndian.PutUint32(data[n:], s.DurationNSec)
+	n += 4
+	binary.BigEndian.PutUint16(data[n:], s.Priority)
+	n += 2
+	binary.BigEndian.PutUint16(data[n:], s.IdleTimeout)
+	n += 2
+	binary.BigEndian.PutUint16(data[n:], s.HardTimeout)
+	n += 2
+	copy(data[n:], s.pad2)
+	n += len(s.pad2)
+	binary.BigEndian.PutUint64(data[n:], s.Cookie)
+	n += 8
+	binary.BigEndian.PutUint64(data[n:], s.PacketCount)
+	n += 8
+	binary.BigEndian.PutUint64(data[n:], s.ByteCount)
+	n += 8
+
+	for _, a := range s.Actions {
+		b, err = a.MarshalBinary()
+		data = append(data, b...)
+		n += len(b)
+	}
+	return
+}
+
+func (s *FlowStats) UnmarshalBinary(data []byte) error {
+	n := 0
+	s.Length = binary.BigEndian.Uint16(data[n:])
+	n += 2
+	s.TableId = data[n]
+	n += 1
+	s.pad = data[n]
+	n += 1	
+	err := s.Match.UnmarshalBinary(data[n:])
+	n += int(s.Match.Len())
+	s.DurationSec = binary.BigEndian.Uint32(data[n:])
+	n += 4
+	s.DurationNSec = binary.BigEndian.Uint32(data[n:])
+	n += 4
+	s.Priority = binary.BigEndian.Uint16(data[n:])
+	n += 2
+	s.IdleTimeout = binary.BigEndian.Uint16(data[n:])
+	n += 2
+	s.HardTimeout = binary.BigEndian.Uint16(data[n:])
+	n += 2
+	copy(s.pad2, data[n:])
+	n += len(s.pad2)
+	s.Cookie = binary.BigEndian.Uint64(data[n:])
+	n += 8
+	s.PacketCount = binary.BigEndian.Uint64(data[n:])
+	n += 8
+	s.ByteCount = binary.BigEndian.Uint64(data[n:])
+	n += 8
+	for n < int(s.Length) {
+		t := binary.BigEndian.Uint16(data[n:])
+		var a Action
+		switch t {
+		case ActionType_Output:
+			a = NewActionOutput(0)
+		case ActionType_SetVLAN_VID:
+			a = NewActionVLANVID(0xffff)
+		case ActionType_SetVLAN_PCP:
+			a = NewActionVLANPCP(0)
+		case ActionType_StripVLAN:
+			a = NewActionStripVLAN()
+		case ActionType_SetDLSrc:
+			a = NewActionDLSrc(make([]byte, 6))
+		case ActionType_SetDLDst:
+			a = NewActionDLDst(make([]byte, 6))
+		case ActionType_SetNWSrc:
+			a = NewActionNWSrc(make([]byte, 4))
+		case ActionType_SetNWDst:
+			a = NewActionNWDst(make([]byte, 4))
+		case ActionType_SetNWTOS:
+			a = NewActionNWTOS(0)
+		case ActionType_SetTPSrc:
+			a = NewActionTPSrc(0)
+		case ActionType_SetTPDst:
+			a = NewActionTPDst(0)
+		case ActionType_Enqueue:
+			a = NewActionEnqueue(0, 0)
+		case ActionType_Vendor:
+			a = NewActionVendor(0)
+		}
+		s.Actions = append(s.Actions, a)
+		n += int(a.Len())
+	}
+
+	return nil
 }
 
 // ofp_aggregate_stats_request 1.0
 type AggregateStatsRequest struct {
-	Match   Match
-	TableID uint8
-	Pad     uint8
+	Match
+	TableId uint8
+	pad     uint8
 	OutPort uint16
 }
 
-func (s *AggregateStatsRequest) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, s)
-	n, err = buf.Read(b)
-	if n == 0 {
-		return
-	}
-	return n, io.EOF
+func NewAggregateStatsRequest() *AggregateStatsRequest {
+	return new(AggregateStatsRequest)
 }
 
-func (s *AggregateStatsRequest) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	n, err = s.Match.Write(buf.Next(40))
-	err = binary.Read(buf, binary.BigEndian, &s.TableID)
-	if err != nil {
-		return
-	}
+func (s *AggregateStatsRequest) Len() (n uint16) {
+	return s.Match.Len() + 4
+}
+
+func (s *AggregateStatsRequest) MarshalBinary() (data []byte, err error) {
+	data, err = s.Match.MarshalBinary()
+
+	b := make([]byte, 4)
+	n := 0
+	b[n] = s.TableId
 	n += 1
-	err = binary.Read(buf, binary.BigEndian, &s.Pad)
-	if err != nil {
-		return
-	}
+	b[n] = s.pad
 	n += 1
-	err = binary.Read(buf, binary.BigEndian, &s.OutPort)
-	if err != nil {
-		return
-	}
+	binary.BigEndian.PutUint16(data[n:], s.OutPort)
 	n += 2
+	data = append(data, b...)
 	return
+}
+
+func (s *AggregateStatsRequest) UnmarshalBinary(data []byte) error {
+	n := 0
+	s.Match.UnmarshalBinary(data[n:])
+	n += int(s.Match.Len())
+	s.TableId = data[n]
+	n += 1
+	s.pad = data[n]
+	n += 1
+	s.OutPort = binary.BigEndian.Uint16(data[n:])
+	n += 2
+	return nil
 }
 
 // ofp_aggregate_stats_reply 1.0
@@ -452,9 +461,10 @@ type AggregateStats struct {
 	pad         []uint8 // Size 4
 }
 
-func NewAggregateStats() *AggregateStatsReply {
-	s := new(AggregateStatsReply)
+func NewAggregateStats() *AggregateStats {
+	s := new(AggregateStats)
 	s.pad = make([]byte, 4)
+	return s
 }
 
 func (s *AggregateStats) Len() (n uint16) {
@@ -523,13 +533,13 @@ func (s *TableStats) MarshalBinary() (data []byte, err error) {
 	n += 4
 	binary.BigEndian.PutUint32(data[n:], s.MaxEntries)
 	n += 4
-	binary.BigEndian.PutUint32(data[n:], s.ActionCount)
+	binary.BigEndian.PutUint32(data[n:], s.ActiveCount)
 	n += 4
-	binary.BigEndian.PutUint32(data[n:], s.LookupCount)
-	n += 4
-	binary.BigEndian.PutUint32(data[n:], s.MatchedCount)
-	n += 4
-	return nil
+	binary.BigEndian.PutUint64(data[n:], s.LookupCount)
+	n += 8
+	binary.BigEndian.PutUint64(data[n:], s.MatchedCount)
+	n += 8
+	return
 }
 
 func (s *TableStats) UnmarshalBinary(data []byte) error {
@@ -546,9 +556,9 @@ func (s *TableStats) UnmarshalBinary(data []byte) error {
 	n += 4
 	s.ActiveCount = binary.BigEndian.Uint32(data[n:])
 	n += 4
-	s.LookupCount = binary.BigEndian.Uint32(data[n:])
+	s.LookupCount = binary.BigEndian.Uint64(data[n:])
 	n += 8
-	s.MatchedCount = binary.BigEndian.Uint32(data[n:])
+	s.MatchedCount = binary.BigEndian.Uint64(data[n:])
 	n += 8
 	return nil
 }
@@ -566,6 +576,7 @@ type PortStatsRequest struct {
 func NewPortStatsRequest() *PortStatsRequest {
 	p := new(PortStatsRequest)
 	p.pad = make([]byte, 6)
+	return p
 }
 
 func (s *PortStatsRequest) Len() (n uint16) {
@@ -696,6 +707,7 @@ type QueueStatsRequest struct {
 func NewQueueStatsRequest() *QueueStatsRequest {
 	q := new(QueueStatsRequest)
 	q.pad = make([]byte, 2)
+	return q
 }
 
 func (s *QueueStatsRequest) Len() (n uint16) {
@@ -758,9 +770,7 @@ func (s *QueueStats) MarshalBinary() (data []byte, err error) {
 }
 
 func (s *QueueStats) UnmarshalBinary(data []byte) error {
-	err := s.Header.UnmarshalBinary(data)
-	n := s.Header.Len()
-
+	n := 0
 	s.PortNo = binary.BigEndian.Uint16(data[n:])
 	n += 2
 	copy(s.pad, data[n:])
@@ -773,7 +783,7 @@ func (s *QueueStats) UnmarshalBinary(data []byte) error {
 	n += 8
 	s.TxErrors = binary.BigEndian.Uint64(data[n:])
 	n += 8
-	return err
+	return nil
 }
 
 // ofp_port_status
@@ -788,6 +798,7 @@ func NewPortStatus() *PortStatus {
 	p := new(PortStatus)
 	p.Header = ofpxx.NewOfp10Header()
 	p.pad = make([]byte, 7)
+	return p
 }
 
 func (p *PortStatus) Len() (n uint16) {
@@ -808,7 +819,7 @@ func (s *PortStatus) MarshalBinary() (data []byte, err error) {
 	copy(b[n:], s.pad)
 	data = append(data, b...)
 
-	b, err = s.PhyPort.MarshalBinary()
+	b, err = s.Desc.MarshalBinary()
 	data = append(data, b...)
 	return
 }
