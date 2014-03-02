@@ -710,101 +710,105 @@ func (s *PortStats) Write(b []byte) (n int, err error) {
 // ofp_queue_stats_request 1.0
 type QueueStatsRequest struct {
 	PortNo  uint16
-	Pad     []uint8 // Size 2
-	QueueID uint32
+	pad     []uint8 // Size 2
+	QueueId uint32
 }
 
-func (s *QueueStatsRequest) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, s)
-	n, err = buf.Read(b)
-	if n == 0 {
-		return
-	}
-	return n, io.EOF
+func NewQueueStatsRequest() *QueueStatsRequest {
+	q := new(QueueStatsRequest)
+	q.pad = make([]byte, 2)
 }
 
-func (s *QueueStatsRequest) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	err = binary.Read(buf, binary.BigEndian, &s.PortNo)
-	if err != nil {
-		return
-	}
+func (s *QueueStatsRequest) Len() (n uint16) {
+	return 8
+}
+
+func (s *QueueStatsRequest) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, int(s.Len()))
+	n := 0
+	binary.BigEndian.PutUint16(data[n:], s.PortNo)
 	n += 2
-	err = binary.Read(buf, binary.BigEndian, &s.Pad)
-	if err != nil {
-		return
-	}
-	n += 1
-	err = binary.Read(buf, binary.BigEndian, &s.QueueID)
-	if err != nil {
-		return
-	}
+	copy(data[n:], s.pad)
+	n += 2
+	binary.BigEndian.PutUint32(data[n:], s.QueueId)
 	n += 4
 	return
+}
+
+func (s *QueueStatsRequest) UnmarshalBinary(data []byte) error {
+	n := 0
+	s.PortNo = binary.BigEndian.Uint16(data[n:])
+	n += 2
+	copy(s.pad, data[n:])
+	n += 2
+	s.QueueId = binary.BigEndian.Uint32(data[n:])
+	return nil
 }
 
 // ofp_queue_stats 1.0
 type QueueStats struct {
 	PortNo    uint16
-	Pad       []uint8 // Size 2
-	QueueID   uint32
+	pad       []uint8 // Size 2
+	QueueId   uint32
 	TxBytes   uint64
 	TxPackets uint64
 	TxErrors  uint64
 }
 
-func (s *QueueStats) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, s)
-	n, err = buf.Read(b)
-	if n == 0 {
-		return
-	}
-	return n, io.EOF
+func (s *QueueStats) Len() (n uint16) {
+	return 32
 }
 
-func (s *QueueStats) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	err = binary.Read(buf, binary.BigEndian, &s.PortNo)
-	if err != nil {
-		return
-	}
+func (s *QueueStats) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, 32)
+	n := 0
+
+	binary.BigEndian.PutUint16(data[n:], s.PortNo)
 	n += 2
-	err = binary.Read(buf, binary.BigEndian, &s.Pad)
-	if err != nil {
-		return
-	}
-	n += 1
-	err = binary.Read(buf, binary.BigEndian, &s.QueueID)
-	if err != nil {
-		return
-	}
+	copy(data[n:], s.pad)
+	n += 2
+	binary.BigEndian.PutUint32(data[n:], s.QueueId)
 	n += 4
-	err = binary.Read(buf, binary.BigEndian, &s.TxBytes)
-	if err != nil {
-		return
-	}
+	binary.BigEndian.PutUint64(data[n:], s.TxBytes)
 	n += 8
-	err = binary.Read(buf, binary.BigEndian, &s.TxPackets)
-	if err != nil {
-		return
-	}
+	binary.BigEndian.PutUint64(data[n:], s.TxPackets)
 	n += 8
-	err = binary.Read(buf, binary.BigEndian, &s.TxErrors)
-	if err != nil {
-		return
-	}
+	binary.BigEndian.PutUint64(data[n:], s.TxErrors)
 	n += 8
 	return
+}
+
+func (s *QueueStats) UnmarshalBinary(data []byte) error {
+	err := s.Header.UnmarshalBinary(data)
+	n := s.Header.Len()
+
+	s.PortNo = binary.BigEndian.Uint16(data[n:])
+	n += 2
+	copy(s.pad, data[n:])
+	n += len(s.pad)
+	s.QueueId = binary.BigEndian.Uint32(data[n:])
+	n += 4
+	s.TxBytes = binary.BigEndian.Uint64(data[n:])
+	n += 8
+	s.TxPackets = binary.BigEndian.Uint64(data[n:])
+	n += 8
+	s.TxErrors = binary.BigEndian.Uint64(data[n:])
+	n += 8
+	return err
 }
 
 // ofp_port_status
 type PortStatus struct {
 	ofpxx.Header
 	Reason uint8
-	Pad    []uint8 // Size 7
+	pad    []uint8 // Size 7
 	Desc   PhyPort
+}
+
+func NewPortStatus() *PortStatus {
+	p := new(PortStatus)
+	p.Header = ofpxx.NewOfp10Header()
+	p.pad = make([]byte, 7)
 }
 
 func (p *PortStatus) Len() (n uint16) {
@@ -814,40 +818,33 @@ func (p *PortStatus) Len() (n uint16) {
 	return
 }
 
-func (s *PortStatus) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, s)
-	n, err = buf.Read(b)
-	if n == 0 {
-		return
-	}
-	return n, io.EOF
+func (s *PortStatus) MarshalBinary() (data []byte, err error) {
+	s.Header.Length = s.Len()
+	data, err = s.Header.MarshalBinary()
+
+	b := make([]byte, 8)
+	n := 0
+	b[0] = s.Reason
+	n += 1
+	copy(b[n:], s.pad)
+	data = append(data, b...)
+
+	b, err = s.PhyPort.MarshalBinary()
+	data = append(data, b...)
+	return
 }
 
-func (s *PortStatus) Write(b []byte) (n int, err error) {
-	var m int64
-	buf := bytes.NewBuffer(b)
-
-	if m, err = s.Header.ReadFrom(buf); err != nil {
-		return
-	}
-	n += int(m)
-	err = binary.Read(buf, binary.BigEndian, &s.Reason)
-	if err != nil {
-		return
-	}
+func (s *PortStatus) UnmarshalBinary(data []byte) error {
+	err := s.Header.UnmarshalBinary(data)
+	n := int(s.Header.Len())
+	
+	s.Reason = data[n]
 	n += 1
-	err = binary.Read(buf, binary.BigEndian, &s.Pad)
-	if err != nil {
-		return
-	}
-	n += 7
-	m, err = s.Desc.ReadFrom(buf)
-	if err != nil {
-		return
-	}
-	n += int(m)
-	return
+	copy(s.pad, data[n:])
+	n += len(s.pad)
+
+	err = s.Desc.UnmarshalBinary(data[n:])
+	return err
 }
 
 // ofp_port_reason 1.0
