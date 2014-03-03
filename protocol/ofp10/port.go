@@ -148,7 +148,7 @@ func (p *PortMod) UnmarshalBinary(data []byte) error {
 	n += 4
 	copy(p.pad, data[n:])
 	n += len(p.pad)
-	return nil
+	return err
 }
 
 

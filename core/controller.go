@@ -1,6 +1,7 @@
 package core
 
 import (
+	"github.com/jonstout/ogo/protocol/ofpxx"
 	"github.com/jonstout/ogo/protocol/ofp10"
 	"log"
 	"net"
@@ -42,7 +43,11 @@ func (c *Controller) Listen(port string) {
 
 func (c *Controller) handleConnection(conn *net.TCPConn) {
 	stream := NewMessageStream(conn)
-	stream.Outbound <- ofp10.NewHello()
+	h, err := ofpxx.NewHello(1)
+	if err != nil {
+		return
+	}
+	stream.Outbound <- h
 
 	for {
 		select {
@@ -54,7 +59,7 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
 			// completes version negotiation. If version
 			// types are incompatable, it is possible the
 			// connection may be servered without error.
-			case *ofp10.Header:
+			case *ofpxx.Header:
 				if m.Version == ofp10.VERSION {
 					// Version negotiation is
 					// considered complete. Create

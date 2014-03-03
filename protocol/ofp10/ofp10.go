@@ -63,7 +63,7 @@ const (
 
 	/* Controller command messages. */
 	Type_Packet_Out
-	T_FLOW_MOD
+	Type_FlowMod
 	Type_PortMod
 
 	/* Statistics messages. */

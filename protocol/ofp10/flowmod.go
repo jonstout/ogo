@@ -10,15 +10,15 @@ import (
 
 // ofp_flow_mod
 type FlowMod struct {
-	Header ofpxx.Header
-	Match  Match
+	ofpxx.Header
+	Match
 	Cookie uint64
 
 	Command     uint16
 	IdleTimeout uint16
 	HardTimeout uint16
 	Priority    uint16
-	BufferID    uint32
+	BufferId    uint32
 	OutPort     uint16
 	Flags       uint16
 	Actions     []Action
@@ -27,7 +27,7 @@ type FlowMod struct {
 func NewFlowMod() *FlowMod {
 	f := new(FlowMod)
 	f.Header = ofpxx.NewOfp10Header()
-	f.Header.Type = T_FLOW_MOD
+	f.Header.Type = Type_FlowMod
 	f.Match = *NewMatch()
 	// Add a generator for f.Cookie here
 	f.Cookie = 0
@@ -37,7 +37,7 @@ func NewFlowMod() *FlowMod {
 	f.HardTimeout = 0
 	// Add a priority gen here
 	f.Priority = 1000
-	f.BufferID = 0xffffffff
+	f.BufferId = 0xffffffff
 	f.OutPort = P_NONE
 	f.Flags = 0
 	f.Actions = make([]Action, 0)
@@ -46,10 +46,6 @@ func NewFlowMod() *FlowMod {
 
 func (f *FlowMod) AddAction(a Action) {
 	f.Actions = append(f.Actions, a)
-}
-
-func (f *FlowMod) GetHeader() *ofpxx.Header {
-	return &f.Header
 }
 
 func (f *FlowMod) Len() (n uint16) {
@@ -63,90 +59,67 @@ func (f *FlowMod) Len() (n uint16) {
 	return
 }
 
-func (f *FlowMod) Read(b []byte) (n int, err error) {
-	f.Header.Length = f.Len()
-	buf := new(bytes.Buffer)
-	data, _ := f.Header.MarshalBinary()
-	buf.Write(data)
-	buf.ReadFrom(&f.Match)
-	binary.Write(buf, binary.BigEndian, f.Cookie)
-	binary.Write(buf, binary.BigEndian, f.Command)
-	binary.Write(buf, binary.BigEndian, f.IdleTimeout)
-	binary.Write(buf, binary.BigEndian, f.HardTimeout)
-	binary.Write(buf, binary.BigEndian, f.Priority)
-	binary.Write(buf, binary.BigEndian, f.BufferID)
-	binary.Write(buf, binary.BigEndian, f.OutPort)
-	binary.Write(buf, binary.BigEndian, f.Flags)
-	if f.Command != FC_DELETE && f.Command != FC_DELETE_STRICT {
-		for _, a := range f.Actions {
-			bytes, _ := a.MarshalBinary()
-			buf.Write(bytes)
-		}
+func (f *FlowMod) MarshalBinary() (data []byte, err error) {
+	data, err = f.Header.MarshalBinary()
+	bytes, err := f.Match.MarshalBinary()
+	data = append(data, bytes...)
+
+	bytes = make([]byte, 24)
+	n := 0
+	binary.BigEndian.PutUint64(bytes[n:], f.Cookie)
+	n += 8
+	binary.BigEndian.PutUint16(bytes[n:], f.Command)
+	n += 2
+	binary.BigEndian.PutUint16(bytes[n:], f.IdleTimeout)
+	n += 2
+	binary.BigEndian.PutUint16(bytes[n:], f.HardTimeout)
+	n += 2
+	binary.BigEndian.PutUint16(bytes[n:], f.Priority)
+	n += 2
+	binary.BigEndian.PutUint32(bytes[n:], f.BufferId)
+	n += 2
+	binary.BigEndian.PutUint16(bytes[n:], f.OutPort)
+	n += 2
+	binary.BigEndian.PutUint16(bytes[n:], f.Flags)
+	n += 2
+	data = append(data, bytes...)
+
+	for _, a := range f.Actions {
+		bytes, err = a.MarshalBinary()
+		data = append(data, bytes...)
 	}
-	n, err = buf.Read(b)
-	if err != nil {
-		return
-	}
-	return n, io.EOF
+	return
 }
 
-func (f *FlowMod) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	err = f.Header.UnmarshalBinary(buf.Next(8))
+func (f *FlowMod) UnmarshalBinary(data []byte) error {
+	n := 0
+	f.Header.UnmarshalBinary(data[n:])
+	n += int(f.Header.Len())
+	f.Match.UnmarshalBinary(data[n:])
+	n += int(f.Match.Len())
+	f.Cookie = binary.BigEndian.Uint64(data[n:])
 	n += 8
-	m := 0
-	m, err = f.Match.Write(buf.Next(40))
-	if m == 0 {
-		return
-	}
-	n += m
-	if err = binary.Read(buf, binary.BigEndian, &f.Cookie); err != nil {
-		return
-	}
+	f.Command = binary.BigEndian.Uint16(data[n:])
 	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &f.Command); err != nil {
-		return
-	}
+	f.IdleTimeout = binary.BigEndian.Uint16(data[n:])
 	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &f.IdleTimeout); err != nil {
-		return
-	}
+	f.HardTimeout = binary.BigEndian.Uint16(data[n:])
 	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &f.HardTimeout); err != nil {
-		return
-	}
+	f.Priority = binary.BigEndian.Uint16(data[n:])
 	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &f.Priority); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &f.BufferID); err != nil {
-		return
-	}
+	f.BufferId = binary.BigEndian.Uint32(data[n:])
 	n += 4
-	if err = binary.Read(buf, binary.BigEndian, &f.OutPort); err != nil {
-		return
-	}
+	f.OutPort = binary.BigEndian.Uint16(data[n:])
 	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &f.Flags); err != nil {
-		return
-	}
+	f.Flags = binary.BigEndian.Uint16(data[n:])
 	n += 2
 
-	f.Actions = make([]Action, 0)
-	for n < len(b) {
-		h := binary.BigEndian.Uint16(b[n:n+2])
-		var a Action
-		switch h {
-		case ActionType_Output:
-			a = new(ActionOutput)
-
-		}
-		a.UnmarshalBinary(b[n:])
+	for n < int(f.Header.Length) {
+		a := DecodeAction(data[n:])
 		f.Actions = append(f.Actions, a)
 		n += int(a.Len())
 	}
-	return
+	return nil
 }
 
 // ofp_flow_mod_command 1.0
@@ -167,8 +140,8 @@ const (
 
 // BEGIN: ofp10 - 5.4.2
 type FlowRemoved struct {
-	Header   ofpxx.Header
-	Match    Match
+	ofpxx.Header
+	Match
 	Cookie   uint64
 	Priority uint16
 	Reason   uint8
@@ -181,10 +154,6 @@ type FlowRemoved struct {
 	Pad2        [2]uint8
 	PacketCount uint64
 	ByteCount   uint64
-}
-
-func (f *FlowRemoved) GetHeader() *ofpxx.Header {
-	return &f.Header
 }
 
 func (f *FlowRemoved) Len() (n uint16) {
@@ -209,10 +178,8 @@ func (f *FlowRemoved) Write(b []byte) (n int, err error) {
 	err = f.Header.UnmarshalBinary(buf.Next(8))
 	n += 8
 	m := 0
-	m, err = f.Match.Write(buf.Next(40))
-	if m == 0 {
-		return
-	}
+	err = f.Match.UnmarshalBinary(buf.Next(40))
+
 	n += m
 	if err = binary.Read(buf, binary.BigEndian, &f.Cookie); err != nil {
 		return

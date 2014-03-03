@@ -1,9 +1,7 @@
 package ofp10
 
 import (
-	"bytes"
 	"encoding/binary"
-	"io"
 	"net"
 )
 
@@ -15,11 +13,11 @@ type Match struct {
 	DLDst     net.HardwareAddr //[ETH_ALEN]uint8 /* Ethernet destination address. */
 	DLVLAN    uint16           /* Input VLAN id. */
 	DLVLANPcp uint8            /* Input VLAN priority. */
-	Pad       [1]uint8         /* Align to 64-bits */
+	pad       []uint8          /* Align to 64-bits Size 1 */
 	DLType    uint16           /* Ethernet frame type. */
 	NWTos     uint8            /* IP ToS (actually DSCP field, 6 bits). */
 	NWProto   uint8            /* IP protocol or lower 8 bits of ARP opcode. */
-	Pad1      [2]uint8         /* Align to 64-bits */
+	pad2      []uint8          /* Align to 64-bits Size 2 */
 	NWSrc     net.IP           /* IP source address. */
 	NWDst     net.IP           /* IP destination address. */
 	TPSrc     uint16           /* TCP/UDP source port. */
@@ -34,6 +32,8 @@ func NewMatch() *Match {
 	m.DLDst = make([]byte, ETH_ALEN)
 	m.NWSrc = make([]byte, 4)
 	m.NWDst = make([]byte, 4)
+	m.pad = make([]byte, 1)
+	m.pad2 = make([]byte, 2)
 	return m
 }
 
@@ -41,7 +41,43 @@ func (m *Match) Len() (n uint16) {
 	return 40
 }
 
-func (m *Match) Read(b []byte) (n int, err error) {
+func (m *Match) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, int(m.Len()))
+	n := 0
+	binary.BigEndian.PutUint32(data[n:], m.Wildcards)
+	n += 4
+	binary.BigEndian.PutUint16(data[n:], m.InPort)
+	n += 2
+	copy(data[n:], m.DLSrc)
+	n += len(m.DLSrc)
+	copy(data[n:], m.DLDst)
+	n += len(m.DLDst)
+	binary.BigEndian.PutUint16(data[n:], m.DLVLAN)
+	n += 2
+	data[n] = m.DLVLANPcp
+	n += 1
+	copy(data[n:], m.pad)
+	n += len(m.pad)
+	binary.BigEndian.PutUint16(data[n:], m.DLType)
+	n += 2
+	data[n] = m.NWTos
+	n += 1
+	data[n] = m.NWProto
+	n += 1
+	copy(data[n:], m.pad2)
+	n += len(m.pad2)
+	copy(data[n:], m.NWSrc)
+	n += len(m.NWSrc)
+	copy(data[n:], m.NWDst)
+	n += len(m.NWDst)
+	binary.BigEndian.PutUint16(data[n:], m.TPSrc)
+	n += 2
+	binary.BigEndian.PutUint16(data[n:], m.TPDst)
+	n += 2
+	return
+}
+
+func (m *Match) UnmarshalBinary(data []byte) error {
 	// Any non-zero value fields should not be wildcarded.
 	if m.InPort != 0 {
 		m.Wildcards = m.Wildcards ^ FW_IN_PORT
@@ -79,92 +115,39 @@ func (m *Match) Read(b []byte) (n int, err error) {
 	if m.TPDst != 0 {
 		m.Wildcards = m.Wildcards ^ FW_TP_DST
 	}
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, m.Wildcards)
-	binary.Write(buf, binary.BigEndian, m.InPort)
-	binary.Write(buf, binary.BigEndian, m.DLSrc)
-	binary.Write(buf, binary.BigEndian, m.DLDst)
-	binary.Write(buf, binary.BigEndian, m.DLVLAN)
-	binary.Write(buf, binary.BigEndian, m.DLVLANPcp)
-	binary.Write(buf, binary.BigEndian, m.Pad)
-	binary.Write(buf, binary.BigEndian, m.DLType)
-	binary.Write(buf, binary.BigEndian, m.NWTos)
-	binary.Write(buf, binary.BigEndian, m.NWProto)
-	binary.Write(buf, binary.BigEndian, m.Pad1)
-	binary.Write(buf, binary.BigEndian, m.NWSrc)
-	binary.Write(buf, binary.BigEndian, m.NWDst)
-	binary.Write(buf, binary.BigEndian, m.TPSrc)
-	binary.Write(buf, binary.BigEndian, m.TPDst)
-	n, err = buf.Read(b)
-	if n == 0 {
-		return
-	}
-	return n, io.EOF
-}
 
-func (m *Match) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	if err = binary.Read(buf, binary.BigEndian, &m.Wildcards); err != nil {
-		return
-	}
+	n := 0
+	m.Wildcards = binary.BigEndian.Uint32(data[n:])
 	n += 4
-	if err = binary.Read(buf, binary.BigEndian, &m.InPort); err != nil {
-		return
-	}
+	m.InPort = binary.BigEndian.Uint16(data[n:])
 	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &m.DLSrc); err != nil {
-		return
-	}
-	n += ETH_ALEN
-	if err = binary.Read(buf, binary.BigEndian, &m.DLDst); err != nil {
-		return
-	}
-	n += ETH_ALEN
-	if err = binary.Read(buf, binary.BigEndian, &m.DLVLAN); err != nil {
-		return
-	}
+	copy(m.DLSrc, data[n:])
+	n += len(m.DLSrc)
+	copy(m.DLDst, data[n:])
+	n += len(m.DLDst)
+	m.DLVLAN = binary.BigEndian.Uint16(data[n:])
 	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &m.DLVLANPcp); err != nil {
-		return
-	}
+	m.DLVLANPcp = data[n]
 	n += 1
-	if err = binary.Read(buf, binary.BigEndian, &m.Pad); err != nil {
-		return
-	}
+	copy(m.pad, data[n:])
+	n += len(m.pad)
+	m.DLType = binary.BigEndian.Uint16(data[n:])
+	n += 2
+	m.NWTos = data[n]
 	n += 1
-	if err = binary.Read(buf, binary.BigEndian, &m.DLType); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &m.NWTos); err != nil {
-		return
-	}
+	m.NWProto = data[n]
 	n += 1
-	if err = binary.Read(buf, binary.BigEndian, &m.NWProto); err != nil {
-		return
-	}
-	n += 1
-	if err = binary.Read(buf, binary.BigEndian, &m.Pad1); err != nil {
-		return
-	}
+	copy(m.pad2, data[n:])
+	n += len(m.pad2)
+	copy(m.NWSrc, data[n:])
+	n += len(m.NWSrc)
+	copy(m.NWDst, data[n:])
+	n += len(m.NWDst)
+	m.TPSrc = binary.BigEndian.Uint16(data[n:])
 	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &m.NWSrc); err != nil {
-		return
-	}
-	n += 4
-	if err = binary.Read(buf, binary.BigEndian, &m.NWDst); err != nil {
-		return
-	}
-	n += 4
-	if err = binary.Read(buf, binary.BigEndian, &m.TPSrc); err != nil {
-		return
-	}
+	m.TPDst = binary.BigEndian.Uint16(data[n:])
 	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &m.TPDst); err != nil {
-		return
-	}
-	n += 2
-	return
+	return nil
 }
 
 // ofp_flow_wildcards 1.0

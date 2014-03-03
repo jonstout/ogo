@@ -405,8 +405,7 @@ func (s *FlowStats) UnmarshalBinary(data []byte) error {
 		s.Actions = append(s.Actions, a)
 		n += int(a.Len())
 	}
-
-	return nil
+	return err
 }
 
 // ofp_aggregate_stats_request 1.0
