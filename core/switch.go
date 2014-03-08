@@ -213,8 +213,7 @@ func (s *OFSwitch) distributeMessages(dpid net.HardwareAddr, msg util.Message) {
 			case ofp10.Type_EchoRequest:
 				if actor, ok := app.(ofp10.EchoRequestReactor); ok {
 					actor.EchoRequest(s.DPID())
-				}
-				
+				}	
 			}
 		}
 	}
