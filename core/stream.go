@@ -76,7 +76,8 @@ func (m *MessageStream) outbound() {
 			return
 		case msg := <-m.Outbound:
 			// Forward outbound messages to conn
-			if _, err := m.conn.ReadFrom(msg); err != nil {
+			data, _ := msg.MarshalBinary()
+			if _, err := m.conn.Write(data); err != nil {
 				log.Println("OutboundError:", err)
 				m.Error <- err
 				m.Shutdown <- true

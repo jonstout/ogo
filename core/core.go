@@ -81,8 +81,8 @@ func (o *OgoInstance) FeaturesReply(dpid net.HardwareAddr, features *ofp10.Switc
 func (o *OgoInstance) PacketIn(dpid net.HardwareAddr, msg *ofp10.PacketIn) {
 	eth := msg.Data
 	if buf, ok := eth.Data.(*util.Buffer); ok && eth.Ethertype == 0xa0f1 {
-		linkMsg := new(LinkDiscovery)
-		if _, err := linkMsg.Write(buf.Bytes()); err != nil {
+		linkMsg := NewLinkDiscovery()
+		if err := linkMsg.UnmarshalBinary(buf.Bytes()); err != nil {
 			log.Println(err)
 			return
 		}
@@ -106,7 +106,9 @@ func (o *OgoInstance) linkDiscoveryLoop(dpid net.HardwareAddr) {
 			e := eth.New()
 			e.Ethertype = 0xa0f1
 			e.HWSrc = dpid[2:]
-			e.Data = NewLinkDiscovery(dpid)
+			linkDsc := NewLinkDiscovery()
+			linkDsc.SrcDPID = dpid
+			e.Data = linkDsc
 
 			pkt := ofp10.NewPacketOut()
 			pkt.Data = e

@@ -192,7 +192,7 @@ func (s *OFSwitch) receive() {
 	}
 }
 
-func (s *OFSwitch) distributeMessages(dpid net.HardwareAddr, msg ofpxx.Message) {
+func (s *OFSwitch) distributeMessages(dpid net.HardwareAddr, msg util.Message) {
 	s.reqsMu.RLock()
 	switch t := msg.(type) {
 	case *ofp10.SwitchFeatures:
@@ -207,7 +207,7 @@ func (s *OFSwitch) distributeMessages(dpid net.HardwareAddr, msg ofpxx.Message) 
 				actor.PacketIn(s.DPID(), t)
 			}
 		}
-	case *ofp10.Header:
+	case *ofpxx.Header:
 		switch t.Header().Type {
 		case ofp10.Type_Echo_Reply:
 			for _, app := range s.appInstance {

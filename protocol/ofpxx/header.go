@@ -21,10 +21,6 @@ func newHeaderGenerator(ver int) func() Header {
 	}
 }
 
-type Message interface {
-	Header() *Header
-}
-
 // The version specifies the OpenFlow protocol version being
 // used. During the current draft phase of the OpenFlow
 // Protocol, the most significant bit will be set to indicate an
