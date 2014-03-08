@@ -1,57 +1,57 @@
 package ofp10
 
 import (
-	"bytes"
 	"encoding/binary"
-	"io"
 	
 	"github.com/jonstout/ogo/protocol/ofpxx"
+	"github.com/jonstout/ogo/protocol/util"
 )
 
 // BEGIN: ofp10 - 5.4.4
 // ofp_error_msg 1.0
 type ErrorMsg struct {
-	Header ofpxx.Header
+	ofpxx.Header
 	Code   uint16
-	Data   []uint8
+	Data   util.Buffer
 }
 
-func (e *ErrorMsg) GetHeader() *ofpxx.Header {
-	return &e.Header
+func NewErrorMsg() *ErrorMsg {
+	e := new(ErrorMsg)
+	e.Data = *util.NewBuffer(make([]byte, 0))
+	return e
 }
 
 func (e *ErrorMsg) Len() (n uint16) {
 	n = e.Header.Len()
 	n += 2
-	n += uint16(len(e.Data))
+	n += e.Data.Len()
 	return
 }
 
-func (e *ErrorMsg) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, e)
-	n, err = buf.Read(b)
-	if err != nil {
-		return
-	}
-	return n, io.EOF
+func (e *ErrorMsg) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, int(e.Len()))
+	next := 0
+
+	bytes, err := e.Header.MarshalBinary()
+	copy(data[next:], bytes)
+	next += len(bytes)
+	binary.BigEndian.PutUint16(data[next:], e.Code)
+	next += 2
+	bytes, err = e.Data.MarshalBinary()
+	copy(data[next:], bytes)
+	next += len(bytes)
+	return
 }
 
-func (e *ErrorMsg) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	err = e.Header.UnmarshalBinary(buf.Next(8))
-
-	if err = binary.Read(buf, binary.BigEndian, &e.Code); err != nil {
-		return
-	}
-	n += 2
-	e.Data = make([]uint8, buf.Len())
-	m := buf.Len()
-	if err = binary.Read(buf, binary.BigEndian, &e.Data); err != nil {
-		return
-	}
-	n += m
-	return
+func (e *ErrorMsg) UnmarshalBinary(data []byte) error {
+	next := 0
+	e.Header.UnmarshalBinary(data[next:])
+	next += int(e.Header.Len())
+	e.Code = binary.BigEndian.Uint16(data[next:])
+	next += 2
+	e.Data.UnmarshalBinary(data[next:])
+	next += int(e.Data.Len())
+	return nil
 }
 
 // ofp_error_type 1.0

@@ -1,7 +1,6 @@
 package ofp10
 
 import (
-	"bytes"
 	"encoding/binary"
 	//"errors"
 	"net"
@@ -10,21 +9,16 @@ import (
 )
 
 type SwitchFeatures struct {
-	Header ofpxx.Header
-	//DPID uint64
-	DPID net.HardwareAddr
-	//DPID [8]uint8
+	ofpxx.Header
+	DPID net.HardwareAddr // Size 8
 	Buffers uint32
 	Tables  uint8
-	Pad     [3]uint8
-
+	pad     []uint8 // Size 3
 	Capabilities uint32
 	Actions      uint32
 
 	Ports []PhyPort
 }
-
-// OFP_ASSERT(len(SwitchFeatures) == 32)
 
 // FeaturesRequest constructor
 func NewFeaturesRequest() *ofpxx.Header {
@@ -37,6 +31,9 @@ func NewFeaturesRequest() *ofpxx.Header {
 func NewFeaturesReply() *SwitchFeatures {
 	res := new(SwitchFeatures)
 	res.Header.Type = Type_Features_Reply
+	res.DPID = make([]byte, 8)
+	res.pad = make([]byte, 3)
+	res.Ports = make([]PhyPort, 0)
 	return res
 }
 
@@ -45,62 +42,71 @@ func (s *SwitchFeatures) Len() (n uint16) {
 	n += uint16(len(s.DPID))
 	n += 16
 	for _, p := range s.Ports {
-	n += p.Len()
+		n += p.Len()
 	}
 	return
 }
 
-func (f *SwitchFeatures) GetHeader() *ofpxx.Header {
-	return &f.Header
-}
+func (s *SwitchFeatures) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, int(s.Len()))
+	s.Header.Length = s.Len()
+	next := 0
 
-func (f *SwitchFeatures) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, f)
-	n, err = buf.Read(b)
+	bytes, err := s.Header.MarshalBinary()
+	if err != nil {
+		return
+	}
+	copy(data[next:], bytes)
+	next = len(bytes)
+	binary.BigEndian.PutUint32(data[next:], s.Buffers)
+	next += 4
+	data[next] = s.Tables
+	next += 1
+	copy(data, s.pad)
+	next += len(s.pad)
+	binary.BigEndian.PutUint32(data[next:], s.Capabilities)
+	next += 4
+	binary.BigEndian.PutUint32(data[next:], s.Actions)
+	next += 4
+	
+	for _, p := range s.Ports {
+		bytes, err = p.MarshalBinary()
+		if err != nil {
+			return
+		}
+		copy(data[next:], bytes)
+		next += len(bytes)
+	}
 	return
 }
 
-func (f *SwitchFeatures) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	if err := f.Header.UnmarshalBinary(buf.Next(8)); err != nil {
-		return 0, err
+func (s *SwitchFeatures) UnmarshalBinary(data []byte) error {
+	err := s.Header.UnmarshalBinary(data)
+	if err != nil {
+		return err
 	}
-	n += 8
-	dpid := make([]uint8, 8)
-	if err = binary.Read(buf, binary.BigEndian, &dpid); err != nil {
-		return
-	}
-	n += 8
-	f.DPID = net.HardwareAddr(dpid)
-	if err = binary.Read(buf, binary.BigEndian, &f.Buffers); err != nil {
-		return
-	}
-	n += 4
-	if err = binary.Read(buf, binary.BigEndian, &f.Tables); err != nil {
-		return
-	}
-	n += 1
-	if err = binary.Read(buf, binary.BigEndian, &f.Pad); err != nil {
-		return
-	}
-	n += 3
-	if err = binary.Read(buf, binary.BigEndian, &f.Capabilities); err != nil {
-		return
-	}
-	n += 4
-	if err = binary.Read(buf, binary.BigEndian, &f.Actions); err != nil {
-		return
-	}
-	n += 4
+	next := int(s.Header.Len())
+	copy(s.DPID, data[next:])
+	next += len(s.DPID)
+	s.Buffers = binary.BigEndian.Uint32(data[next:])
+	next += 4
+	s.Tables = data[next]
+	next += 1
+	copy(s.pad, data[next:])
+	next += 3
+	s.Capabilities = binary.BigEndian.Uint32(data[next:])
+	next += 4
+	s.Actions = binary.BigEndian.Uint32(data[next:])
+	next += 4
 
-	f.Ports = make([]PhyPort, 0)
-	for n < len(b) {
-		p := NewPhyPort()
-		p.UnmarshalBinary(b[n:])
-		f.Ports = append(f.Ports, *p)
-	}
-	return
+	for _, p := range s.Ports {
+		err = p.UnmarshalBinary(data[next:])
+		if err != nil {
+			return err
+		}
+		next += int(p.Len())
+	}	
+	return nil
 }
 
 // ofp_capabilities 1.0

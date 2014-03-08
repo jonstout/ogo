@@ -2,6 +2,7 @@ package core
 
 import (
 	"github.com/jonstout/ogo/protocol/ofp10"
+	"github.com/jonstout/ogo/protocol/ofpxx"
 	"github.com/jonstout/ogo/protocol/util"
 	"log"
 	"net"
@@ -31,7 +32,7 @@ type OFSwitch struct {
 	portsMu     sync.RWMutex
 	links       map[string]*Link
 	linksMu     sync.RWMutex
-	reqs        map[uint32]chan ofp10.Msg
+	reqs        map[uint32]chan util.Message
 	reqsMu      sync.RWMutex
 }
 
@@ -51,7 +52,7 @@ func NewSwitch(stream *MessageStream, msg ofp10.SwitchFeatures) {
 		s.dpid = msg.DPID
 		s.ports = make(map[uint16]ofp10.PhyPort)
 		s.links = make(map[string]*Link)
-		s.reqs = make(map[uint32]chan ofp10.Msg)
+		s.reqs = make(map[uint32]chan util.Message)
 		for _, p := range msg.Ports {
 			s.ports[p.PortNo] = p
 		}
@@ -191,7 +192,7 @@ func (s *OFSwitch) receive() {
 	}
 }
 
-func (s *OFSwitch) distributeMessages(dpid net.HardwareAddr, msg util.Message) {
+func (s *OFSwitch) distributeMessages(dpid net.HardwareAddr, msg ofpxx.Message) {
 	s.reqsMu.RLock()
 	switch t := msg.(type) {
 	case *ofp10.SwitchFeatures:
@@ -207,14 +208,14 @@ func (s *OFSwitch) distributeMessages(dpid net.HardwareAddr, msg util.Message) {
 			}
 		}
 	case *ofp10.Header:
-		switch t.GetHeader().Type {
-		case ofp10.T_ECHO_REPLY:
+		switch t.Header().Type {
+		case ofp10.Type_Echo_Reply:
 			for _, app := range s.appInstance {
 				if actor, ok := app.(ofp10.EchoReplyReactor); ok {
 					actor.EchoReply(s.DPID())
 				}
 			}
-		case ofp10.T_ECHO_REQUEST:
+		case ofp10.Type_Echo_Request:
 			for _, app := range s.appInstance {
 				if actor, ok := app.(ofp10.EchoRequestReactor); ok {
 					actor.EchoRequest(s.DPID())

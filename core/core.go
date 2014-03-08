@@ -103,7 +103,7 @@ func (o *OgoInstance) linkDiscoveryLoop(dpid net.HardwareAddr) {
 			return
 		// Every two seconds send a link discovery packet.
 		case <-time.After(time.Second * 2):
-			e := eth.NewEthernet()
+			e := eth.New()
 			e.Ethertype = 0xa0f1
 			e.HWSrc = dpid[2:]
 			e.Data = NewLinkDiscovery(dpid)
