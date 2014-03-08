@@ -170,6 +170,9 @@ type Hello struct {
 }
 
 func NewHello(ver int) (h *Hello, err error) {
+	h = new(Hello)
+	h.Elements = make([]HelloElem, 0)
+
 	if ver == 1 {
 		h.Header = NewOfp10Header()
 	} else if ver == 4 {
@@ -177,7 +180,6 @@ func NewHello(ver int) (h *Hello, err error) {
 	} else {
 		err = errors.New("New hello message with unsupported verion was attempted to be created.")
 	}
-	h.Elements = make([]HelloElem, 1)
-	h.Elements[0] = NewHelloElemVersionBitmap()
+	h.Elements = append(h.Elements, NewHelloElemVersionBitmap())
 	return
 }

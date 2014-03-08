@@ -1,9 +1,7 @@
 package ofp10
 
 import (
-	"bytes"
 	"encoding/binary"
-	"io"
 
 	"github.com/jonstout/ogo/protocol/ofpxx"
 )
@@ -11,7 +9,7 @@ import (
 // ofp_flow_mod
 type FlowMod struct {
 	ofpxx.Header
-	Match
+	Match Match
 	Cookie uint64
 
 	Command     uint16
@@ -141,19 +139,28 @@ const (
 // BEGIN: ofp10 - 5.4.2
 type FlowRemoved struct {
 	ofpxx.Header
-	Match
+	Match Match
 	Cookie   uint64
 	Priority uint16
 	Reason   uint8
-	Pad      [1]uint8
+	pad      []uint8 // Size 1
 
 	DurationSec  uint32
 	DurationNSec uint32
 
 	IdleTimeout uint16
-	Pad2        [2]uint8
+	pad2        []uint8 // Size 2
 	PacketCount uint64
 	ByteCount   uint64
+}
+
+func NewFlowRemoved() *FlowRemoved {
+	f := new(FlowRemoved)
+	f.Header = ofpxx.NewOfp10Header()
+	f.Match = *NewMatch()
+	f.pad = make([]byte, 1)
+	f.pad2 = make([]byte, 2)
+	return f
 }
 
 func (f *FlowRemoved) Len() (n uint16) {
@@ -163,65 +170,68 @@ func (f *FlowRemoved) Len() (n uint16) {
 	return
 }
 
-func (f *FlowRemoved) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, f)
-	n, err = buf.Read(b)
-	if err != nil {
-		return
-	}
-	return n, io.EOF
+func (f *FlowRemoved) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, int(f.Len()))
+	bytes := make([]byte, 0)
+	next := 0
+
+	bytes, err = f.Header.MarshalBinary()
+	copy(data[next:], bytes)
+	next += int(f.Header.Len())
+	bytes, err = f.Match.MarshalBinary()
+	copy(data[next:], bytes)
+	next += int(f.Match.Len())
+	binary.BigEndian.PutUint64(data[next:], f.Cookie)
+	next += 8
+	binary.BigEndian.PutUint16(data[next:], f.Priority)
+	next += 2
+	data[next] = f.Reason
+	next += 1
+	copy(data[next:], f.pad)
+	next += len(f.pad)
+	binary.BigEndian.PutUint32(data[next:], f.DurationSec)
+	next += 4
+	binary.BigEndian.PutUint32(data[next:], f.DurationNSec)
+	next += 4
+	binary.BigEndian.PutUint16(data[next:], f.IdleTimeout)
+	next += 2
+	copy(data[next:], f.pad2)
+	next += len(f.pad2)
+	binary.BigEndian.PutUint64(data[next:], f.PacketCount)
+	next += 8
+	binary.BigEndian.PutUint64(data[next:], f.ByteCount)
+	next += 8
+	return
 }
 
-func (f *FlowRemoved) Write(b []byte) (n int, err error) {
-	buf := bytes.NewBuffer(b)
-	err = f.Header.UnmarshalBinary(buf.Next(8))
-	n += 8
-	m := 0
-	err = f.Match.UnmarshalBinary(buf.Next(40))
-
-	n += m
-	if err = binary.Read(buf, binary.BigEndian, &f.Cookie); err != nil {
-		return
-	}
-	n += 8
-	if err = binary.Read(buf, binary.BigEndian, &f.Priority); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &f.Reason); err != nil {
-		return
-	}
-	n += 1
-	if err = binary.Read(buf, binary.BigEndian, &f.Pad); err != nil {
-		return
-	}
-	n += 1
-	if err = binary.Read(buf, binary.BigEndian, &f.DurationSec); err != nil {
-		return
-	}
-	n += 4
-	if err = binary.Read(buf, binary.BigEndian, &f.DurationNSec); err != nil {
-		return
-	}
-	n += 4
-	if err = binary.Read(buf, binary.BigEndian, &f.IdleTimeout); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &f.Pad2); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &f.PacketCount); err != nil {
-		return
-	}
-	n += 8
-	if err = binary.Read(buf, binary.BigEndian, &f.ByteCount); err != nil {
-		return
-	}
-	n += 8
-	return
+func (f *FlowRemoved) UnmarshalBinary(data []byte) error {
+	next := 0
+	var err error
+	err = f.Header.UnmarshalBinary(data[next:])
+	next += int(f.Header.Len())
+	err = f.Match.UnmarshalBinary(data[next:])
+	next += int(f.Match.Len())
+	f.Cookie = binary.BigEndian.Uint64(data[next:])
+	next += 8
+	f.Priority = binary.BigEndian.Uint16(data[next:])
+	next += 2
+	f.Reason = data[next]
+	next += 1
+	copy(f.pad, data[next:])
+	next += len(f.pad)
+	f.DurationSec = binary.BigEndian.Uint32(data[next:])
+	next += 4
+	f.DurationNSec = binary.BigEndian.Uint32(data[next:])
+	next += 4
+	f.IdleTimeout = binary.BigEndian.Uint16(data[next:])
+	next += 2
+	copy(f.pad2, data[next:])
+	next += len(f.pad2)
+	f.PacketCount = binary.BigEndian.Uint64(data[next:])
+	next += 8
+	f.ByteCount = binary.BigEndian.Uint64(data[next:])
+	next += 8
+	return err
 }
 
 // ofp_flow_removed_reason 1.0

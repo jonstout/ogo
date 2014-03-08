@@ -23,14 +23,14 @@ type SwitchFeatures struct {
 // FeaturesRequest constructor
 func NewFeaturesRequest() *ofpxx.Header {
 	req := ofpxx.NewOfp10Header()
-	req.Type = Type_Features_Request
+	req.Type = Type_FeaturesRequest
 	return &req
 }
 
 // FeaturesReply constructor
 func NewFeaturesReply() *SwitchFeatures {
 	res := new(SwitchFeatures)
-	res.Header.Type = Type_Features_Reply
+	res.Header.Type = Type_FeaturesReply
 	res.DPID = make([]byte, 8)
 	res.pad = make([]byte, 3)
 	res.Ports = make([]PhyPort, 0)

@@ -206,11 +206,11 @@ func (s *OFSwitch) distributeMessages(dpid net.HardwareAddr, msg util.Message) {
 			}
 		case *ofpxx.Header:
 			switch t.Header().Type {
-			case ofp10.Type_Echo_Reply:
+			case ofp10.Type_EchoReply:
 				if actor, ok := app.(ofp10.EchoReplyReactor); ok {
 					actor.EchoReply(s.DPID())
 				}
-			case ofp10.Type_Echo_Request:
+			case ofp10.Type_EchoRequest:
 				if actor, ok := app.(ofp10.EchoRequestReactor); ok {
 					actor.EchoRequest(s.DPID())
 				}

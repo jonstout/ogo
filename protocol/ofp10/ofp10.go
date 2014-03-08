@@ -26,7 +26,7 @@ const (
 // liveness of a controller-switch connection.
 func NewEchoRequest() *ofpxx.Header {
 	h := ofpxx.NewOfp10Header()
-	h.Type = Type_Echo_Request
+	h.Type = Type_EchoRequest
 	return &h
 }
 
@@ -36,7 +36,7 @@ func NewEchoRequest() *ofpxx.Header {
 // liveness of a controller-switch connection.
 func NewEchoReply() *ofpxx.Header {
 	h := ofpxx.NewOfp10Header()
-	h.Type = Type_Echo_Reply
+	h.Type = Type_EchoReply
 	return &h
 }
 
@@ -45,38 +45,38 @@ const (
 	/* Immutable messages. */
 	Type_Hello = iota
 	Type_Error
-	Type_Echo_Request
-	Type_Echo_Reply
+	Type_EchoRequest
+	Type_EchoReply
 	Type_Vendor
 
 	/* Switch configuration messages. */
-	Type_Features_Request
-	Type_Features_Reply
-	T_GET_CONFIG_REQUEST
-	T_GET_CONFIG_REPLY
-	T_SET_CONFIG
+	Type_FeaturesRequest
+	Type_FeaturesReply
+	Type_GetConfigRequest
+	Type_GetConfigReply
+	Type_SetConfig
 
 	/* Asynchronous messages. */
-	Type_Packet_In
-	T_FLOW_REMOVED
-	T_PORT_STATUS
+	Type_PacketIn
+	Type_FlowRemoved
+	Type_PortStatus
 
 	/* Controller command messages. */
-	Type_Packet_Out
+	Type_PacketOut
 	Type_FlowMod
 	Type_PortMod
 
 	/* Statistics messages. */
-	T_STATS_REQUEST
-	T_STATS_REPLY
+	Type_StatsRequest
+	Type_StatsReply
 
 	/* Barrier messages. */
-	T_BARRIER_REQUEST
-	T_BARRIER_REPLY
+	Type_BarrierRequest
+	Type_BarrierReply
 
 	/* Queue Configuration messages. */
-	T_QUEUE_GET_CONFIG_REQUEST
-	T_QUEUE_GET_CONFIG_REPLY
+	Type_QueueGetConfigRequest
+	Type_QueueGetConfigReply
 )
 
 // When the controller wishes to send a packet out through the
@@ -98,7 +98,7 @@ type PacketOut struct {
 func NewPacketOut() *PacketOut {
 	p := new(PacketOut)
 	p.Header = ofpxx.NewOfp10Header()
-	p.Header.Type = Type_Packet_Out
+	p.Header.Type = Type_PacketOut
 	p.BufferId = 0xffffffff
 	p.InPort = P_NONE
 	p.ActionsLen = 0
@@ -178,7 +178,7 @@ type PacketIn struct {
 func NewPacketIn() *PacketIn {
 	p := new(PacketIn)
 	p.Header = ofpxx.NewOfp10Header()
-	p.Header.Type = Type_Packet_In
+	p.Header.Type = Type_PacketIn
 	p.BufferId = 0xffffffff
 	p.InPort = P_NONE
 	p.Reason = 0
