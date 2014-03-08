@@ -284,14 +284,3 @@ func (s *OFSwitch) distributeMessages(dpid net.HardwareAddr, msg util.Message) {
 		}
 	}
 }
-
-// Sends an OpenFlow message to s, and returns a channel to receive
-// a response on. Any error encountered during the send except io.EOF
-// is returned.
-//
-// TODO: Actually make work.
-func (s *OFSwitch) SendAndReceive(msg util.Message) chan util.Message {
-	ch := make(chan util.Message)
-	s.Send(msg)
-	return ch
-}
