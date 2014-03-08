@@ -194,32 +194,27 @@ func (s *OFSwitch) receive() {
 
 func (s *OFSwitch) distributeMessages(dpid net.HardwareAddr, msg util.Message) {
 	s.reqsMu.RLock()
-	switch t := msg.(type) {
-	case *ofp10.SwitchFeatures:
-		for _, app := range s.appInstance {
+	for _, app := range s.appInstance {
+		switch t := msg.(type) {
+		case *ofp10.SwitchFeatures:
 			if actor, ok := app.(ofp10.SwitchFeaturesReplyReactor); ok {
 				actor.FeaturesReply(s.DPID(), t)
 			}
-		}
-	case *ofp10.PacketIn:
-		for _, app := range s.appInstance {
+		case *ofp10.PacketIn:
 			if actor, ok := app.(ofp10.PacketInReactor); ok {
 				actor.PacketIn(s.DPID(), t)
 			}
-		}
-	case *ofpxx.Header:
-		switch t.Header().Type {
-		case ofp10.Type_Echo_Reply:
-			for _, app := range s.appInstance {
+		case *ofpxx.Header:
+			switch t.Header().Type {
+			case ofp10.Type_Echo_Reply:
 				if actor, ok := app.(ofp10.EchoReplyReactor); ok {
 					actor.EchoReply(s.DPID())
 				}
-			}
-		case ofp10.Type_Echo_Request:
-			for _, app := range s.appInstance {
+			case ofp10.Type_Echo_Request:
 				if actor, ok := app.(ofp10.EchoRequestReactor); ok {
 					actor.EchoRequest(s.DPID())
 				}
+				
 			}
 		}
 	}
