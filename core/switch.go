@@ -193,31 +193,96 @@ func (s *OFSwitch) receive() {
 }
 
 func (s *OFSwitch) distributeMessages(dpid net.HardwareAddr, msg util.Message) {
-	s.reqsMu.RLock()
 	for _, app := range s.appInstance {
 		switch t := msg.(type) {
-		case *ofp10.SwitchFeatures:
-			if actor, ok := app.(ofp10.SwitchFeaturesReplyReactor); ok {
-				actor.FeaturesReply(s.DPID(), t)
-			}
-		case *ofp10.PacketIn:
-			if actor, ok := app.(ofp10.PacketInReactor); ok {
-				actor.PacketIn(s.DPID(), t)
-			}
 		case *ofpxx.Header:
 			switch t.Header().Type {
-			case ofp10.Type_EchoReply:
-				if actor, ok := app.(ofp10.EchoReplyReactor); ok {
-					actor.EchoReply(s.DPID())
+			case ofp10.Type_Hello:
+				if actor, ok := app.(ofp10.HelloReactor); ok {
+					actor.Hello(t)
 				}
 			case ofp10.Type_EchoRequest:
 				if actor, ok := app.(ofp10.EchoRequestReactor); ok {
 					actor.EchoRequest(s.DPID())
 				}	
+			case ofp10.Type_EchoReply:
+				if actor, ok := app.(ofp10.EchoReplyReactor); ok {
+					actor.EchoReply(s.DPID())
+				}
+			case ofp10.Type_FeaturesRequest:
+				if actor, ok := app.(ofp10.FeaturesRequestReactor); ok {
+					actor.FeaturesRequest(t)
+				}
+			case ofp10.Type_GetConfigRequest:
+				if actor, ok := app.(ofp10.GetConfigRequestReactor); ok {
+					actor.GetConfigRequest(t)
+				}
+			case ofp10.Type_BarrierRequest:
+				if actor, ok := app.(ofp10.BarrierRequestReactor); ok {
+					actor.BarrierRequest(t)
+				}
+			case ofp10.Type_BarrierReply:
+				if actor, ok := app.(ofp10.BarrierReplyReactor); ok {
+					actor.BarrierReply(s.DPID(), t)
+				}
+			}
+		case *ofp10.ErrorMsg:
+			if actor, ok := app.(ofp10.ErrorReactor); ok {
+				actor.Error(s.DPID(), t)
+			}
+		case *ofp10.VendorHeader:
+			if actor, ok := app.(ofp10.VendorReactor); ok {
+				actor.VendorHeader(s.DPID(), t)
+			}
+		case *ofp10.SwitchFeatures:
+			if actor, ok := app.(ofp10.FeaturesReplyReactor); ok {
+				actor.FeaturesReply(s.DPID(), t)
+			}
+		case *ofp10.SwitchConfig:
+			switch t.Header.Type {
+			case ofp10.Type_GetConfigReply:
+				if actor, ok := app.(ofp10.GetConfigReplyReactor); ok {
+					actor.GetConfigReply(s.DPID(), t)
+				}
+			case ofp10.Type_SetConfig:
+				if actor, ok := app.(ofp10.SetConfigReactor); ok {
+					actor.SetConfig(t)
+				}
+			}
+		case *ofp10.PacketIn:
+			if actor, ok := app.(ofp10.PacketInReactor); ok {
+				actor.PacketIn(s.DPID(), t)
+			}
+		case *ofp10.FlowRemoved:
+			if actor, ok := app.(ofp10.FlowRemovedReactor); ok {
+				actor.FlowRemoved(s.DPID(), t)
+			}
+		case *ofp10.PortStatus:
+			if actor, ok := app.(ofp10.PortStatusReactor); ok {
+				actor.PortStatus(s.DPID(), t)
+			}
+		case *ofp10.PacketOut:
+			if actor, ok := app.(ofp10.PacketOutReactor); ok {
+				actor.PacketOut(t)
+			}
+		case *ofp10.FlowMod:
+			if actor, ok := app.(ofp10.FlowModReactor); ok {
+				actor.FlowMod(t)
+			}
+		case *ofp10.PortMod:
+			if actor, ok := app.(ofp10.PortModReactor); ok {
+				actor.PortMod(t)
+			}
+		case *ofp10.StatsRequest:
+			if actor, ok := app.(ofp10.StatsRequestReactor); ok {
+				actor.StatsRequest(t)
+			}
+		case *ofp10.StatsReply:
+			if actor, ok := app.(ofp10.StatsReplyReactor); ok {
+				actor.StatsReply(s.DPID(), t)
 			}
 		}
 	}
-	s.reqsMu.RUnlock()
 }
 
 // Sends an OpenFlow message to s, and returns a channel to receive

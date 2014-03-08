@@ -15,7 +15,7 @@ type ConnectionDownReactor interface {
 }
 
 type HelloReactor interface {
-	Hello(hello ofpxx.Hello)
+	Hello(hello *ofpxx.Header)
 }
 
 type ErrorReactor interface {
@@ -34,11 +34,11 @@ type VendorReactor interface {
 	VendorHeader(dpid net.HardwareAddr, v *VendorHeader)
 }
 
-type SwitchFeaturesRequestReactor interface {
+type FeaturesRequestReactor interface {
 	FeaturesRequest(features *ofpxx.Header)
 }
 
-type SwitchFeaturesReplyReactor interface {
+type FeaturesReplyReactor interface {
 	FeaturesReply(dpid net.HardwareAddr, features *SwitchFeatures)
 }
 
@@ -91,12 +91,5 @@ type BarrierRequestReactor interface {
 }
 
 type BarrierReplyReactor interface {
-	BarrierReply(dpid net.HardwareAddr, msg ofpxx.Header)
-}
-
-type QueueGetConfigRequestReactor interface {
-	
-}
-
-type QueueGetConfigReplyReactor interface {
+	BarrierReply(dpid net.HardwareAddr, msg *ofpxx.Header)
 }
