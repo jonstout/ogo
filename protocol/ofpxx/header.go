@@ -127,6 +127,10 @@ func NewHelloElemVersionBitmap() *HelloElemVersionBitmap {
 	return h
 }
 
+func (h *HelloElemVersionBitmap) Header() *HelloElemHeader {
+	return &h.HelloElemHeader
+}
+
 func (h *HelloElemVersionBitmap) Len() (n uint16) {
 	n = h.HelloElemHeader.Len()
 	n += uint16(len(h.Bitmaps) * 4)
@@ -208,7 +212,6 @@ func (h *Hello) Len() (n uint16) {
 
 func (h *Hello) MarshalBinary() (data []byte, err error) {
 	data = make([]byte, int(h.Len()))
-
 	bytes := make([]byte, 0)
 	next := 0
 
@@ -222,4 +225,25 @@ func (h *Hello) MarshalBinary() (data []byte, err error) {
 		next += len(bytes)
 	}
 	return
+}
+
+func (h *Hello) UnmarshalBinary(data []byte) error {
+	next := 0
+	err := h.Header.UnmarshalBinary(data[next:])
+	next += int(h.Header.Len())
+	
+	h.Elements = make([]HelloElem, 0)
+	for next < len(data) {
+		e := NewHelloElemHeader()
+		e.UnmarshalBinary(data[next:])
+
+		switch e.Type {
+		case HelloElemType_VersionBitmap:
+			v := NewHelloElemVersionBitmap()
+			err = v.UnmarshalBinary(data[next:])
+			next += int(v.Len())
+			h.Elements = append(h.Elements, v)
+		}
+	}
+	return err
 }
