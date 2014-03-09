@@ -9,7 +9,7 @@ import (
 func TestHelloMarshalBinary(t *testing.T) {
 	b := "   01 00 00 08 00 00 00 03 " + // Header
 		"00 01 00 08 " + // Element Header
-		"00 00 00 09 " // Bitmap = 1001
+		"00 00 00 01 " // Bitmap = 1001 for v1.3
 	b = strings.Replace(b, " ", "", -1)
 
 	h, _ := NewHello(1)
@@ -25,7 +25,7 @@ func TestHelloMarshalBinary(t *testing.T) {
 func TestHelloUnmarshalBinary(t *testing.T) {
 	s := "   01 00 00 08 00 00 00 03 " + // Header
 		"00 01 00 08 " + // Element Header
-		"00 00 00 09 " // Bitmap = 1001
+		"00 00 00 01 " // Bitmap = 1001 for v1.3
 	s = strings.Replace(s, " ", "", -1)
 	bytes, _ := hex.DecodeString(s)
 
@@ -47,7 +47,7 @@ func TestHelloUnmarshalBinary(t *testing.T) {
 		t.Errorf("Got wrong HelloElem type.")
 	} else if len(v.Bitmaps) != 1 {
 		t.Errorf("Got %d elements, expected %d elements.", len(v.Bitmaps), 1)
-	} else if v.Bitmaps[0] != (uint32(8) | uint32(1)) {
-		t.Errorf("Got %d bitmap, expected %d.", v.Bitmaps[0], (uint32(8) | uint32(1)))
+	} else if v.Bitmaps[0] != uint32(1) {
+		t.Errorf("Got %d bitmap, expected %d.", v.Bitmaps[0], uint32(8))
 	}
 }

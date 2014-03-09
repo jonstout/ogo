@@ -122,7 +122,8 @@ func NewHelloElemVersionBitmap() *HelloElemVersionBitmap {
 	h.HelloElemHeader = *NewHelloElemHeader()
 	h.Bitmaps = make([]uint32, 0)
 	// 1001
-	h.Bitmaps = append(h.Bitmaps, uint32(8) | uint32(1))
+	// h.Bitmaps = append(h.Bitmaps, uint32(8) | uint32(1))
+	h.Bitmaps = append(h.Bitmaps, uint32(1))
 	h.Length = h.Length + uint16(len(h.Bitmaps) * 4)
 	return h
 }
