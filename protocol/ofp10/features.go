@@ -2,7 +2,6 @@ package ofp10
 
 import (
 	"encoding/binary"
-	//"errors"
 	"net"
 
 	"github.com/jonstout/ogo/protocol/ofpxx"
@@ -30,6 +29,7 @@ func NewFeaturesRequest() *ofpxx.Header {
 // FeaturesReply constructor
 func NewFeaturesReply() *SwitchFeatures {
 	res := new(SwitchFeatures)
+	res.Header = ofpxx.NewOfp10Header()
 	res.Header.Type = Type_FeaturesReply
 	res.DPID = make([]byte, 8)
 	res.pad = make([]byte, 3)
@@ -49,26 +49,24 @@ func (s *SwitchFeatures) Len() (n uint16) {
 
 func (s *SwitchFeatures) MarshalBinary() (data []byte, err error) {
 	data = make([]byte, int(s.Len()))
-	s.Header.Length = s.Len()
+	bytes := make([]byte, 0)
 	next := 0
 
-	bytes, err := s.Header.MarshalBinary()
-	if err != nil {
-		return
-	}
+	s.Header.Length = s.Len()
+	bytes, err = s.Header.MarshalBinary()
 	copy(data[next:], bytes)
-	next = len(bytes)
+	next += len(bytes)
 	binary.BigEndian.PutUint32(data[next:], s.Buffers)
 	next += 4
 	data[next] = s.Tables
 	next += 1
-	copy(data, s.pad)
+	copy(data[next:], s.pad)
 	next += len(s.pad)
 	binary.BigEndian.PutUint32(data[next:], s.Capabilities)
 	next += 4
 	binary.BigEndian.PutUint32(data[next:], s.Actions)
 	next += 4
-	
+
 	for _, p := range s.Ports {
 		bytes, err = p.MarshalBinary()
 		if err != nil {
@@ -81,11 +79,11 @@ func (s *SwitchFeatures) MarshalBinary() (data []byte, err error) {
 }
 
 func (s *SwitchFeatures) UnmarshalBinary(data []byte) error {
-	err := s.Header.UnmarshalBinary(data)
-	if err != nil {
-		return err
-	}
-	next := int(s.Header.Len())
+	var err error
+	next := 0
+	
+	err = s.Header.UnmarshalBinary(data[next:])
+	next = int(s.Header.Len())
 	copy(s.DPID, data[next:])
 	next += len(s.DPID)
 	s.Buffers = binary.BigEndian.Uint32(data[next:])
@@ -93,20 +91,18 @@ func (s *SwitchFeatures) UnmarshalBinary(data []byte) error {
 	s.Tables = data[next]
 	next += 1
 	copy(s.pad, data[next:])
-	next += 3
+	next += len(s.pad)
 	s.Capabilities = binary.BigEndian.Uint32(data[next:])
 	next += 4
 	s.Actions = binary.BigEndian.Uint32(data[next:])
 	next += 4
 
-	for _, p := range s.Ports {
+	for next < len(data) {
+		p := NewPhyPort()
 		err = p.UnmarshalBinary(data[next:])
-		if err != nil {
-			return err
-		}
 		next += int(p.Len())
-	}	
-	return nil
+	}
+	return err
 }
 
 // ofp_capabilities 1.0

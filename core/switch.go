@@ -1,12 +1,13 @@
 package core
 
 import (
-	"github.com/jonstout/ogo/protocol/ofp10"
-	"github.com/jonstout/ogo/protocol/ofpxx"
-	"github.com/jonstout/ogo/protocol/util"
 	"log"
 	"net"
 	"sync"
+
+	"github.com/jonstout/ogo/protocol/ofp10"
+	"github.com/jonstout/ogo/protocol/ofpxx"
+	"github.com/jonstout/ogo/protocol/util"
 )
 
 // A map from DPIDs to all Switches that have connected since
