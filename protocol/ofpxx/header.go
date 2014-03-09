@@ -4,6 +4,9 @@ package ofpxx
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
+
+	"github.com/jonstout/ogo/protocol/util"
 )
 
 // Returns a new OpenFlow header with version field set to v1.0.
@@ -65,16 +68,25 @@ func (h *Header) UnmarshalBinary(data []byte) error {
 }
 
 const (
-	HelloElemType_VersionBitmap = iota
+	reserved = iota
+	HelloElemType_VersionBitmap
 	)
 
 type HelloElem interface {
 	Header() *HelloElemHeader
+	util.Message
 }
 
 type HelloElemHeader struct {
 	Type uint16
 	Length uint16
+}
+
+func NewHelloElemHeader() *HelloElemHeader {
+	h := new(HelloElemHeader)
+	h.Type = HelloElemType_VersionBitmap
+	h.Length = 4
+	return h
 }
 
 func (h *HelloElemHeader) Header() *HelloElemHeader {
@@ -108,11 +120,11 @@ type HelloElemVersionBitmap struct {
 
 func NewHelloElemVersionBitmap() *HelloElemVersionBitmap {
 	h := new(HelloElemVersionBitmap)
-	h.Type = HelloElemType_VersionBitmap
-	h.Bitmaps = make([]uint32, 1)
+	h.HelloElemHeader = *NewHelloElemHeader()
+	h.Bitmaps = make([]uint32, 0)
 	// 1001
-	h.Bitmaps[0] = uint32(8) & uint32(1)
-	h.Length = h.HelloElemHeader.Len() + uint16(len(h.Bitmaps) * 4)
+	h.Bitmaps = append(h.Bitmaps, uint32(8) | uint32(1))
+	h.Length = h.Length + uint16(len(h.Bitmaps) * 4)
 	return h
 }
 
@@ -123,15 +135,18 @@ func (h *HelloElemVersionBitmap) Len() (n uint16) {
 }
 
 func (h *HelloElemVersionBitmap) MarshalBinary() (data []byte, err error) {
-	data, err = h.HelloElemHeader.MarshalBinary()
-	if err != nil {
-		return
-	}
-	
-	for i, _ := range h.Bitmaps {
-		bytes := make([]byte, 4)
-		binary.BigEndian.PutUint32(bytes, h.Bitmaps[i])
-		data = append(data, bytes...)
+	data = make([]byte, int(h.Len()))
+	bytes := make([]byte, 0)
+	next := 0
+
+	bytes, err = h.HelloElemHeader.MarshalBinary()
+	copy(data[next:], bytes)
+	next += len(bytes)
+
+	for _, m := range h.Bitmaps {
+		fmt.Println(m)
+		binary.BigEndian.PutUint32(data[next:], m)
+		next += 4
 	}
 	return
 }
@@ -171,6 +186,7 @@ type Hello struct {
 
 func NewHello(ver int) (h *Hello, err error) {
 	h = new(Hello)
+	h.Header = NewOfp10Header()
 	h.Elements = make([]HelloElem, 0)
 
 	if ver == 1 {
@@ -181,5 +197,32 @@ func NewHello(ver int) (h *Hello, err error) {
 		err = errors.New("New hello message with unsupported verion was attempted to be created.")
 	}
 	h.Elements = append(h.Elements, NewHelloElemVersionBitmap())
+	return
+}
+
+func (h *Hello) Len() (n uint16) {
+	n = h.Header.Len()
+	for _, e := range h.Elements {
+		n += e.Len()
+	}
+	return
+}
+
+func (h *Hello) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, int(h.Len()))
+	fmt.Println(len(data))
+
+	bytes := make([]byte, 0)
+	next := 0
+
+	bytes, err = h.Header.MarshalBinary()
+	copy(data[next:], bytes)
+	next += len(bytes)
+
+	for _, e := range h.Elements {
+		bytes, err = e.MarshalBinary()
+		copy(data[next:], bytes)
+		next += len(bytes)
+	}
 	return
 }
