@@ -46,8 +46,8 @@ func (h *Header) Len() (n uint16) {
 
 func (h *Header) MarshalBinary() (data []byte, err error) {
 	data = make([]byte, 8)
-	h.Version = data[0]
-	h.Type = data[1]
+	data[0] = h.Version
+	data[1] = h.Type
 	binary.BigEndian.PutUint16(data[2:4], h.Length)
 	binary.BigEndian.PutUint32(data[4:8], h.Xid)
 	return
@@ -57,8 +57,8 @@ func (h *Header) UnmarshalBinary(data []byte) error {
 	if len(data) < 4 {
 		return errors.New("The []byte is too short to unmarshel a full HelloElemHeader.")
 	}
-	data[0] = h.Version
-	data[1] = h.Type
+	h.Version = data[0]
+	h.Type = data[1]
 	h.Length = binary.BigEndian.Uint16(data[2:4])
 	h.Xid = binary.BigEndian.Uint32(data[4:8])
 	return nil

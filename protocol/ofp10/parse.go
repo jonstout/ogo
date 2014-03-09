@@ -25,10 +25,10 @@ func Parse(b []byte) (message util.Message, err error) {
 		message = new(VendorHeader)
 		message.UnmarshalBinary(b)
 	 case Type_FeaturesRequest:
-		message = new(ofpxx.Header)
+		message = NewFeaturesRequest()
 		message.UnmarshalBinary(b)
 	 case Type_FeaturesReply:
-		message = new(SwitchFeatures)
+		message = NewFeaturesReply()
 		message.UnmarshalBinary(b)
 	case Type_GetConfigRequest:
 		message = new(ofpxx.Header)
