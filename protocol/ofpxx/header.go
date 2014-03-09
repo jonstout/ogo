@@ -4,7 +4,6 @@ package ofpxx
 import (
 	"encoding/binary"
 	"errors"
-	"fmt"
 
 	"github.com/jonstout/ogo/protocol/util"
 )
@@ -144,7 +143,6 @@ func (h *HelloElemVersionBitmap) MarshalBinary() (data []byte, err error) {
 	next += len(bytes)
 
 	for _, m := range h.Bitmaps {
-		fmt.Println(m)
 		binary.BigEndian.PutUint32(data[next:], m)
 		next += 4
 	}
@@ -210,7 +208,6 @@ func (h *Hello) Len() (n uint16) {
 
 func (h *Hello) MarshalBinary() (data []byte, err error) {
 	data = make([]byte, int(h.Len()))
-	fmt.Println(len(data))
 
 	bytes := make([]byte, 0)
 	next := 0
