@@ -1,3 +1,4 @@
+[![Build Status](https://drone.io/github.com/jonstout/ogo/status.png)](https://drone.io/github.com/jonstout/ogo/latest)
 # Ogo
 An OpenFlow Network Controller in Go.
 
