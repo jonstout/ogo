@@ -115,32 +115,40 @@ func (p *PacketOut) Len() (n uint16) {
 	n += p.Header.Len()
 	n += 8
 	n += p.ActionsLen
+	for _, a := range p.Actions {
+		n += a.Len()
+	}
 	n += p.Data.Len()
 	//if n < 72 { return 72 }
 	return
 }
 
 func (p *PacketOut) MarshalBinary() (data []byte, err error) {
-	p.Header.Length = p.Len()
-
-	data, err = p.Header.MarshalBinary()
-
-	b := make([]byte, 4)
+	data = make([]byte, int(p.Len()))
+	b := make([]byte, 0)
 	n := 0
-	binary.BigEndian.PutUint32(b, p.BufferId)
+
+	p.Header.Length = p.Len()
+	b, err = p.Header.MarshalBinary()
+	copy(data[n:], b)
+	n += len(b)
+
+	binary.BigEndian.PutUint32(data[n:], p.BufferId)
 	n += 4
-	binary.BigEndian.PutUint16(b[n:], p.InPort)
+	binary.BigEndian.PutUint16(data[n:], p.InPort)
 	n += 2
-	binary.BigEndian.PutUint16(b[n:], p.ActionsLen)
-	data = append(data, b...)
+	binary.BigEndian.PutUint16(data[n:], p.ActionsLen)
+	n += 2
 
 	for _, a := range p.Actions {
 		b, err = a.MarshalBinary()
-		data = append(data, b...)
+		copy(data[n:], b)
+		n += len(b)
 	}
 
 	b, err = p.Data.MarshalBinary()
-	data = append(data, b...)
+	copy(data[n:], b)
+	n += len(b)
 	return
 }
 
