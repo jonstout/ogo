@@ -98,25 +98,33 @@ func (a *ActionOutput) Len() (n uint16) {
 }
 
 func (a *ActionOutput) MarshalBinary() (data []byte, err error) {
-	data, err = a.ActionHeader.MarshalBinary()
+	data = make([]byte, int(a.Len()))
+	b := make([]byte, 0)
+	n := 0
 
-	bytes := make([]byte, 4)
-	binary.BigEndian.PutUint16(data[:2], a.Port)
-	binary.BigEndian.PutUint16(data[2:4], a.MaxLen)
-
-	data = append(data, bytes...)
+	b, err = a.ActionHeader.MarshalBinary()
+	copy(data[n:], b)
+	n += len(b)
+	binary.BigEndian.PutUint16(data[n:], a.Port)
+	n += 2
+	binary.BigEndian.PutUint16(data[n:], a.MaxLen)
+	n += 2
 	return
 }
 
 func (a *ActionOutput) UnmarshalBinary(data []byte) error {
-	if len(data) != int(a.Len()) {
+	if len(data) < int(a.Len()) {
 		return errors.New("The []byte the wrong size to unmarshal an " +
 			"ActionOutput message.")
 	}
-	a.ActionHeader.UnmarshalBinary(data[:4])
-	a.Port = binary.BigEndian.Uint16(data[4:6])
-	a.MaxLen = binary.BigEndian.Uint16(data[6:8])
-	return nil
+	n := 0
+	err := a.ActionHeader.UnmarshalBinary(data[n:])
+	n += int(a.ActionHeader.Len())
+	a.Port = binary.BigEndian.Uint16(data[n:])
+	n += 2
+	a.MaxLen = binary.BigEndian.Uint16(data[n:])
+	n += 2
+	return err
 }
 
 // The enqueue action maps a flow to an already-configured queue, regardless of
