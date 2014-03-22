@@ -58,6 +58,7 @@ func (f *FlowMod) Len() (n uint16) {
 }
 
 func (f *FlowMod) MarshalBinary() (data []byte, err error) {
+	f.Header.Length = f.Len()
 	data, err = f.Header.MarshalBinary()
 	bytes, err := f.Match.MarshalBinary()
 	data = append(data, bytes...)

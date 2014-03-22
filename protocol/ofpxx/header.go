@@ -216,6 +216,7 @@ func (h *Hello) MarshalBinary() (data []byte, err error) {
 	bytes := make([]byte, 0)
 	next := 0
 
+	h.Header.Length = h.Len()
 	bytes, err = h.Header.MarshalBinary()
 	copy(data[next:], bytes)
 	next += len(bytes)

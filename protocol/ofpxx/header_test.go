@@ -7,7 +7,7 @@ import (
 )
 
 func TestHelloMarshalBinary(t *testing.T) {
-	b := "   01 00 00 08 00 00 00 03 " + // Header
+	b := "   01 00 00 10 00 00 00 03 " + // Header
 		"00 01 00 08 " + // Element Header
 		"00 00 00 01 " // Bitmap = 1001 for v1.3
 	b = strings.Replace(b, " ", "", -1)
@@ -23,7 +23,7 @@ func TestHelloMarshalBinary(t *testing.T) {
 }
 
 func TestHelloUnmarshalBinary(t *testing.T) {
-	s := "   01 00 00 08 00 00 00 03 " + // Header
+	s := "   01 00 00 10 00 00 00 03 " + // Header
 		"00 01 00 08 " + // Element Header
 		"00 00 00 01 " // Bitmap = 1001 for v1.3
 	s = strings.Replace(s, " ", "", -1)
