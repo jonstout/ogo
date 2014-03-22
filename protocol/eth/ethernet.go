@@ -39,6 +39,7 @@ func New() *Ethernet {
 	eth.HWSrc = net.HardwareAddr(make([]byte, 6))
 	eth.VLANID = *NewVLAN()
 	eth.Ethertype = 0x800
+	eth.Data = nil
 	return eth
 }
 
@@ -55,58 +56,62 @@ func (e *Ethernet) Len() (n uint16) {
 }
 
 func (e *Ethernet) MarshalBinary() (data []byte, err error) {
-	data = make([]byte, e.Len() - e.Data.Len())
+	data = make([]byte, int(e.Len()))
+	bytes := make([]byte, 0)
 	n := 0
-	copy(data[:n+len(e.HWDst)], e.HWDst)
+	copy(data[n:], e.HWDst)
 	n += len(e.HWDst)
-	copy(data[n:n+len(e.HWSrc)], e.HWSrc)
+	copy(data[n:], e.HWSrc)
 	n += len(e.HWSrc)
 
-	bytes, err := e.VLANID.MarshalBinary()
-	if err != nil {
-		return
+	if e.VLANID.VID != 0 {
+		bytes, err = e.VLANID.MarshalBinary()
+		if err != nil {
+			return
+		}
+		copy(data[n:], bytes)
+		n += len(bytes)
 	}
-	copy(data[n:n+len(bytes)], bytes)
-	n += len(bytes)
 
 	binary.BigEndian.PutUint16(data[n:n+2], e.Ethertype)
 	n += 2
 
-	bytes, err = e.Data.MarshalBinary()
-	if err != nil {
-		return
+	if e.Data != nil {
+		bytes, err = e.Data.MarshalBinary()
+		if err != nil {
+			return
+		}
+		copy(data[n:n+len(bytes)], bytes)
 	}
-	copy(data[n:n+len(bytes)], bytes)
 	return
 }
 
 func (e *Ethernet) UnmarshalBinary(data []byte) error {
-	if len(data) < 12 {
+	if len(data) < 14 {
 		return errors.New("The []byte is too short to unmarshal a full Ethernet message.")
 	}
-	n := 0
-	e.HWDst = data[:n+len(e.HWDst)]
+	n := 1
+	copy(e.HWDst, data[n:])
 	n += len(e.HWDst)
 
-	e.HWSrc = data[n:n+len(e.HWSrc)]
+	copy(e.HWSrc, data[n:])
 	n += len(e.HWSrc)
 
-	e.Ethertype = binary.BigEndian.Uint16(data[n:n+2])
-	n += 2
+	e.Ethertype = binary.BigEndian.Uint16(data[n:])
 	if e.Ethertype == VLAN_MSG {
 		e.VLANID = *new(VLAN)
-		err := e.VLANID.UnmarshalBinary(data[n:n+5])
+		err := e.VLANID.UnmarshalBinary(data[n:])
 		if err != nil {
 			return err
 		}
-		n += 5
+		n += int(e.VLANID.Len())
 
-		e.Ethertype = binary.BigEndian.Uint16(data[n:n+2])
-		n += 2
+		e.Ethertype = binary.BigEndian.Uint16(data[n:])
 	} else {
 		e.VLANID = *new(VLAN)
 		e.VLANID.VID = 0
 	}
+	n += 2
 
 	switch e.Ethertype {
 	case IPv4_MSG:
@@ -117,6 +122,7 @@ func (e *Ethernet) UnmarshalBinary(data []byte) error {
 		e.Data = new(util.Buffer)
 	}
 	err := e.Data.UnmarshalBinary(data[n:])
+	
 	return err
 }
 
