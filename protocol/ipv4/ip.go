@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"net"
-	
+
 	"github.com/jonstout/ogo/protocol/icmp"
 	"github.com/jonstout/ogo/protocol/udp"
 	"github.com/jonstout/ogo/protocol/util"
@@ -36,7 +36,16 @@ type IPv4 struct {
 	Data           util.Message
 }
 
+func New() *IPv4 {
+	ip := new(IPv4)
+	ip.NWSrc = make([]byte, 4)
+	ip.NWDst = make([]byte, 4)
+	ip.Options = *new(util.Buffer)
+	return ip
+}
+
 func (i *IPv4) Len() (n uint16) {
+	i.IHL = 5
 	if i.Data != nil {
 		return uint16(i.IHL*4) + i.Data.Len()
 	}
@@ -44,28 +53,47 @@ func (i *IPv4) Len() (n uint16) {
 }
 
 func (i *IPv4) MarshalBinary() (data []byte, err error) {
-	data = make([]byte, int(i.IHL * 4))
-	var ihl uint8 = (i.Version << 4) + i.IHL
-	data[0] = ihl
-	var ecn uint8 = (i.DSCP << 2) + i.ECN
-	data[1] = ecn
-	binary.BigEndian.PutUint16(data[2:4], i.Length)
-	binary.BigEndian.PutUint16(data[4:6], i.Id)
-	var flg uint16 = (i.Flags << 13) + i.FragmentOffset
-	binary.BigEndian.PutUint16(data[6:8], flg)
-	data[8] = i.TTL
-	data[9] = i.Protocol
-	binary.BigEndian.PutUint16(data[10:12], i.Checksum)
-	copy(data[12:16], i.NWSrc)
-	copy(data[16:20], i.NWDst)
-	n := 20 + i.Options.Len()
-	i.Options.Read(data[20:n])
+	data = make([]byte, int(i.Len()))
+	b := make([]byte, 0)
+	n := 0
 
-	bytes, err := i.Data.MarshalBinary()
-	if err != nil {
-		return
+	var ihl uint8 = (i.Version << 4) + i.IHL
+	data[n] = ihl
+	n += 1
+	var ecn uint8 = (i.DSCP << 2) + i.ECN
+	data[n] = ecn
+	n += 1
+	binary.BigEndian.PutUint16(data[n:], i.Length)
+	n += 2
+	binary.BigEndian.PutUint16(data[n:], i.Id)
+	n += 2
+	var flg uint16 = (i.Flags << 13) + i.FragmentOffset
+	binary.BigEndian.PutUint16(data[n:], flg)
+	n += 2
+	data[n] = i.TTL
+	n += 1
+	data[n] = i.Protocol
+	n += 1
+	binary.BigEndian.PutUint16(data[n:], i.Checksum)
+	n += 2
+
+	copy(data[n:], i.NWSrc.To4())
+	n += 4 // Underlying rep can be 16 bytes.
+	copy(data[n:], i.NWDst.To4())
+	n += 4 // Underlying rep can be 16 bytes.
+
+	b, err = i.Options.MarshalBinary()
+	copy(data[n:], b)
+	n += len(b)
+
+	if i.Data != nil {
+		b, err = i.Data.MarshalBinary()
+		if err != nil {
+			return
+		}
+		copy(data[n:], b)
+		n += len(b)
 	}
-	data = append(data, bytes...)
 	return
 }
 
@@ -73,34 +101,44 @@ func (i *IPv4) UnmarshalBinary(data []byte) error {
 	if len(data) < 20 {
 		return errors.New("The []byte is too short to unmarshal a full IPv4 message.")
 	}
+	n := 0
+
 	var ihl uint8
-	ihl = data[0]
+	ihl = data[n]
 	i.Version = ihl >> 4
 	i.IHL = ihl & 0x0f
+	n += 1
 
 	var ecn uint8
-	ecn = data[1]
+	ecn = data[n]
 	i.DSCP = ecn >> 2
 	i.ECN = ecn & 0x03
+	n += 1
 
-	i.Length = binary.BigEndian.Uint16(data[2:4])
-	i.Id = binary.BigEndian.Uint16(data[4:6])
+	i.Length = binary.BigEndian.Uint16(data[n:])
+	n += 2
+	i.Id = binary.BigEndian.Uint16(data[n:])
+	n += 2
 
 	var flg uint16
-	flg = binary.BigEndian.Uint16(data[6:8])
+	flg = binary.BigEndian.Uint16(data[n:])
 	i.Flags = flg >> 13
 	i.FragmentOffset = flg & 0x1fff
+	n += 2
 
-	i.TTL = data[8]
-	i.Protocol = data[9]
-	i.Checksum = binary.BigEndian.Uint16(data[10:12])
-	i.NWSrc = data[12:16]
-	i.NWDst = data[16:20]
-	n := 20
+	i.TTL = data[n]
+	n += 1
+	i.Protocol = data[n]
+	n += 1
+	i.Checksum = binary.BigEndian.Uint16(data[n:])
+	n += 2
+	i.NWSrc = data[n:n+4]
+	n += 4
+	i.NWDst = data[n:n+4]
+	n += 4
 
-	i.Options = *new(util.Buffer)
 	i.Options.UnmarshalBinary(data[n:int(i.IHL * 4)])
-	n += int(i.IHL *4)
+	n += int(i.IHL * 4) - n
 
 	switch i.Protocol {
 	case Type_ICMP:
@@ -110,6 +148,5 @@ func (i *IPv4) UnmarshalBinary(data []byte) error {
 	default:
 		i.Data = new(util.Buffer)
 	}
-	err := i.Data.UnmarshalBinary(data[n:])
-	return err
+	return i.Data.UnmarshalBinary(data[n:])
 }

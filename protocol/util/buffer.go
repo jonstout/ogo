@@ -13,7 +13,7 @@ func NewBuffer(buf []byte) *Buffer {
 }
 
 func (b *Buffer) Len() uint16 {
-	return uint16(b.Len())
+	return uint16(b.Buffer.Len())
 }
 
 func (b *Buffer) MarshalBinary() (data []byte, err error) {

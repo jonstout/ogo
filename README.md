@@ -15,8 +15,7 @@ controller.RegisterApplication(NewDemoInstance)
 
 ### Receive
 To receive OpenFlow messages, applications should implement the interfaces
-found in `protocol/ofp10/interface.go` or `protocol/ofp13/interface.go`. You
-only need to implement the interfaces you're interested in.
+found in `protocol/ofp10/interface.go` or `protocol/ofp13/interface.go`.
 ```
 func (b *DemoInstance) ConnectionUp(dpid net.HardwareAddr) {
   log.Println("Switch connected:", dpid)
@@ -39,7 +38,7 @@ req := ofp10.NewEchoRequest()
 
 // If switch dpid is known, returns its OFPSwitch struct. The
 // switch is not guaranteed to have an active connection.
-if sw, ok := core.Switch(dpid string); ok {
+if sw, ok := ogo.Switch(dpid string); ok {
   sw.Send(req)
 }
 ```

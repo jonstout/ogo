@@ -121,9 +121,7 @@ func (e *Ethernet) UnmarshalBinary(data []byte) error {
 	default:
 		e.Data = new(util.Buffer)
 	}
-	err := e.Data.UnmarshalBinary(data[n:])
-	
-	return err
+	return e.Data.UnmarshalBinary(data[n:])
 }
 
 const (
