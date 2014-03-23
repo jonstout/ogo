@@ -6,7 +6,7 @@ import (
 	"runtime"
 	"sync"	
 	
-	"github.com/jonstout/ogo/core"
+	"github.com/jonstout/ogo"
 	"github.com/jonstout/ogo/protocol/ofp10"
 )
 
@@ -79,7 +79,7 @@ func (b *DemoInstance) PacketIn(dpid net.HardwareAddr, pkt *ofp10.PacketIn) {
 		f2.AddAction(ofp10.NewActionOutput(pkt.InPort))
 		f2.IdleTimeout = 3
 
-		if s, ok := core.Switch(dpid); ok {
+		if s, ok := ogo.Switch(dpid); ok {
 			s.Send(f1)
 			s.Send(f2)
 		}
@@ -88,7 +88,7 @@ func (b *DemoInstance) PacketIn(dpid net.HardwareAddr, pkt *ofp10.PacketIn) {
 		p.InPort = pkt.InPort
 		p.AddAction(ofp10.NewActionOutput(ofp10.P_ALL))
 		p.Data = &eth
-		if sw, ok := core.Switch(dpid); ok {
+		if sw, ok := ogo.Switch(dpid); ok {
 			sw.Send(p)
 		}
 	}
@@ -97,7 +97,7 @@ func (b *DemoInstance) PacketIn(dpid net.HardwareAddr, pkt *ofp10.PacketIn) {
 func main() {
 	fmt.Println("Ogo 2013")
 	runtime.GOMAXPROCS(runtime.NumCPU())
-	ctrl := core.NewController()
+	ctrl := ogo.NewController()
 	hostMap = *NewHostMap()
 	ctrl.RegisterApplication(NewDemoInstance)
 	ctrl.Listen(":6633")

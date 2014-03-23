@@ -1,4 +1,4 @@
-package core
+package ogo
 
 import (
 	"github.com/jonstout/ogo/protocol/eth"

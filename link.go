@@ -1,4 +1,4 @@
-package core
+package ogo
 
 import "time"
 import "net"
