@@ -1,58 +1,44 @@
+[![Build Status](https://drone.io/github.com/jonstout/ogo/status.png)](https://drone.io/github.com/jonstout/ogo/latest) [![GoDoc](https://godoc.org/github.com/jonstout/ogo?status.png)](https://godoc.org/github.com/jonstout/ogo)
 # Ogo
-An OpenFlow Network Controller in Go.
+An OpenFlow Network Controller written in Go.
 
-You can find an example application which allows hosts to communicate on a single OpenFlow switch in `ogo.go`. Find full package docs below.
-
-#### [Documentation](http://godoc.org/github.com/jonstout/ogo)
-#### [Discourse](http://discourse.ogo.bitnamiapp.com/)
-
-## The Basic Application
-All applications must implement the ogo.Application interface.
+## A Basic Application
+### Register
+To process OpenFlow messages register a function that returns a pointer to an
+existing or new Application struct.
 ```
-type Application interface {
-  InitApplication(args map[string]string)
-  Name() string
-  Receive()
+func NewDemoInstance() interface{} {
+  return &DemoInstance{}
 }
-```
-Use the `InitApplication` to recieve command line arguments. The `Name` function should return a string that will be used to identify your application. Use the `Receive` function to listen on any channels that you have subscribed to.
-
-## Registering your Application
-In order for your application to recieve OpenFlow messages from connected switches it must be registered with Ogo.
-```
-ctrl.RegisterApplication( new(OgoApplication) )
+controller.RegisterApplication(NewDemoInstance)
 ```
 
-## Subscribing to OpenFlow Messages
-Use `ogo.SubscribeTo(ofp10.T_*)` to get an ofp10.Msg chan.
+### Receive
+To receive OpenFlow messages, applications should implement the interfaces
+found in `protocol/ofp10/interface.go` or `protocol/ofp13/interface.go`.
 ```
-echoRequestChan := ogo.SubscribeTo(ofp10.T_ECHO_REQUEST)
-```
+func (b *DemoInstance) ConnectionUp(dpid net.HardwareAddr) {
+  log.Println("Switch connected:", dpid)
+}
 
-## Acting on Messages
-The function `Receive()` is required for all Applications. Use this function to listen for messages on your subscription channels.
-```
-(app *OgoApplication) Receive() {
-for {
-    select {
-      case msg := <-app.echoRequestChan:
-        fmt.Println("Received an EchoRequest message from:", msg.DPID)
-      case msg := <-app.anotherChan:
-        fmt.Println("Received some other message from:", msg.DPID)
-    }
-  }
+func (b *DemoInstance) ConnectionDown(dpid net.HardwareAddr) {
+  log.Println("Switch disconnected:", dpid)
+}
+
+func (b *DemoInstance) PacketIn(dpid net.HardwareAddr, pkt *ofp10.PacketIn) {
+  log.Println("PacketIn message received from:", dpid)
 }
 ```
 
-## A Simpler API
-Ogo plans to do the heavy lifting to make building network applications easy.
-
-### Working with OpenFlow Switches
+### Send
+Any struct that implements `util.Message` can be sent to the switch. Only
+OpenFlow messages should be sent using `OFSwitch.Send(m util.Message)`.
 ```
-/* If switch dpid is known, returns its OFPSwitch struct. The
-switch is not guaranteed to be connected to Ogo. */
-core.Switch(dpid string) (sw OFPSwitch)
+req := ofp10.NewEchoRequest()
 
-/* Return an array of all known switches as OFPSwitch structs. */
-core.Switches() (sw []OFPSwitch)
+// If switch dpid is known, returns its OFPSwitch struct. The
+// switch is not guaranteed to have an active connection.
+if sw, ok := ogo.Switch(dpid string); ok {
+  sw.Send(req)
+}
 ```
