@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"net"
-	
+
 	"github.com/jonstout/ogo/protocol/arp"
 	"github.com/jonstout/ogo/protocol/ipv4"
 	"github.com/jonstout/ogo/protocol/util"
@@ -90,7 +90,12 @@ func (e *Ethernet) UnmarshalBinary(data []byte) error {
 	if len(data) < 14 {
 		return errors.New("The []byte is too short to unmarshal a full Ethernet message.")
 	}
+
 	n := 1
+
+	e.HWDst = net.HardwareAddr(make([]byte, 6))
+	e.HWSrc = net.HardwareAddr(make([]byte, 6))
+
 	copy(e.HWDst, data[n:])
 	n += len(e.HWDst)
 
