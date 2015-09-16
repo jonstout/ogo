@@ -9,7 +9,7 @@ import (
 // ofp_flow_mod
 type FlowMod struct {
 	ofpxx.Header
-	Match Match
+	Match  Match
 	Cookie uint64
 
 	Command     uint16
@@ -76,7 +76,7 @@ func (f *FlowMod) MarshalBinary() (data []byte, err error) {
 	binary.BigEndian.PutUint16(bytes[n:], f.Priority)
 	n += 2
 	binary.BigEndian.PutUint32(bytes[n:], f.BufferId)
-	n += 2
+	n += 4
 	binary.BigEndian.PutUint16(bytes[n:], f.OutPort)
 	n += 2
 	binary.BigEndian.PutUint16(bytes[n:], f.Flags)
@@ -140,7 +140,7 @@ const (
 // BEGIN: ofp10 - 5.4.2
 type FlowRemoved struct {
 	ofpxx.Header
-	Match Match
+	Match    Match
 	Cookie   uint64
 	Priority uint16
 	Reason   uint8
